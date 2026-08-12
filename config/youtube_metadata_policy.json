@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "channel": {
+    "name": "Xiangqi Lab | 中国象棋实验室",
+    "handle": "@XiangqiLab",
+    "category_id": "20",
+    "default_privacy_status": "public",
+    "default_made_for_kids": false,
+    "default_self_declared_made_for_kids": false,
+    "default_notify_subscribers": true,
+    "max_title_chars": 100,
+    "max_description_chars": 5000,
+    "max_tags": 15,
+    "max_hashtags": 5
+  },
+  "languages": {
+    "en": {
+      "label": "English",
+      "code": "en",
+      "default_playlist_key": "en-start-here",
+      "language_label": "English",
+      "channel_cta": "Subscribe to Xiangqi Lab for clear Chinese Chess strategy.",
+      "playlist_cta": "Continue the series in the linked playlist.",
+      "required_keywords": ["xiangqi", "Chinese chess"],
+      "base_tags": ["xiangqi", "Chinese chess", "how to play xiangqi", "Chinese chess strategy"],
+      "base_hashtags": ["#Xiangqi", "#ChineseChess"]
+    },
+    "zh": {
+      "label": "简体中文",
+      "code": "zh-Hans",
+      "default_playlist_key": "zh-start-here",
+      "language_label": "简体中文",
+      "channel_cta": "订阅 Xiangqi Lab，清楚学习中国象棋战略。",
+      "playlist_cta": "在对应播放列表中继续学习。",
+      "required_keywords": ["中国象棋", "象棋"],
+      "base_tags": ["中国象棋", "象棋", "象棋教学", "象棋战术"],
+      "base_hashtags": ["#中国象棋", "#象棋"]
+    }
+  },
+  "content_types": {
+    "definition": {
+      "playlist_key": {"en": "en-start-here", "zh": "zh-start-here"},
+      "en": {"series_name": "Start Here", "title_prefix": "What Is Xiangqi?", "secondary_keywords": ["xiangqi rules", "Chinese chess basics", "learn xiangqi"], "hashtags": ["#XiangqiBasics"]},
+      "zh": {"series_name": "象棋入门", "title_prefix": "什么是中国象棋？", "secondary_keywords": ["象棋规则", "象棋入门", "学象棋"], "hashtags": ["#象棋入门"]}
+    },
+    "rules": {
+      "playlist_key": {"en": "en-piece-academy", "zh": "zh-piece-academy"},
+      "en": {"series_name": "Piece Academy", "title_prefix": "Xiangqi Rules", "secondary_keywords": ["xiangqi pieces", "xiangqi board", "Chinese chess rules"], "hashtags": ["#XiangqiRules"]},
+      "zh": {"series_name": "棋子学院", "title_prefix": "象棋规则", "secondary_keywords": ["象棋棋子", "象棋棋盘", "象棋入门规则"], "hashtags": ["#象棋规则"]}
+    },
+    "opening": {
+      "playlist_key": {"en": "en-openings", "zh": "zh-openings"},
+      "en": {"series_name": "Opening Lab", "title_prefix": "Xiangqi Opening", "secondary_keywords": ["xiangqi openings", "Chinese chess opening", "central cannon"], "hashtags": ["#XiangqiOpening"]},
+      "zh": {"series_name": "象棋开局", "title_prefix": "象棋开局", "secondary_keywords": ["象棋开局技巧", "中炮", "屏风马"], "hashtags": ["#象棋开局"]}
+    },
+    "tactics": {
+      "playlist_key": {"en": "en-tactics", "zh": "zh-tactics"},
+      "en": {"series_name": "Tactics 101", "title_prefix": "Xiangqi Tactics", "secondary_keywords": ["xiangqi tactics", "Chinese chess tactics", "cannon tactics"], "hashtags": ["#XiangqiTactics"]},
+      "zh": {"series_name": "象棋战术", "title_prefix": "象棋战术", "secondary_keywords": ["象棋战术", "象棋杀法", "炮的战术"], "hashtags": ["#象棋战术"]}
+    },
+    "endgame": {
+      "playlist_key": {"en": "en-endgames", "zh": "zh-endgames"},
+      "en": {"series_name": "Endgame Lab", "title_prefix": "Xiangqi Endgame", "secondary_keywords": ["xiangqi endgame", "Chinese chess endgame", "xiangqi winning technique"], "hashtags": ["#XiangqiEndgame"]},
+      "zh": {"series_name": "象棋残局", "title_prefix": "象棋残局", "secondary_keywords": ["象棋残局", "象棋实战残局", "象棋胜法"], "hashtags": ["#象棋残局"]}
+    },
+    "full_game": {
+      "playlist_key": {"en": "en-full-games", "zh": "zh-full-games"},
+      "en": {"series_name": "Full Games", "title_prefix": "Xiangqi Game Explained", "secondary_keywords": ["xiangqi game", "Chinese chess game", "xiangqi analysis"], "hashtags": ["#XiangqiGame"]},
+      "zh": {"series_name": "完整棋局", "title_prefix": "象棋实战讲解", "secondary_keywords": ["象棋实战", "象棋对局", "象棋复盘"], "hashtags": ["#象棋实战"]}
+    },
+    "advanced_puzzle": {
+      "playlist_key": {"en": "en-puzzle-ladder", "zh": "zh-puzzle-ladder"},
+      "en": {"series_name": "Puzzle Ladder", "title_prefix": "Solve This Xiangqi Puzzle", "secondary_keywords": ["xiangqi puzzle", "Chinese chess puzzle", "xiangqi checkmate"], "hashtags": ["#XiangqiPuzzle"]},
+      "zh": {"series_name": "象棋谜题", "title_prefix": "解开这道象棋谜题", "secondary_keywords": ["象棋谜题", "象棋杀法", "象棋残局题"], "hashtags": ["#象棋谜题"]}
+    },
+    "comparison": {
+      "playlist_key": {"en": "en-comparisons", "zh": "zh-comparisons"},
+      "en": {"series_name": "Comparison Lab", "title_prefix": "Xiangqi vs Other Board Games", "secondary_keywords": ["xiangqi vs chess", "Chinese chess vs chess", "board game strategy"], "hashtags": ["#XiangqiVsChess"]},
+      "zh": {"series_name": "棋类对比", "title_prefix": "象棋与其他棋类", "secondary_keywords": ["象棋和国际象棋", "棋类对比", "棋类策略"], "hashtags": ["#棋类对比"]}
+    },
+    "trend_breakdown": {
+      "playlist_key": {"en": "en-trending-xiangqi", "zh": "zh-trending-xiangqi"},
+      "en": {"series_name": "Trending Xiangqi", "title_prefix": "Trending Xiangqi", "secondary_keywords": ["xiangqi news", "Chinese chess strategy", "xiangqi analysis"], "hashtags": ["#XiangqiNews"]},
+      "zh": {"series_name": "象棋热点", "title_prefix": "象棋热点解析", "secondary_keywords": ["象棋新闻", "象棋赛事", "象棋解析"], "hashtags": ["#象棋热点"]}
+    },
+    "skill_match": {
+      "playlist_key": {"en": "en-skill-matches", "zh": "zh-skill-matches"},
+      "en": {"series_name": "Skill Match", "title_prefix": "Xiangqi Skill Match", "secondary_keywords": ["xiangqi match", "Chinese chess game", "xiangqi training game"], "hashtags": ["#XiangqiMatch"]},
+      "zh": {"series_name": "等级对局", "title_prefix": "象棋等级对局", "secondary_keywords": ["象棋对局", "象棋训练", "象棋水平对战"], "hashtags": ["#象棋对局"]}
+    },
+    "viewer_challenge": {
+      "playlist_key": {"en": "en-viewer-challenges", "zh": "zh-viewer-challenges"},
+      "en": {"series_name": "Viewer Challenge", "title_prefix": "Your Move", "secondary_keywords": ["xiangqi challenge", "Chinese chess puzzle", "find the best move"], "hashtags": ["#XiangqiChallenge"]},
+      "zh": {"series_name": "观众挑战", "title_prefix": "轮到你走", "secondary_keywords": ["象棋挑战", "找最佳着法", "象棋谜题"], "hashtags": ["#象棋挑战"]}
+    }
+  },
+  "description_template": "{primary_keyword} — {hook}\n\nIn this {series_name} lesson, Xiangqi Lab explains the position, the tactical idea, and the move to remember.\n\nLanguage: {language_label}\nSeries: {series_name}\n\n{source_note}\n\n{playlist_cta}\n{channel_cta}\n\n{hashtags}",
+  "source_note_template": "Original educational Xiangqi board analysis. No third-party match footage is re-uploaded.",
+  "prohibited_terms": ["guaranteed views", "viral secret", "official tournament footage", "Arabic", "female voice"],
+  "keyword_policy": {
+    "primary_keyword_count": 1,
+    "secondary_keyword_count": 3,
+    "supporting_tag_count": 6,
+    "hashtag_count": 3,
+    "deduplicate_case_insensitively": true,
+    "never_repeat_hashtags_in_title": true,
+    "never_insert_unrelated_trending_terms": true
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+output/jobs/
+output/*.png
+public/generated/
+data/local_storage/
+client_secret.json
+client_secrets.json
+youtube-token.json
+youtube_token.json
+*.oauth.json
+.DS_Store

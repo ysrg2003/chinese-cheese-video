@@ -1,0 +1,27 @@
+{
+  "name": "chinese-cheese-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Automated Xiangqi short-video production pipeline with Remotion, Edge-TTS and Supabase.",
+  "scripts": {
+    "dev": "remotion studio src/index.tsx",
+    "render": "remotion render src/index.tsx XiangqiComposition out/video.mp4",
+    "typecheck": "tsc --noEmit",
+    "render:sample": "npx remotion render src/index.tsx XiangqiComposition output/sample.mp4 --props=python/sample_job.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.366",
+    "@remotion/media-utils": "^4.0.366",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.366",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.6.3"
+  }
+}
