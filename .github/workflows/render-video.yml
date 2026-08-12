@@ -1,3 +1,4 @@
+# GitHub Actions workflow for autonomous Xiangqi production and public YouTube publishing
 name: Chinese Cheese Video — autonomous production
 
 on:
