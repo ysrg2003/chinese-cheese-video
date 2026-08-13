@@ -89,3 +89,7 @@ After the originally published first video was deleted, the lesson was redesigne
 The visual director is now part of the unattended pipeline. It uses the existing ordered AI Router and accepts only supported visual kinds, English learner-facing narration, short captions, and concrete renderer instructions. A deterministic fallback preserves the same educational structure if all external providers fail. The approved storyboard is stored in the curriculum data for reproducible rerendering of this first lesson.
 
 The full local render used `en-US-GuyNeural`, produced a 55-second 1080×1920 MP4, and aligned the seven scene windows to Edge-TTS timing. The visual review confirmed that the board changes with each idea: the coordinate markers sit outside the board, the two armies receive separate visual emphasis, the Generals are spotlighted for the checkmate goal, intersections are marked, the river and palaces are outlined, a real screen piece appears between cannon and target, and the roadmap appears at the end.
+
+## Audio-duration correction
+
+The first rerender exposed one final timing edge case: the curriculum target may be 75 seconds while the generated Edge-TTS file is shorter. The pipeline now probes the MP3 duration when word-level cues are unavailable and rescales all narration/visual/caption windows to the real spoken duration. The final public artifact therefore ends its seventh scene at 45.408 seconds, with the MP4 ending at 48.490667 seconds after the closing buffer; no storyboard window extends beyond the file.
