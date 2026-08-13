@@ -14,7 +14,7 @@ from typing import Any
 from director import generate_director_data, make_job, normalize_language
 from local_store import LocalStore
 from supabase_store import SupabaseStore
-from tts import synthesize
+from tts import captions_from_word_cues, synthesize
 from timing import finalize_timing
 from youtube_publisher import publish_video
 
@@ -154,8 +154,11 @@ def main() -> int:
             shutil.copy2(generated_audio, public_dir / "voice.mp3")
             job["audioSrc"] = f"generated/{job_id}/voice.mp3"
             audio_duration = word_cues[-1]["endSec"] if word_cues else None
-            if os.getenv("USE_WORD_CAPTIONS", "0") == "1" and word_cues:
-                job["captions"] = word_cues
+            if word_cues:
+                # Captions are a transcript of the generated audio, not an
+                # independently paraphrased editorial layer. This prevents the
+                # on-screen text from disagreeing with the spoken narration.
+                job["captions"] = captions_from_word_cues(word_cues, job["language"])
 
         job = finalize_timing(
             job,
@@ -173,6 +176,7 @@ def main() -> int:
                 store.update_job(job_id, "completed", output_url=video_url, output_payload=result)
                 result["video_url"] = video_url
 
+            publication: dict[str, Any] = {"status": "rendered", "metadata": {}}
             if publication_store and os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() in {"1", "true", "yes"}:
                 content_type = str(job.get("content_type") or "definition")
                 publication_store.upsert_youtube_publication(
@@ -201,6 +205,12 @@ def main() -> int:
                         metadata=publication.get("metadata", {}),
                         error_message=publication.get("error_message"),
                     )
+                    publication_store.upsert_youtube_catalog(
+                        job,
+                        publication,
+                        audio_path=stage_dir / "voice.mp3",
+                        video_path=output_path,
+                    )
                     if publication.get("status") != "published":
                         raise RuntimeError(publication.get("error_message") or "YouTube playlist association is pending")
                 except Exception as publish_exc:
@@ -209,10 +219,29 @@ def main() -> int:
                         job["language"],
                         content_type,
                         "failed",
-                        metadata={"job_id": job_id, "title": job.get("title")},
+                        video_id=publication.get("video_id"),
+                        video_url=publication.get("video_url"),
+                        playlist_id=publication.get("playlist_id"),
+                        playlist_url=publication.get("playlist_url"),
+                        metadata=publication.get("metadata", {"job_id": job_id, "title": job.get("title")}),
                         error_message=str(publish_exc),
                     )
+                    publication["status"] = "failed"
+                    publication["error_message"] = str(publish_exc)
+                    publication_store.upsert_youtube_catalog(
+                        job,
+                        publication,
+                        audio_path=stage_dir / "voice.mp3",
+                        video_path=output_path,
+                    )
                     raise
+            elif publication_store:
+                publication_store.upsert_youtube_catalog(
+                    job,
+                    publication,
+                    audio_path=stage_dir / "voice.mp3",
+                    video_path=output_path,
+                )
         elif store:
             store.update_job(job_id, "ready_for_render", output_payload=result)
 

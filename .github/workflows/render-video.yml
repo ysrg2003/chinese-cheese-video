@@ -56,7 +56,7 @@ jobs:
       DISCOVERY_RSS_QUERY: ${{ vars.DISCOVERY_RSS_QUERY || 'xiangqi OR "Chinese chess" OR 象棋' }}
       TTS_VOICE_EN: en-US-GuyNeural
       TTS_VOICE_ZH: zh-CN-YunjianNeural
-      USE_WORD_CAPTIONS: "0"
+      USE_WORD_CAPTIONS: "1"
     steps:
       - name: Checkout repository and persistent SQLite catalog
         uses: actions/checkout@v4
@@ -115,6 +115,10 @@ jobs:
           LIMIT="${RUN_DISCOVERY_LIMIT:-20}"
           python python/automation_runner.py --daily-count "$COUNT" --languages "$LANGUAGES" --discover-limit "$LIMIT" | tee automation-run.json
 
+      - name: Export normalized YouTube catalog
+        if: always()
+        run: python python/export_youtube_catalog.py --output youtube-catalog.json
+
       - name: Upload videos, logs, and SQLite snapshot
         if: always()
         uses: actions/upload-artifact@v4
@@ -123,6 +127,7 @@ jobs:
           retention-days: 14
           path: |
             automation-run.json
+            youtube-catalog.json
             data/chinese_cheese_video.db
             data/ai_router.db
             output/jobs/**/job.json

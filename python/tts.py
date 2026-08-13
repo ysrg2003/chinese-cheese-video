@@ -42,6 +42,57 @@ async def _synthesize(text: str, voice: str, audio_path: Path) -> list[dict[str,
     return cues
 
 
+def captions_from_word_cues(
+    cues: list[dict[str, Any]],
+    language: Any = "en",
+    *,
+    max_units: int = 8,
+    max_duration: float = 2.8,
+) -> list[dict[str, Any]]:
+    """Create display captions from the exact text and timing spoken by Edge-TTS.
+
+    The previous pipeline let the director invent summary captions independently
+    from narration. That is useful for editorial overlays, but it cannot be
+    called a transcript. This function preserves every WordBoundary text unit
+    exactly once and only groups adjacent units for readable on-screen timing.
+    """
+    normalized_language = normalize_language(language)
+    joiner = "" if normalized_language == "zh" else " "
+    captions: list[dict[str, Any]] = []
+    current: list[dict[str, Any]] = []
+    current_units = 0
+
+    def flush() -> None:
+        nonlocal current, current_units
+        if not current:
+            return
+        captions.append(
+            {
+                "startSec": round(float(current[0]["startSec"]), 3),
+                "endSec": round(float(current[-1]["endSec"]), 3),
+                "text": joiner.join(str(item.get("text", "")).strip() for item in current if str(item.get("text", "")).strip()),
+                "source": "edge_tts_word_boundaries",
+            }
+        )
+        current = []
+        current_units = 0
+
+    for cue in cues:
+        text = str(cue.get("text", "")).strip()
+        if not text:
+            continue
+        start = float(cue.get("startSec", 0.0))
+        end = max(start + 0.05, float(cue.get("endSec", start + 0.05)))
+        if current:
+            elapsed = end - float(current[0]["startSec"])
+            if current_units >= max_units or elapsed > max_duration:
+                flush()
+        current.append({"startSec": start, "endSec": end, "text": text})
+        current_units += 1
+    flush()
+    return captions
+
+
 def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path, list[dict[str, Any]]]:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)

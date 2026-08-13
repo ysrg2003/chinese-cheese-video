@@ -10,6 +10,9 @@ from typing import Any
 
 
 DEFAULT_FEN = "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r"
+DEFAULT_YOUTUBE_CHANNEL_ID = "UCM7pTdgZRwDZ2gZDtC6SITg"
+DEFAULT_YOUTUBE_CHANNEL_HANDLE = "@XiangqiLab"
+DEFAULT_YOUTUBE_CHANNEL_TITLE = "Xiangqi Lab | 中国象棋实验室"
 
 
 class LocalStore:
@@ -133,8 +136,187 @@ class LocalStore:
                     ON ai_provider_calls (created_at DESC);
                 CREATE INDEX IF NOT EXISTS youtube_publications_status_updated_idx
                     ON youtube_publications (status, updated_at DESC);
+                CREATE TABLE IF NOT EXISTS youtube_channels (
+                    channel_id TEXT PRIMARY KEY,
+                    handle TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    channel_url TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'configured',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS youtube_playlists (
+                    playlist_key TEXT PRIMARY KEY,
+                    language TEXT NOT NULL CHECK (language IN ('en', 'zh')),
+                    content_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    privacy_status TEXT NOT NULL DEFAULT 'public',
+                    youtube_playlist_id TEXT,
+                    playlist_url TEXT,
+                    status TEXT NOT NULL DEFAULT 'configured',
+                    error_message TEXT,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS youtube_videos (
+                    job_id TEXT PRIMARY KEY,
+                    candidate_id TEXT,
+                    language TEXT NOT NULL CHECK (language IN ('en', 'zh')),
+                    content_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    source_kind TEXT,
+                    source_url TEXT,
+                    duration_seconds REAL,
+                    video_id TEXT,
+                    video_url TEXT,
+                    privacy_status TEXT,
+                    playlist_key TEXT,
+                    audio_path TEXT,
+                    video_path TEXT,
+                    captions_source TEXT NOT NULL DEFAULT 'edge_tts_word_boundaries',
+                    narration_sha256 TEXT,
+                    captions_sha256 TEXT,
+                    status TEXT NOT NULL DEFAULT 'rendered',
+                    published_at TEXT,
+                    error_message TEXT,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (playlist_key) REFERENCES youtube_playlists(playlist_key)
+                );
+                CREATE TABLE IF NOT EXISTS youtube_video_playlists (
+                    job_id TEXT NOT NULL,
+                    playlist_key TEXT NOT NULL,
+                    youtube_playlist_id TEXT,
+                    playlist_item_id TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    error_message TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (job_id, playlist_key),
+                    FOREIGN KEY (job_id) REFERENCES youtube_videos(job_id) ON DELETE CASCADE,
+                    FOREIGN KEY (playlist_key) REFERENCES youtube_playlists(playlist_key)
+                );
+                CREATE INDEX IF NOT EXISTS youtube_playlists_youtube_id_idx
+                    ON youtube_playlists (youtube_playlist_id);
+                CREATE INDEX IF NOT EXISTS youtube_videos_status_updated_idx
+                    ON youtube_videos (status, updated_at DESC);
+                CREATE INDEX IF NOT EXISTS youtube_videos_video_id_idx
+                    ON youtube_videos (video_id);
+                CREATE INDEX IF NOT EXISTS youtube_video_playlists_playlist_idx
+                    ON youtube_video_playlists (playlist_key, status);
                 """
             )
+        self._seed_youtube_catalog()
+        self._backfill_youtube_catalog_from_publications()
+
+    def _seed_youtube_catalog(self) -> None:
+        """Seed the configured channel and all playlist definitions idempotently."""
+        now = datetime.now(timezone.utc).isoformat()
+        channel_id = os.getenv("YOUTUBE_CHANNEL_ID", DEFAULT_YOUTUBE_CHANNEL_ID)
+        handle = os.getenv("YOUTUBE_CHANNEL_HANDLE", DEFAULT_YOUTUBE_CHANNEL_HANDLE)
+        title = os.getenv("YOUTUBE_CHANNEL_TITLE", DEFAULT_YOUTUBE_CHANNEL_TITLE)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO youtube_channels (channel_id, handle, title, channel_url, status, updated_at)
+                VALUES (?, ?, ?, ?, 'configured', ?)
+                ON CONFLICT(channel_id) DO UPDATE SET handle=excluded.handle, title=excluded.title,
+                    channel_url=excluded.channel_url, updated_at=excluded.updated_at
+                """,
+                (channel_id, handle, title, f"https://www.youtube.com/channel/{channel_id}", now),
+            )
+            config_path = Path(__file__).resolve().parents[1] / "config" / "youtube_playlists.json"
+            try:
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                config = {"playlists": {}}
+            for playlist_key, item in (config.get("playlists") or {}).items():
+                language = str(item.get("language") or "en")
+                if language not in {"en", "zh"}:
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO youtube_playlists
+                        (playlist_key, language, content_type, title, description, privacy_status, status, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'configured', ?)
+                    ON CONFLICT(playlist_key) DO UPDATE SET language=excluded.language,
+                        title=excluded.title, description=excluded.description,
+                        privacy_status=excluded.privacy_status, updated_at=excluded.updated_at
+                    """,
+                    (
+                        playlist_key,
+                        language,
+                        playlist_key.removeprefix(f"{language}-"),
+                        str(item.get("title") or playlist_key),
+                        str(item.get("description") or ""),
+                        str(config.get("privacy_status") or "public"),
+                        now,
+                    ),
+                )
+
+    def _backfill_youtube_catalog_from_publications(self) -> None:
+        """Materialize old publication rows into the normalized YouTube catalog."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT job_id, language, content_type, status, video_id, video_url, playlist_id, playlist_url, metadata_json, error_message FROM youtube_publications WHERE video_id IS NOT NULL"
+            ).fetchall()
+            for row in rows:
+                metadata = json.loads(row["metadata_json"] or "{}")
+                playlist_key = metadata.get("playlist_key")
+                if not playlist_key:
+                    suffix = {
+                        "definition": "start-here",
+                        "rules": "piece-academy",
+                        "opening": "openings",
+                        "tactics": "tactics",
+                        "endgame": "endgames",
+                        "full_game": "full-games",
+                        "advanced_puzzle": "puzzle-ladder",
+                        "comparison": "comparisons",
+                        "trend_breakdown": "trending-xiangqi",
+                        "skill_match": "skill-matches",
+                        "viewer_challenge": "viewer-challenges",
+                    }.get(row["content_type"], "start-here")
+                    playlist_key = f"{row['language']}-{suffix}"
+                connection.execute(
+                    "UPDATE youtube_playlists SET youtube_playlist_id = COALESCE(?, youtube_playlist_id), playlist_url = COALESCE(?, playlist_url), status = CASE WHEN ? = 'published' THEN 'published' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE playlist_key = ?",
+                    (row["playlist_id"], row["playlist_url"], row["status"], playlist_key),
+                )
+                title = str(metadata.get("title") or row["job_id"])
+                connection.execute(
+                    """
+                    INSERT INTO youtube_videos
+                        (job_id, language, content_type, title, video_id, video_url, privacy_status,
+                         playlist_key, captions_source, status, error_message, metadata_json, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'edge_tts_word_boundaries', ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(job_id) DO UPDATE SET video_id=COALESCE(excluded.video_id, youtube_videos.video_id),
+                        video_url=COALESCE(excluded.video_url, youtube_videos.video_url),
+                        playlist_key=COALESCE(excluded.playlist_key, youtube_videos.playlist_key),
+                        status=excluded.status, error_message=excluded.error_message,
+                        metadata_json=CASE WHEN excluded.metadata_json='{}' THEN youtube_videos.metadata_json ELSE excluded.metadata_json END,
+                        updated_at=CURRENT_TIMESTAMP
+                    """,
+                    (
+                        row["job_id"], row["language"], row["content_type"], title,
+                        row["video_id"], row["video_url"], "public", playlist_key,
+                        row["status"], row["error_message"], row["metadata_json"] or "{}",
+                    ),
+                )
+                if row["playlist_id"]:
+                    connection.execute(
+                        """
+                        INSERT INTO youtube_video_playlists
+                            (job_id, playlist_key, youtube_playlist_id, status, error_message, updated_at)
+                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(job_id, playlist_key) DO UPDATE SET youtube_playlist_id=excluded.youtube_playlist_id,
+                            status=excluded.status, error_message=excluded.error_message, updated_at=CURRENT_TIMESTAMP
+                        """,
+                        (row["job_id"], playlist_key, row["playlist_id"], row["status"], row["error_message"]),
+                    )
 
     def _seed_demo(self) -> None:
         with self._connect() as connection:
@@ -359,6 +541,104 @@ class LocalStore:
                 "UPDATE automation_runs SET status = ?, finished_at = ?, metrics_json = ?, error_message = ? WHERE id = ?",
                 (status, datetime.now(timezone.utc).isoformat(), json.dumps(metrics or {}, ensure_ascii=False), error_message, run_id),
             )
+
+    def upsert_youtube_catalog(
+        self,
+        job: dict[str, Any],
+        publication: dict[str, Any] | None = None,
+        *,
+        candidate_id: str | None = None,
+        audio_path: str | Path | None = None,
+        video_path: str | Path | None = None,
+    ) -> None:
+        """Persist normalized channel, playlist, video, and association state."""
+        publication = publication or {}
+        language = str(job.get("language") or "en")
+        language = "zh" if language in {"zh", "cn", "chinese"} else "en"
+        content_type = str(job.get("content_type") or "definition")
+        metadata = publication.get("metadata") or {}
+        playlist_key = str(metadata.get("playlist_key") or "").strip()
+        if not playlist_key:
+            suffix = {
+                "definition": "start-here", "rules": "piece-academy", "opening": "openings",
+                "tactics": "tactics", "endgame": "endgames", "full_game": "full-games",
+                "advanced_puzzle": "puzzle-ladder", "comparison": "comparisons",
+                "trend_breakdown": "trending-xiangqi", "skill_match": "skill-matches",
+                "viewer_challenge": "viewer-challenges",
+            }.get(content_type, "start-here")
+            playlist_key = f"{language}-{suffix}"
+        status = str(publication.get("status") or "rendered")
+        now = datetime.now(timezone.utc).isoformat()
+        narration_hash = hashlib.sha256(str(job.get("narration") or "").encode("utf-8")).hexdigest()
+        captions_hash = hashlib.sha256(json.dumps(job.get("captions") or [], ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+        playlist_id = str(publication.get("playlist_id") or "").strip() or None
+        playlist_url = str(publication.get("playlist_url") or "").strip() or None
+        playlist_item_id = str((publication.get("playlist_item") or {}).get("id") or "").strip() or None
+        video_id = str(publication.get("video_id") or "").strip() or None
+        video_url = str(publication.get("video_url") or "").strip() or None
+        error_message = publication.get("error_message")
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE youtube_playlists SET youtube_playlist_id=COALESCE(?, youtube_playlist_id),
+                    playlist_url=COALESCE(?, playlist_url), status=CASE WHEN ?='published' THEN 'published' ELSE status END,
+                    error_message=?, updated_at=? WHERE playlist_key=?
+                """,
+                (playlist_id, playlist_url, status, error_message, now, playlist_key),
+            )
+            connection.execute(
+                """
+                INSERT INTO youtube_videos
+                    (job_id, candidate_id, language, content_type, title, source_kind, source_url,
+                     duration_seconds, video_id, video_url, privacy_status, playlist_key, audio_path,
+                     video_path, captions_source, narration_sha256, captions_sha256, status, published_at,
+                     error_message, metadata_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'edge_tts_word_boundaries', ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET candidate_id=COALESCE(excluded.candidate_id, youtube_videos.candidate_id),
+                    title=excluded.title, source_kind=excluded.source_kind, source_url=excluded.source_url,
+                    duration_seconds=excluded.duration_seconds, video_id=COALESCE(excluded.video_id, youtube_videos.video_id),
+                    video_url=COALESCE(excluded.video_url, youtube_videos.video_url), privacy_status=excluded.privacy_status,
+                    playlist_key=COALESCE(excluded.playlist_key, youtube_videos.playlist_key), audio_path=COALESCE(excluded.audio_path, youtube_videos.audio_path),
+                    video_path=COALESCE(excluded.video_path, youtube_videos.video_path), captions_source=excluded.captions_source,
+                    narration_sha256=excluded.narration_sha256, captions_sha256=excluded.captions_sha256,
+                    status=excluded.status, published_at=COALESCE(excluded.published_at, youtube_videos.published_at),
+                    error_message=excluded.error_message, metadata_json=CASE WHEN excluded.metadata_json='{}' THEN youtube_videos.metadata_json ELSE excluded.metadata_json END,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    str(job.get("id") or ""), candidate_id, language, content_type, str(job.get("title") or "Untitled"),
+                    job.get("source_kind"), job.get("source_url"), float(job.get("durationInSeconds") or 0),
+                    video_id, video_url, str(metadata.get("privacyStatus") or os.getenv("YOUTUBE_PUBLISH_MODE", "public")),
+                    playlist_key, str(audio_path) if audio_path else None, str(video_path) if video_path else None,
+                    narration_hash, captions_hash, status, now if status == "published" else None,
+                    error_message, json.dumps(metadata, ensure_ascii=False), now,
+                ),
+            )
+            if playlist_id:
+                connection.execute(
+                    """
+                    INSERT INTO youtube_video_playlists
+                        (job_id, playlist_key, youtube_playlist_id, playlist_item_id, status, error_message, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(job_id, playlist_key) DO UPDATE SET youtube_playlist_id=excluded.youtube_playlist_id,
+                        playlist_item_id=COALESCE(excluded.playlist_item_id, youtube_video_playlists.playlist_item_id),
+                        status=excluded.status, error_message=excluded.error_message, updated_at=excluded.updated_at
+                    """,
+                    (str(job.get("id") or ""), playlist_key, playlist_id, playlist_item_id, status, error_message, now),
+                )
+
+    def get_youtube_catalog(self, limit: int = 100) -> dict[str, list[dict[str, Any]]]:
+        with self._connect() as connection:
+            channel_rows = connection.execute("SELECT channel_id, handle, title, channel_url, status FROM youtube_channels LIMIT 10").fetchall()
+            playlist_rows = connection.execute("SELECT playlist_key, language, content_type, title, youtube_playlist_id, playlist_url, status FROM youtube_playlists ORDER BY language, playlist_key LIMIT ?", (int(limit),)).fetchall()
+            video_rows = connection.execute("SELECT job_id, language, content_type, title, video_id, video_url, playlist_key, status, captions_source, narration_sha256, captions_sha256 FROM youtube_videos ORDER BY updated_at DESC LIMIT ?", (int(limit),)).fetchall()
+            association_rows = connection.execute("SELECT job_id, playlist_key, youtube_playlist_id, playlist_item_id, status FROM youtube_video_playlists ORDER BY updated_at DESC LIMIT ?", (int(limit),)).fetchall()
+        return {
+            "channels": [dict(row) for row in channel_rows],
+            "playlists": [dict(row) for row in playlist_rows],
+            "videos": [dict(row) for row in video_rows],
+            "video_playlists": [dict(row) for row in association_rows],
+        }
 
     def get_youtube_publication(self, job_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:

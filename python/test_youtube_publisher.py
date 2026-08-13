@@ -48,6 +48,39 @@ class YouTubePublisherLocalTests(unittest.TestCase):
         self.assertIn("#中国象棋", metadata["hashtags"])
         self.assertNotIn("#Xiangqi", metadata["hashtags"])
 
+    def test_youtube_catalog_tracks_channel_playlists_video_and_association(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalStore(Path(directory) / "catalog.db")
+            job = {
+                "id": "catalog-job-en",
+                "title": "Catalog Test",
+                "language": "en",
+                "content_type": "tactics",
+                "source_kind": "generated_evergreen",
+                "source_url": "https://example.com/source",
+                "narration": "The cannon opens the file.",
+                "captions": [{"startSec": 0.0, "endSec": 1.2, "text": "The cannon opens the file."}],
+                "durationInSeconds": 4.2,
+            }
+            publication = {
+                "status": "published",
+                "video_id": "catalog-video",
+                "video_url": "https://www.youtube.com/watch?v=catalog-video",
+                "playlist_id": "catalog-playlist",
+                "playlist_url": "https://www.youtube.com/playlist?list=catalog-playlist",
+                "metadata": {"title": "Catalog Test", "playlist_key": "en-tactics", "privacyStatus": "public"},
+            }
+            store.upsert_youtube_catalog(job, publication, candidate_id="candidate-catalog")
+            catalog = store.get_youtube_catalog()
+            self.assertEqual(len(catalog["channels"]), 1)
+            self.assertGreaterEqual(len(catalog["playlists"]), 22)
+            video = next(item for item in catalog["videos"] if item["job_id"] == "catalog-job-en")
+            self.assertEqual(video["status"], "published")
+            self.assertEqual(video["playlist_key"], "en-tactics")
+            self.assertEqual(video["captions_source"], "edge_tts_word_boundaries")
+            self.assertEqual(len(catalog["video_playlists"]), 1)
+            self.assertEqual(catalog["video_playlists"][0]["youtube_playlist_id"], "catalog-playlist")
+
     def test_publication_state_is_persistent_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = LocalStore(Path(directory) / "test.db")
