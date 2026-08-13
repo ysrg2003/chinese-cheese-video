@@ -39,6 +39,12 @@ mask_path = OUT / "mask.png"
 mask.save(mask_path, format="PNG")
 
 headers = {"Authorization": f"Bearer {API_KEY}"}
+session_response = requests.get(f"{BASE_URL}/internal/visual-session", headers=headers, timeout=240)
+session_payload = session_response.json()
+(OUT / "session.json").write_text(json.dumps(session_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+if session_response.status_code != 200 or session_payload.get("logged_in") is not True:
+    raise SystemExit(json.dumps({"status": "chatgpt_session_not_ready", "session": session_payload}, ensure_ascii=False))
+
 prompt = (
     "Edit only the transparent masked region; preserve everything outside it exactly. "
     "Add a subtle flat cool-blue flowing-water texture inside the existing rectangular river band. "
@@ -93,6 +99,7 @@ with Image.open(output_path) as edited:
 
 result = {
     "status": "passed" if outside_equal else "failed_outside_mask_changed",
+    "session": session_payload,
     "job_id": job_id,
     "service_status": status_payload,
     "outside_mask_exact_match": outside_equal,
