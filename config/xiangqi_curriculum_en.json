@@ -1,80 +1,1314 @@
 {
-  "version": 1,
+  "version": 2,
   "language": "en",
   "title": "Xiangqi Lab English Core Curriculum",
-  "description": "A prerequisite-aware, English-first learning path from zero knowledge to full-game analysis.",
+  "description": "A prerequisite-aware, English-first learning path: understand the board, setup, pieces, and legal movement before training games, tactics, and comparisons.",
   "lessons": [
-    {"lesson_key":"en-001-what-is-xiangqi","sequence_no":1,"stage":"A-foundations","playlist_key":"en-start-here","content_type":"definition","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"What Is Xiangqi?","objective":"Define Xiangqi, its win condition, and the promise of the course.","hook":"This is Chinese Chess, but the battlefield changes everything.","analysis_focus":"Name the board features and explain why the river and palaces create different plans.","position_template":"starting-pawn-cannon","prerequisites":[]},
-    {"lesson_key":"en-002-xiangqi-in-60-seconds","sequence_no":2,"stage":"A-foundations","playlist_key":"en-start-here","content_type":"definition","difficulty":"absolute_beginner","format":"short","target_seconds":45,"title":"Xiangqi in 60 Seconds","objective":"Give a fast, accurate orientation to the board, pieces, and goal.","hook":"Can you understand the battlefield before the first pawn moves?","analysis_focus":"Connect one visible move to the game’s attacking geometry.","position_template":"starting-pawn-cannon","prerequisites":["en-001-what-is-xiangqi"]},
-    {"lesson_key":"en-003-a-short-history-of-xiangqi","sequence_no":3,"stage":"A-foundations","playlist_key":"en-start-here","content_type":"definition","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"A Short History of Xiangqi","objective":"Introduce the cultural identity and long tradition of Xiangqi without treating history as unsupported myth.","hook":"Why does a chessboard have a river and two palaces?","analysis_focus":"Use the board’s visual language to connect history, terminology, and modern play.","position_template":"palace-defense","prerequisites":["en-002-xiangqi-in-60-seconds"]},
-    {"lesson_key":"en-004-xiangqi-vs-western-chess-first-look","sequence_no":4,"stage":"A-foundations","playlist_key":"en-comparisons","content_type":"comparison","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"Xiangqi vs Western Chess: Your First Five Differences","objective":"Explain intersections, river, palaces, cannon capture, and flying generals.","hook":"If you play chess already, these five rules will surprise you.","analysis_focus":"Show how one move becomes different because Xiangqi pieces live on intersections and attack through open lines.","position_template":"starting-pawn-cannon","prerequisites":["en-003-a-short-history-of-xiangqi"]},
-    {"lesson_key":"en-005-the-9x10-point-board","sequence_no":5,"stage":"B-board-and-setup","playlist_key":"en-board-setup","content_type":"definition","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"The 9×10 Point Board","objective":"Teach intersections, files, ranks, and the basic battlefield map.","hook":"You do not play inside the squares in Xiangqi.","analysis_focus":"Track a pawn and cannon on intersection coordinates so the viewer sees why lines matter.","position_template":"starting-pawn-cannon","prerequisites":["en-004-xiangqi-vs-western-chess-first-look"]},
-    {"lesson_key":"en-006-the-river-and-palaces","sequence_no":6,"stage":"B-board-and-setup","playlist_key":"en-board-setup","content_type":"rules","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"The River and the Two Palaces","objective":"Explain the river, palace limits, and how they shape attack and defense.","hook":"Two lines on the board decide where several pieces are allowed to live.","analysis_focus":"Explain how a palace move protects the general and why the river changes a soldier’s role.","position_template":"palace-defense","prerequisites":["en-005-the-9x10-point-board"]},
-    {"lesson_key":"en-007-set-up-all-32-pieces","sequence_no":7,"stage":"B-board-and-setup","playlist_key":"en-board-setup","content_type":"rules","difficulty":"absolute_beginner","format":"lesson","target_seconds":90,"title":"Set Up All 32 Pieces","objective":"Teach correct starting placement and mirror symmetry.","hook":"One misplaced cannon changes the whole opening.","analysis_focus":"Use a setup move to identify what each back-rank piece protects or prepares.","position_template":"starting-pawn-cannon","prerequisites":["en-006-the-river-and-palaces"]},
-    {"lesson_key":"en-008-xiangqi-coordinates","sequence_no":8,"stage":"B-board-and-setup","playlist_key":"en-board-setup","content_type":"definition","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"How Xiangqi Coordinates Work","objective":"Teach the coordinate system used by the channel and board editor.","hook":"If you can name two points, you can follow every lesson on this channel.","analysis_focus":"Say the source and destination of every move naturally and relate them to the visible board.","position_template":"horse-development","prerequisites":["en-007-set-up-all-32-pieces"]},
-    {"lesson_key":"en-009-how-to-read-a-move","sequence_no":9,"stage":"B-board-and-setup","playlist_key":"en-board-setup","content_type":"rules","difficulty":"absolute_beginner","format":"lesson","target_seconds":75,"title":"How to Read a Xiangqi Move","objective":"Teach a beginner how to follow move notation and board arrows.","hook":"A move is not a code once you know what to look for.","analysis_focus":"Narrate the piece, route, purpose, opponent reply, and changed plan.","position_template":"horse-development","prerequisites":["en-008-xiangqi-coordinates"]},
-    {"lesson_key":"en-010-the-general","sequence_no":10,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"The General: The Piece You Must Never Expose","objective":"Teach general movement, palace restriction, check, and safety.","hook":"Your strongest piece is also the most restricted.","analysis_focus":"Explain a defensive general move and the opponent’s attempt to open a direct line.","position_template":"palace-defense","prerequisites":["en-009-how-to-read-a-move"]},
-    {"lesson_key":"en-011-advisors-and-palace-defense","sequence_no":11,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Advisors and Palace Defense","objective":"Teach advisor movement and defensive coordination.","hook":"A small diagonal move can be the wall in front of your general.","analysis_focus":"Show the advisor blocking a route and why the attacker must change plans.","position_template":"palace-defense","prerequisites":["en-010-the-general"]},
-    {"lesson_key":"en-012-elephants-and-the-river","sequence_no":12,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Elephants and the River","objective":"Teach elephant movement, eye blocking, and river restriction.","hook":"This diagonal piece can defend brilliantly but can never cross the river.","analysis_focus":"Explain the elephant’s route, the blocked eye, and the defensive consequence.","position_template":"elephant-eye","prerequisites":["en-011-advisors-and-palace-defense"]},
-    {"lesson_key":"en-013-the-horse-and-blocked-eye","sequence_no":13,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"The Horse and the Blocked Eye","objective":"Teach horse movement and why it cannot jump through a blocked leg.","hook":"A Xiangqi horse does not jump like a chess knight.","analysis_focus":"Show the horse’s intended route, the blocking point, and how the opponent benefits from closing it.","position_template":"horse-development","prerequisites":["en-012-elephants-and-the-river"]},
-    {"lesson_key":"en-014-chariots-and-open-files","sequence_no":14,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Chariots and Open Files","objective":"Teach chariot power and the need to clear a line.","hook":"The chariot is quiet until one pawn steps out of its way.","analysis_focus":"Explain the pawn clearance, chariot activation, enemy reply, and resulting pressure.","position_template":"rook-file","prerequisites":["en-013-the-horse-and-blocked-eye"]},
-    {"lesson_key":"en-015-the-cannon-and-its-mount","sequence_no":15,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"The Cannon and Its Mount","objective":"Teach cannon movement, screen capture, and tactical value.","hook":"The cannon attacks through a piece, not around it.","analysis_focus":"Explain the cannon line, the required screen, the threatened target, and the defender’s response.","position_template":"cannon-screen","prerequisites":["en-014-chariots-and-open-files"]},
-    {"lesson_key":"en-016-soldiers-before-and-after-river","sequence_no":16,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Soldiers Before and After the River","objective":"Teach soldier movement and its changed options after crossing the river.","hook":"One river crossing gives a soldier a new direction.","analysis_focus":"Explain the first advance, the opponent’s reply, and what becomes available after the river.","position_template":"river-soldier","prerequisites":["en-015-the-cannon-and-its-mount"]},
-    {"lesson_key":"en-017-piece-combinations","sequence_no":17,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"tactics","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"Piece Combinations: Cannon, Chariot, and Horse","objective":"Introduce coordination instead of isolated piece movement.","hook":"Pieces become dangerous when they ask the same question together.","analysis_focus":"Explain how each move improves a partner piece and limits the opponent’s reply.","position_template":"cannon-rook-coordination","prerequisites":["en-016-soldiers-before-and-after-river"]},
-    {"lesson_key":"en-018-legal-moves-review","sequence_no":18,"stage":"C-piece-academy","playlist_key":"en-piece-academy","content_type":"viewer_challenge","difficulty":"beginner","format":"short","target_seconds":60,"title":"Can You Spot the Legal Move?","objective":"Review all seven piece families through a quick legal-move test.","hook":"One of these moves is legal. Can you find it before the reveal?","analysis_focus":"State the rule, explain the tempting illegal move, then show the legal alternative.","position_template":"horse-development","prerequisites":["en-017-piece-combinations"]},
-    {"lesson_key":"en-019-your-first-ten-moves","sequence_no":19,"stage":"D-first-game","playlist_key":"en-first-games","content_type":"full_game","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"Your First Ten Xiangqi Moves","objective":"Give a beginner a safe development sequence without rote memorization.","hook":"Your first ten moves should develop a plan, not chase a pawn.","analysis_focus":"For each move, explain development goal, opponent reply, and what line becomes safer or stronger.","position_template":"starting-pawn-cannon","prerequisites":["en-018-legal-moves-review"]},
-    {"lesson_key":"en-020-keep-general-safe","sequence_no":20,"stage":"D-first-game","playlist_key":"en-first-games","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"How to Keep Your General Safe","objective":"Teach early safety and direct-line danger.","hook":"A good opening can fail if one file points at your general.","analysis_focus":"Connect a defensive move to the enemy’s line and the response it prevents.","position_template":"palace-defense","prerequisites":["en-019-your-first-ten-moves"]},
-    {"lesson_key":"en-021-when-to-develop-cannons","sequence_no":21,"stage":"D-first-game","playlist_key":"en-first-games","content_type":"opening","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"When to Develop Your Cannons","objective":"Teach timing, support, and risk in early cannon development.","hook":"A cannon can create pressure early, or become the target.","analysis_focus":"Explain the development square, the defender’s natural reaction, and why support matters.","position_template":"starting-pawn-cannon","prerequisites":["en-020-keep-general-safe"]},
-    {"lesson_key":"en-022-why-chariots-need-open-lines","sequence_no":22,"stage":"D-first-game","playlist_key":"en-first-games","content_type":"opening","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Why Chariots Need Open Lines","objective":"Teach clearance and chariot activation.","hook":"Do not move the chariot first; make a road for it.","analysis_focus":"Explain the clearance move, the chariot’s route, and the pressure that changes the defender’s plan.","position_template":"rook-file","prerequisites":["en-021-when-to-develop-cannons"]},
-    {"lesson_key":"en-023-play-your-first-mini-game","sequence_no":23,"stage":"D-first-game","playlist_key":"en-first-games","content_type":"full_game","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"Play Your First Mini-Game","objective":"Apply basic movement and safety in a simplified game.","hook":"Before a full game, learn how a small army creates a real threat.","analysis_focus":"Treat each move as a conversation: plan, response, changed target, and next plan.","position_template":"cannon-rook-coordination","prerequisites":["en-022-why-chariots-need-open-lines"]},
-    {"lesson_key":"en-024-first-full-game","sequence_no":24,"stage":"D-first-game","playlist_key":"en-first-games","content_type":"full_game","difficulty":"beginner","format":"game","target_seconds":120,"title":"Your First Complete Beginner Game","objective":"Walk through a coherent full-game story from setup to finish.","hook":"You know the pieces. Now see why a game has phases.","analysis_focus":"Narrate plans and responses, not a list of moves; identify opening, turning point, and conversion.","position_template":"cannon-rook-coordination","prerequisites":["en-023-play-your-first-mini-game"]},
-    {"lesson_key":"en-025-three-opening-principles","sequence_no":25,"stage":"E-openings","playlist_key":"en-openings","content_type":"opening","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"Three Xiangqi Opening Principles","objective":"Teach development, line opening, and general safety.","hook":"A good opening has three jobs before any tactic appears.","analysis_focus":"Tie every shown move to one opening principle and the opponent’s counter-plan.","position_template":"starting-pawn-cannon","prerequisites":["en-024-first-full-game"]},
-    {"lesson_key":"en-026-central-cannon-development","sequence_no":26,"stage":"E-openings","playlist_key":"en-openings","content_type":"opening","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"Develop the Central Cannon","objective":"Teach central-cannon purpose and early risks.","hook":"The central cannon is not a ritual; it is a question for your opponent.","analysis_focus":"Explain target squares, screen logic, reply options, and how center pressure changes piece development.","position_template":"cannon-screen","prerequisites":["en-025-three-opening-principles"]},
-    {"lesson_key":"en-027-activate-the-chariot","sequence_no":27,"stage":"E-openings","playlist_key":"en-openings","content_type":"opening","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Activate the Chariot","objective":"Teach when a rook/chariot joins the opening.","hook":"The strongest line piece is useless behind its own pawn.","analysis_focus":"Explain clearance, activation, the defender’s reply, and the file now under pressure.","position_template":"rook-file","prerequisites":["en-026-central-cannon-development"]},
-    {"lesson_key":"en-028-central-pressure","sequence_no":28,"stage":"E-openings","playlist_key":"en-openings","content_type":"opening","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"Central Pressure Without Memorizing Lines","objective":"Teach central influence as a plan rather than memorized theory.","hook":"The center matters because it gives your heavy pieces choices.","analysis_focus":"Describe how each move asks a central question and how the reply changes the next route.","position_template":"cannon-rook-coordination","prerequisites":["en-027-activate-the-chariot"]},
-    {"lesson_key":"en-029-moving-the-same-piece-twice","sequence_no":29,"stage":"E-openings","playlist_key":"en-openings","content_type":"rules","difficulty":"beginner","format":"short","target_seconds":60,"title":"The Cost of Moving the Same Piece Twice","objective":"Teach tempo and development discipline.","hook":"One extra move can let your opponent finish a whole plan.","analysis_focus":"Compare the tempting repeat move with the opponent’s developing reply and lost time.","position_template":"horse-development","prerequisites":["en-028-central-pressure"]},
-    {"lesson_key":"en-030-first-beginner-opening-trap","sequence_no":30,"stage":"E-openings","playlist_key":"en-openings","content_type":"tactics","difficulty":"beginner","format":"short","target_seconds":60,"title":"The First Beginner Opening Trap","objective":"Teach a safe early tactical pattern and defense.","hook":"The trap works only because one defender forgets a line.","analysis_focus":"Explain bait, natural reply, tactical consequence, and the defensive alternative.","position_template":"cannon-screen","prerequisites":["en-029-moving-the-same-piece-twice"]},
-    {"lesson_key":"en-031-what-is-a-forcing-move","sequence_no":31,"stage":"F-tactics","playlist_key":"en-tactics","content_type":"tactics","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"What Is a Forcing Move?","objective":"Teach checks, captures, and threats as a calculation order.","hook":"The best move often leaves the opponent the fewest useful answers.","analysis_focus":"Explain the threat, enumerate the response type, and show why the reply changes the position.","position_template":"cannon-screen","prerequisites":["en-030-first-beginner-opening-trap"]},
-    {"lesson_key":"en-032-checks-captures-threats","sequence_no":32,"stage":"F-tactics","playlist_key":"en-tactics","content_type":"tactics","difficulty":"beginner","format":"lesson","target_seconds":90,"title":"Checks, Captures, and Threats","objective":"Teach a repeatable move-search routine.","hook":"Calculate in this order before you guess.","analysis_focus":"State the immediate threat, the defensive reply, and the follow-up that makes the sequence work.","position_template":"cannon-screen","prerequisites":["en-031-what-is-a-forcing-move"]},
-    {"lesson_key":"en-033-the-cannon-screen","sequence_no":33,"stage":"F-tactics","playlist_key":"en-tactics","content_type":"tactics","difficulty":"beginner","format":"short","target_seconds":60,"title":"The Cannon Screen Tactic","objective":"Teach how one intervening piece enables a cannon capture.","hook":"The piece between the cannon and target is the whole tactic.","analysis_focus":"Identify screen, target, defender reply, and why removing or adding a screen changes everything.","position_template":"cannon-screen","prerequisites":["en-032-checks-captures-threats"]},
-    {"lesson_key":"en-034-the-horse-eye-tactic","sequence_no":34,"stage":"F-tactics","playlist_key":"en-tactics","content_type":"tactics","difficulty":"beginner","format":"short","target_seconds":60,"title":"The Horse Eye Tactic","objective":"Teach attack and defense through the horse-leg block.","hook":"You do not capture the horse; sometimes you capture its eye.","analysis_focus":"Explain the intended horse route, the blocking reply, and the strategic consequence.","position_template":"horse-development","prerequisites":["en-033-the-cannon-screen"]},
-    {"lesson_key":"en-035-the-flying-general","sequence_no":35,"stage":"F-tactics","playlist_key":"en-tactics","content_type":"rules","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"The Flying General Rule","objective":"Teach the direct-facing-generals rule and its tactical force.","hook":"One open file can make a position illegal immediately.","analysis_focus":"Explain the open line, the required response, and how pins arise from the general rule.","position_template":"palace-defense","prerequisites":["en-034-the-horse-eye-tactic"]},
-    {"lesson_key":"en-036-the-pinned-line","sequence_no":36,"stage":"F-tactics","playlist_key":"en-tactics","content_type":"tactics","difficulty":"beginner","format":"lesson","target_seconds":75,"title":"The Pinned Line to the General","objective":"Teach line pins and overloads near the palace.","hook":"A piece can look defended until moving it loses the general.","analysis_focus":"Describe the pin, natural defender move, why it fails, and the clean alternative.","position_template":"palace-defense","prerequisites":["en-035-the-flying-general"]},
-    {"lesson_key":"en-037-bronze-puzzle-01","sequence_no":37,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"bronze","format":"short","target_seconds":60,"title":"Bronze Puzzle 01: Find the Check","objective":"Apply the forcing-move routine in one short puzzle.","hook":"Pause now. What is the only forcing check?","analysis_focus":"Give think time, then explain the threat, reply, and teaching point in natural language.","position_template":"cannon-screen","prerequisites":["en-036-the-pinned-line"]},
-    {"lesson_key":"en-038-bronze-puzzle-02","sequence_no":38,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"bronze","format":"short","target_seconds":60,"title":"Bronze Puzzle 02: Open the File","objective":"Use clearance to create a line attack.","hook":"The winning move does not attack the general directly.","analysis_focus":"Explain clearance, forced defense, and the line revealed afterwards.","position_template":"rook-file","prerequisites":["en-037-bronze-puzzle-01"]},
-    {"lesson_key":"en-039-silver-puzzle-01","sequence_no":39,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"silver","format":"short","target_seconds":60,"title":"Silver Puzzle 01: The Cannon Reply","objective":"Calculate a cannon-based reply beyond the first move.","hook":"The obvious capture loses. What response keeps the pressure?","analysis_focus":"Explain the opponent’s threat, the counter-move, and why the screen changes the exchange.","position_template":"cannon-screen","prerequisites":["en-038-bronze-puzzle-02"]},
-    {"lesson_key":"en-040-silver-puzzle-02","sequence_no":40,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"silver","format":"short","target_seconds":60,"title":"Silver Puzzle 02: Save the Horse","objective":"Use a tempo move to solve a horse-eye problem.","hook":"Can you save the horse and create a threat at the same time?","analysis_focus":"Explain the blocked route, opponent reply, and dual-purpose continuation.","position_template":"horse-development","prerequisites":["en-039-silver-puzzle-01"]},
-    {"lesson_key":"en-041-gold-puzzle-01","sequence_no":41,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"gold","format":"short","target_seconds":60,"title":"Gold Puzzle 01: Palace Pressure","objective":"Calculate a multi-move palace attack.","hook":"The general has only one safe square. Can you see why?","analysis_focus":"Track the escape squares, forced reply, and final net.","position_template":"palace-defense","prerequisites":["en-040-silver-puzzle-02"]},
-    {"lesson_key":"en-042-gold-puzzle-02","sequence_no":42,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"gold","format":"short","target_seconds":60,"title":"Gold Puzzle 02: The Chariot Route","objective":"Find a chariot line that turns pressure into a concrete threat.","hook":"The chariot needs one route, but which route cannot be stopped?","analysis_focus":"Explain route selection, defender priority, and tactical payoff.","position_template":"rook-file","prerequisites":["en-041-gold-puzzle-01"]},
-    {"lesson_key":"en-043-master-puzzle-pattern","sequence_no":43,"stage":"G-puzzle-ladder","playlist_key":"en-puzzle-ladder","content_type":"advanced_puzzle","difficulty":"master","format":"short","target_seconds":75,"title":"Master Puzzle: The Last Piece","objective":"Combine line calculation, tempo, and palace awareness.","hook":"One quiet move makes every defense fail.","analysis_focus":"Explain why direct moves fail, why the quiet move works, and the forced response.","position_template":"cannon-rook-coordination","prerequisites":["en-042-gold-puzzle-02"]},
-    {"lesson_key":"en-044-open-lines-before-attacking","sequence_no":44,"stage":"H-middlegame","playlist_key":"en-middlegame","content_type":"tactics","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"Open Lines Before Attacking","objective":"Teach preparation before an attack.","hook":"Do not attack a closed palace; open the route first.","analysis_focus":"Explain the preparatory move, defender’s response, and how the opened file changes the attack.","position_template":"rook-file","prerequisites":["en-043-master-puzzle-pattern"]},
-    {"lesson_key":"en-045-cannon-and-chariot-coordination","sequence_no":45,"stage":"H-middlegame","playlist_key":"en-middlegame","content_type":"tactics","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"Cannon and Chariot Coordination","objective":"Teach heavy-piece cooperation.","hook":"A cannon asks the question; a chariot makes the answer painful.","analysis_focus":"Narrate how one piece fixes a defender and the other exploits the line.","position_template":"cannon-rook-coordination","prerequisites":["en-044-open-lines-before-attacking"]},
-    {"lesson_key":"en-046-when-material-is-not-enough","sequence_no":46,"stage":"H-middlegame","playlist_key":"en-middlegame","content_type":"definition","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"When Material Is Not Enough","objective":"Teach initiative, king safety, and activity beyond piece counting.","hook":"Being ahead a pawn means little if your general cannot breathe.","analysis_focus":"Explain how a move gains activity, forces a reply, and changes material evaluation.","position_template":"palace-defense","prerequisites":["en-045-cannon-and-chariot-coordination"]},
-    {"lesson_key":"en-047-attack-the-palace-not-the-pawn","sequence_no":47,"stage":"H-middlegame","playlist_key":"en-middlegame","content_type":"tactics","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"Attack the Palace, Not the Pawn","objective":"Teach target selection in the middlegame.","hook":"The loose pawn is tempting, but the palace is the real target.","analysis_focus":"Compare the greedy move with the palace attack, the opponent’s response, and the lasting pressure.","position_template":"palace-defense","prerequisites":["en-046-when-material-is-not-enough"]},
-    {"lesson_key":"en-048-when-to-switch-plans","sequence_no":48,"stage":"H-middlegame","playlist_key":"en-middlegame","content_type":"full_game","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"When to Switch from Attack to Defense","objective":"Teach recognition of a changed position.","hook":"The best attack ends when the opponent gets a counter-threat.","analysis_focus":"Explain the original plan, opponent resource, defensive reply, and new strategic goal.","position_template":"cannon-rook-coordination","prerequisites":["en-047-attack-the-palace-not-the-pawn"]},
-    {"lesson_key":"en-049-general-and-soldier-endgames","sequence_no":49,"stage":"I-endgames","playlist_key":"en-endgames","content_type":"endgame","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"General and Soldier Endgames","objective":"Teach basic promotion-side pressure and general placement.","hook":"A single soldier becomes dangerous only when the general helps it.","analysis_focus":"Explain advance, defender king response, and how the next square changes the result.","position_template":"river-soldier","prerequisites":["en-048-when-to-switch-plans"]},
-    {"lesson_key":"en-050-chariot-endgame-basics","sequence_no":50,"stage":"I-endgames","playlist_key":"en-endgames","content_type":"endgame","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"Chariot Endgame Basics","objective":"Teach active chariot placement and checking distance.","hook":"In a chariot ending, activity often matters before material.","analysis_focus":"Explain active file, enemy general reply, and why the chariot keeps checking distance.","position_template":"rook-file","prerequisites":["en-049-general-and-soldier-endgames"]},
-    {"lesson_key":"en-051-cannon-endgame-patterns","sequence_no":51,"stage":"I-endgames","playlist_key":"en-endgames","content_type":"endgame","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"Cannon Endgame Patterns","objective":"Teach why cannon value changes with available screens.","hook":"A cannon without a screen is a different piece.","analysis_focus":"Explain screen availability, defender reply, and when the cannon should change roles.","position_template":"cannon-screen","prerequisites":["en-050-chariot-endgame-basics"]},
-    {"lesson_key":"en-052-how-to-recognize-a-draw","sequence_no":52,"stage":"I-endgames","playlist_key":"en-endgames","content_type":"rules","difficulty":"intermediate","format":"lesson","target_seconds":90,"title":"How to Recognize a Draw","objective":"Teach practical draw recognition and rule-sensitive cautions.","hook":"More material does not always mean a win.","analysis_focus":"Explain why the active side cannot make progress, what the defender threatens, and when rules must be checked.","position_template":"palace-defense","prerequisites":["en-051-cannon-endgame-patterns"]},
-    {"lesson_key":"en-053-full-game-cannon-plan","sequence_no":53,"stage":"J-full-games","playlist_key":"en-full-games","content_type":"full_game","difficulty":"intermediate","format":"game","target_seconds":120,"title":"A Full Game Built Around a Cannon","objective":"Show a game narrative with opening, middlegame, and conversion.","hook":"This whole game begins with one cannon question.","analysis_focus":"For each critical move, state plan, reply, tactical effect, and phase transition.","position_template":"cannon-rook-coordination","prerequisites":["en-052-how-to-recognize-a-draw"]},
-    {"lesson_key":"en-054-the-chariot-breakthrough","sequence_no":54,"stage":"J-full-games","playlist_key":"en-full-games","content_type":"full_game","difficulty":"intermediate","format":"game","target_seconds":120,"title":"The Chariot Breakthrough","objective":"Show how a file breakthrough changes a full game.","hook":"The breakthrough is prepared long before the chariot moves.","analysis_focus":"Explain preparation, forced response, breakthrough, and resulting endgame.","position_template":"rook-file","prerequisites":["en-053-full-game-cannon-plan"]},
-    {"lesson_key":"en-055-quiet-defensive-masterpiece","sequence_no":55,"stage":"J-full-games","playlist_key":"en-full-games","content_type":"full_game","difficulty":"intermediate","format":"game","target_seconds":120,"title":"The Quiet Defensive Masterpiece","objective":"Teach defense as active plan-making.","hook":"The best move does not attack; it removes every attack.","analysis_focus":"State the incoming threat, quiet defense, attacker response, and how initiative disappears.","position_template":"palace-defense","prerequisites":["en-054-the-chariot-breakthrough"]},
-    {"lesson_key":"en-056-pause-before-critical-move","sequence_no":56,"stage":"J-full-games","playlist_key":"en-full-games","content_type":"viewer_challenge","difficulty":"intermediate","format":"game","target_seconds":120,"title":"Pause Before Every Critical Move","objective":"Teach analysis habits during a complete game.","hook":"Before the critical move, stop and calculate with me.","analysis_focus":"Invite prediction, then explain candidate move, opponent reply, and calculation result.","position_template":"cannon-rook-coordination","prerequisites":["en-055-quiet-defensive-masterpiece"]},
-    {"lesson_key":"en-057-triple-check-motif","sequence_no":57,"stage":"K-advanced-patterns","playlist_key":"en-advanced-tactics","content_type":"advanced_puzzle","difficulty":"advanced","format":"lesson","target_seconds":90,"title":"The Triple-Check Motif","objective":"Introduce multiple-line check patterns responsibly.","hook":"In Xiangqi, more than two checking lines can appear at once.","analysis_focus":"Explain every checking line, forced defense, and the position’s legal constraints.","position_template":"cannon-screen","prerequisites":["en-056-pause-before-critical-move"]},
-    {"lesson_key":"en-058-sacrifice-to-open-palace","sequence_no":58,"stage":"K-advanced-patterns","playlist_key":"en-advanced-tactics","content_type":"advanced_puzzle","difficulty":"advanced","format":"lesson","target_seconds":90,"title":"Sacrifice to Open the Palace","objective":"Teach when a material sacrifice opens decisive access.","hook":"The sacrifice is not for material; it is for the palace door.","analysis_focus":"Explain sacrifice target, forced recapture or refusal, and opened route to the general.","position_template":"palace-defense","prerequisites":["en-057-triple-check-motif"]},
-    {"lesson_key":"en-059-repetition-and-perpetual-check","sequence_no":59,"stage":"K-advanced-patterns","playlist_key":"en-rule-traps","content_type":"rules","difficulty":"advanced","format":"lesson","target_seconds":90,"title":"Repetition and Perpetual Check","objective":"Introduce rule-sensitive repetition concepts and direct viewers to official rules.","hook":"Repeated checks are not just a drawing tool; tournament rules matter.","analysis_focus":"Describe the repeated threat, defender choices, and why the applicable rule set must be named.","position_template":"palace-defense","prerequisites":["en-058-sacrifice-to-open-palace"]},
-    {"lesson_key":"en-060-chasing-rules-explained","sequence_no":60,"stage":"K-advanced-patterns","playlist_key":"en-rule-traps","content_type":"rules","difficulty":"advanced","format":"lesson","target_seconds":90,"title":"Chasing Rules Explained","objective":"Introduce long-chase caution with a rule-reference disclaimer.","hook":"A repeated attack can be illegal depending on the tournament rule set.","analysis_focus":"Explain the chase, the defensive options, and the need for an official-rule check.","position_template":"horse-development","prerequisites":["en-059-repetition-and-perpetual-check"]},
-    {"lesson_key":"en-061-xiangqi-vs-western-chess","sequence_no":61,"stage":"L-comparisons","playlist_key":"en-comparisons","content_type":"comparison","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Xiangqi vs Western Chess","objective":"Compare board geometry, pieces, tactics, and game feel fairly.","hook":"Both games use armies, but they reward different instincts.","analysis_focus":"Use one shared-looking move to show why the response and tactical meaning differ.","position_template":"starting-pawn-cannon","prerequisites":["en-060-chasing-rules-explained"]},
-    {"lesson_key":"en-062-xiangqi-vs-shogi","sequence_no":62,"stage":"L-comparisons","playlist_key":"en-comparisons","content_type":"comparison","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Xiangqi vs Shogi","objective":"Compare capture consequences, board structures, and tactical priorities.","hook":"One game reuses captured pieces; the other makes files and cannons decisive.","analysis_focus":"Compare the same planning question and how Xiangqi’s line pieces answer it.","position_template":"cannon-screen","prerequisites":["en-061-xiangqi-vs-western-chess"]},
-    {"lesson_key":"en-063-xiangqi-vs-janggi","sequence_no":63,"stage":"L-comparisons","playlist_key":"en-comparisons","content_type":"comparison","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Xiangqi vs Janggi","objective":"Compare related traditions without flattening their rule differences.","hook":"These boards look related, but their tactical language is not identical.","analysis_focus":"Identify a visual similarity, then explain the strategic difference in a concrete line.","position_template":"horse-development","prerequisites":["en-062-xiangqi-vs-shogi"]},
-    {"lesson_key":"en-064-xiangqi-vs-go","sequence_no":64,"stage":"L-comparisons","playlist_key":"en-comparisons","content_type":"comparison","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Xiangqi vs Go","objective":"Compare direct-piece tactics with territory and influence.","hook":"One game attacks a general; the other surrounds space.","analysis_focus":"Use pressure and line control to explain different forms of initiative.","position_template":"rook-file","prerequisites":["en-063-xiangqi-vs-janggi"]},
-    {"lesson_key":"en-065-which-game-rewards-calculation","sequence_no":65,"stage":"L-comparisons","playlist_key":"en-comparisons","content_type":"comparison","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Which Board Game Rewards Calculation?","objective":"Frame different games by decision style rather than superiority.","hook":"Calculation means something different when the board itself changes the question.","analysis_focus":"Compare forcing lines, reply space, and strategic evaluation respectfully.","position_template":"cannon-rook-coordination","prerequisites":["en-064-xiangqi-vs-go"]},
-    {"lesson_key":"en-066-solve-viewer-positions","sequence_no":66,"stage":"M-community-and-mastery","playlist_key":"en-viewer-challenges","content_type":"viewer_challenge","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Solve the Viewers’ Positions","objective":"Create a future community-review format with consent and anonymized positions.","hook":"What would you play if this were your game?","analysis_focus":"Explain the viewer’s threat, candidate response, opponent resource, and teaching takeaway.","position_template":"cannon-screen","prerequisites":["en-065-which-game-rewards-calculation"]},
-    {"lesson_key":"en-067-beginner-game-review","sequence_no":67,"stage":"M-community-and-mastery","playlist_key":"en-community-review","content_type":"full_game","difficulty":"all_levels","format":"lesson","target_seconds":120,"title":"Beginner Game Review: Find the Turning Point","objective":"Teach review habits through an anonymized beginner-style game.","hook":"The game was not lost on the last move; it changed here.","analysis_focus":"State the plan before the error, opponent’s reply, and a usable replacement plan.","position_template":"starting-pawn-cannon","prerequisites":["en-066-solve-viewer-positions"]},
-    {"lesson_key":"en-068-engine-or-human","sequence_no":68,"stage":"M-community-and-mastery","playlist_key":"en-community-review","content_type":"comparison","difficulty":"all_levels","format":"lesson","target_seconds":90,"title":"Engine or Human? How to Analyze a Xiangqi Position","objective":"Teach engine-assisted analysis with human explanation and verification.","hook":"An engine can find a move; it cannot replace the reason you learn it.","analysis_focus":"Explain candidate move, human plan, engine check, and the practical meaning for a learner.","position_template":"cannon-rook-coordination","prerequisites":["en-067-beginner-game-review"]},
-    {"lesson_key":"en-069-the-central-cannon-pattern","sequence_no":69,"stage":"M-community-and-mastery","playlist_key":"en-master-patterns","content_type":"tactics","difficulty":"advanced","format":"lesson","target_seconds":90,"title":"The Central Cannon Pattern","objective":"Consolidate a recurring central-cannon strategic pattern.","hook":"The central cannon is a pattern, not one opening move.","analysis_focus":"Explain the pattern’s trigger, defender reaction, and alternate plan if the line closes.","position_template":"cannon-screen","prerequisites":["en-068-engine-or-human"]},
-    {"lesson_key":"en-070-palace-net-patterns","sequence_no":70,"stage":"M-community-and-mastery","playlist_key":"en-master-patterns","content_type":"advanced_puzzle","difficulty":"advanced","format":"lesson","target_seconds":90,"title":"Palace Net Patterns","objective":"Recognize repeated attack geometry around the palace.","hook":"The net is built before the final check appears.","analysis_focus":"Track escape squares, defender movement, and why the final move has no safe reply.","position_template":"palace-defense","prerequisites":["en-069-the-central-cannon-pattern"]},
-    {"lesson_key":"en-071-last-piece-puzzle","sequence_no":71,"stage":"M-community-and-mastery","playlist_key":"en-shorts","content_type":"advanced_puzzle","difficulty":"advanced","format":"short","target_seconds":60,"title":"The Last-Piece Puzzle","objective":"Test complete-pattern recognition in one compact challenge.","hook":"Only one piece can move. Can it change the whole position?","analysis_focus":"Give think time, then explain move purpose, forced answer, and final board effect.","position_template":"horse-development","prerequisites":["en-070-palace-net-patterns"]},
-    {"lesson_key":"en-072-play-and-analyze-a-full-game","sequence_no":72,"stage":"M-community-and-mastery","playlist_key":"en-full-games","content_type":"full_game","difficulty":"graduation","format":"game","target_seconds":150,"title":"Play and Analyze a Full Xiangqi Game","objective":"Graduate by combining rules, plans, tactics, endgame awareness, and self-review.","hook":"You are ready to play a full game and explain your decisions.","analysis_focus":"Treat the game as a continuous dialogue: objective, opponent reply, changed position, and revised plan.","position_template":"cannon-rook-coordination","prerequisites":["en-071-last-piece-puzzle"]}
+    {
+      "lesson_key": "en-001-what-is-xiangqi",
+      "sequence_no": 1,
+      "stage": "A-foundations",
+      "playlist_key": "en-start-here",
+      "content_type": "definition",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "What Is Xiangqi?",
+      "objective": "Explain what Xiangqi is, how a game is won, what the board represents, and what the learner will study before any move is played.",
+      "hook": "Before the first move, learn the battlefield that makes Xiangqi different.",
+      "analysis_focus": "Identify the two armies, the 9x10 board, the river, the palaces, and the learning path.",
+      "position_template": "board-only",
+      "prerequisites": [],
+      "visual_mode": "static_board",
+      "visual_focus": "A complete starting board remains still while the narrator introduces the battlefield and the course."
+    },
+    {
+      "lesson_key": "en-002-xiangqi-in-60-seconds",
+      "sequence_no": 15,
+      "stage": "A-foundations",
+      "playlist_key": "en-start-here",
+      "content_type": "definition",
+      "difficulty": "absolute_beginner",
+      "format": "short",
+      "target_seconds": 45,
+      "title": "Xiangqi in 60 Seconds",
+      "objective": "Give a fast, accurate orientation to the board, pieces, and goal.",
+      "hook": "Can you understand the battlefield before the first pawn moves?",
+      "analysis_focus": "Connect one visible move to the game’s attacking geometry.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-009-how-to-read-a-move"
+      ]
+    },
+    {
+      "lesson_key": "en-003-a-short-history-of-xiangqi",
+      "sequence_no": 2,
+      "stage": "A-foundations",
+      "playlist_key": "en-start-here",
+      "content_type": "definition",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "A Short History of Xiangqi",
+      "objective": "Give a careful, accessible history and cultural orientation without unsupported origin myths.",
+      "hook": "The river and palaces are not decoration; they carry the game’s history and identity.",
+      "analysis_focus": "Connect the modern board vocabulary to the long tradition of Chinese chess.",
+      "position_template": "board-only",
+      "prerequisites": [
+        "en-001-what-is-xiangqi"
+      ],
+      "visual_mode": "static_board",
+      "visual_focus": "Keep the complete board visible as the narration explains the historical identity of Xiangqi."
+    },
+    {
+      "lesson_key": "en-004-xiangqi-vs-western-chess-first-look",
+      "sequence_no": 30,
+      "stage": "A-foundations",
+      "playlist_key": "en-comparisons",
+      "content_type": "comparison",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Xiangqi vs Western Chess: Your First Five Differences",
+      "objective": "Explain intersections, river, palaces, cannon capture, and flying generals.",
+      "hook": "If you play chess already, these five rules will surprise you.",
+      "analysis_focus": "Show how one move becomes different because Xiangqi pieces live on intersections and attack through open lines.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-030-first-beginner-opening-trap"
+      ]
+    },
+    {
+      "lesson_key": "en-005-the-9x10-point-board",
+      "sequence_no": 3,
+      "stage": "B-board-and-setup",
+      "playlist_key": "en-board-setup",
+      "content_type": "definition",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "The 9×10 Point Board",
+      "objective": "Teach intersections, nine files, ten ranks, and the battlefield map before showing a move.",
+      "hook": "In Xiangqi, the pieces stand on points, not inside squares.",
+      "analysis_focus": "Point out the nine files, ten ranks, intersections, center, and the two sides of the board.",
+      "position_template": "board-only",
+      "prerequisites": [
+        "en-003-a-short-history-of-xiangqi"
+      ],
+      "visual_mode": "static_board",
+      "visual_focus": "Show the full board and its geometry without playing a training sequence."
+    },
+    {
+      "lesson_key": "en-006-the-river-and-palaces",
+      "sequence_no": 4,
+      "stage": "B-board-and-setup",
+      "playlist_key": "en-board-setup",
+      "content_type": "rules",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "The River and the Two Palaces",
+      "objective": "Explain the river, the two palaces, palace limits, and why these regions change legal movement and attack plans.",
+      "hook": "Two marked regions decide where the generals, advisors, and elephants can go.",
+      "analysis_focus": "Make the river and palace boundaries visible before the learner studies tactical moves.",
+      "position_template": "board-only",
+      "prerequisites": [
+        "en-005-the-9x10-point-board"
+      ],
+      "visual_mode": "static_board",
+      "visual_focus": "Hold the starting position and visually emphasize the river and palace regions."
+    },
+    {
+      "lesson_key": "en-007-set-up-all-32-pieces",
+      "sequence_no": 5,
+      "stage": "B-board-and-setup",
+      "playlist_key": "en-board-setup",
+      "content_type": "rules",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Set Up All 32 Pieces",
+      "objective": "Teach the complete 32-piece starting arrangement, mirror symmetry, and the role of each starting zone.",
+      "hook": "A correct setup is the first legal move you make before the game begins.",
+      "analysis_focus": "Identify every piece family and its starting relationship to the general, palace, river, and files.",
+      "position_template": "board-only",
+      "prerequisites": [
+        "en-006-the-river-and-palaces"
+      ],
+      "visual_mode": "static_board",
+      "visual_focus": "Display all 32 pieces in their starting arrangement; do not turn the setup lesson into a game."
+    },
+    {
+      "lesson_key": "en-008-xiangqi-coordinates",
+      "sequence_no": 6,
+      "stage": "B-board-and-setup",
+      "playlist_key": "en-board-setup",
+      "content_type": "definition",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "How Xiangqi Coordinates Work",
+      "objective": "Teach the channel’s coordinate system so a beginner can follow every later example precisely.",
+      "hook": "Once you can name two points, every Xiangqi explanation becomes easy to follow.",
+      "analysis_focus": "Read files, ranks, source points, destination points, and the side of the river.",
+      "position_template": "board-only",
+      "prerequisites": [
+        "en-007-set-up-all-32-pieces"
+      ],
+      "visual_mode": "static_board",
+      "visual_focus": "Keep the complete arrangement visible while coordinate points are introduced."
+    },
+    {
+      "lesson_key": "en-009-how-to-read-a-move",
+      "sequence_no": 14,
+      "stage": "B-board-and-setup",
+      "playlist_key": "en-board-setup",
+      "content_type": "rules",
+      "difficulty": "absolute_beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "How to Read a Xiangqi Move",
+      "objective": "Teach a beginner how to follow move notation and board arrows.",
+      "hook": "A move is not a code once you know what to look for.",
+      "analysis_focus": "Narrate the piece, route, purpose, opponent reply, and changed plan.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-016-soldiers-before-and-after-river"
+      ]
+    },
+    {
+      "lesson_key": "en-010-the-general",
+      "sequence_no": 7,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "The General: The Piece You Must Never Expose",
+      "objective": "Teach general movement, palace restriction, check, and safety.",
+      "hook": "Your strongest piece is also the most restricted.",
+      "analysis_focus": "Explain a defensive general move and the opponent’s attempt to open a direct line.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-008-xiangqi-coordinates"
+      ]
+    },
+    {
+      "lesson_key": "en-011-advisors-and-palace-defense",
+      "sequence_no": 8,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Advisors and Palace Defense",
+      "objective": "Teach advisor movement and defensive coordination.",
+      "hook": "A small diagonal move can be the wall in front of your general.",
+      "analysis_focus": "Show the advisor blocking a route and why the attacker must change plans.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-010-the-general"
+      ]
+    },
+    {
+      "lesson_key": "en-012-elephants-and-the-river",
+      "sequence_no": 9,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Elephants and the River",
+      "objective": "Teach elephant movement, eye blocking, and river restriction.",
+      "hook": "This diagonal piece can defend brilliantly but can never cross the river.",
+      "analysis_focus": "Explain the elephant’s route, the blocked eye, and the defensive consequence.",
+      "position_template": "elephant-eye",
+      "prerequisites": [
+        "en-011-advisors-and-palace-defense"
+      ]
+    },
+    {
+      "lesson_key": "en-013-the-horse-and-blocked-eye",
+      "sequence_no": 10,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "The Horse and the Blocked Eye",
+      "objective": "Teach horse movement and why it cannot jump through a blocked leg.",
+      "hook": "A Xiangqi horse does not jump like a chess knight.",
+      "analysis_focus": "Show the horse’s intended route, the blocking point, and how the opponent benefits from closing it.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-012-elephants-and-the-river"
+      ]
+    },
+    {
+      "lesson_key": "en-014-chariots-and-open-files",
+      "sequence_no": 11,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Chariots and Open Files",
+      "objective": "Teach chariot power and the need to clear a line.",
+      "hook": "The chariot is quiet until one pawn steps out of its way.",
+      "analysis_focus": "Explain the pawn clearance, chariot activation, enemy reply, and resulting pressure.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-013-the-horse-and-blocked-eye"
+      ]
+    },
+    {
+      "lesson_key": "en-015-the-cannon-and-its-mount",
+      "sequence_no": 12,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "The Cannon and Its Mount",
+      "objective": "Teach cannon movement, screen capture, and tactical value.",
+      "hook": "The cannon attacks through a piece, not around it.",
+      "analysis_focus": "Explain the cannon line, the required screen, the threatened target, and the defender’s response.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-014-chariots-and-open-files"
+      ]
+    },
+    {
+      "lesson_key": "en-016-soldiers-before-and-after-river",
+      "sequence_no": 13,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Soldiers Before and After the River",
+      "objective": "Teach soldier movement and its changed options after crossing the river.",
+      "hook": "One river crossing gives a soldier a new direction.",
+      "analysis_focus": "Explain the first advance, the opponent’s reply, and what becomes available after the river.",
+      "position_template": "river-soldier",
+      "prerequisites": [
+        "en-015-the-cannon-and-its-mount"
+      ]
+    },
+    {
+      "lesson_key": "en-017-piece-combinations",
+      "sequence_no": 16,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Piece Combinations: Cannon, Chariot, and Horse",
+      "objective": "Introduce coordination instead of isolated piece movement.",
+      "hook": "Pieces become dangerous when they ask the same question together.",
+      "analysis_focus": "Explain how each move improves a partner piece and limits the opponent’s reply.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-002-xiangqi-in-60-seconds"
+      ]
+    },
+    {
+      "lesson_key": "en-018-legal-moves-review",
+      "sequence_no": 17,
+      "stage": "C-piece-academy",
+      "playlist_key": "en-piece-academy",
+      "content_type": "viewer_challenge",
+      "difficulty": "beginner",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Can You Spot the Legal Move?",
+      "objective": "Review all seven piece families through a quick legal-move test.",
+      "hook": "One of these moves is legal. Can you find it before the reveal?",
+      "analysis_focus": "State the rule, explain the tempting illegal move, then show the legal alternative.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-017-piece-combinations"
+      ]
+    },
+    {
+      "lesson_key": "en-019-your-first-ten-moves",
+      "sequence_no": 18,
+      "stage": "D-first-game",
+      "playlist_key": "en-first-games",
+      "content_type": "full_game",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Your First Ten Xiangqi Moves",
+      "objective": "Give a beginner a safe development sequence without rote memorization.",
+      "hook": "Your first ten moves should develop a plan, not chase a pawn.",
+      "analysis_focus": "For each move, explain development goal, opponent reply, and what line becomes safer or stronger.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-018-legal-moves-review"
+      ]
+    },
+    {
+      "lesson_key": "en-020-keep-general-safe",
+      "sequence_no": 19,
+      "stage": "D-first-game",
+      "playlist_key": "en-first-games",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "How to Keep Your General Safe",
+      "objective": "Teach early safety and direct-line danger.",
+      "hook": "A good opening can fail if one file points at your general.",
+      "analysis_focus": "Connect a defensive move to the enemy’s line and the response it prevents.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-019-your-first-ten-moves"
+      ]
+    },
+    {
+      "lesson_key": "en-021-when-to-develop-cannons",
+      "sequence_no": 20,
+      "stage": "D-first-game",
+      "playlist_key": "en-first-games",
+      "content_type": "opening",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "When to Develop Your Cannons",
+      "objective": "Teach timing, support, and risk in early cannon development.",
+      "hook": "A cannon can create pressure early, or become the target.",
+      "analysis_focus": "Explain the development square, the defender’s natural reaction, and why support matters.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-020-keep-general-safe"
+      ]
+    },
+    {
+      "lesson_key": "en-022-why-chariots-need-open-lines",
+      "sequence_no": 21,
+      "stage": "D-first-game",
+      "playlist_key": "en-first-games",
+      "content_type": "opening",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Why Chariots Need Open Lines",
+      "objective": "Teach clearance and chariot activation.",
+      "hook": "Do not move the chariot first; make a road for it.",
+      "analysis_focus": "Explain the clearance move, the chariot’s route, and the pressure that changes the defender’s plan.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-021-when-to-develop-cannons"
+      ]
+    },
+    {
+      "lesson_key": "en-023-play-your-first-mini-game",
+      "sequence_no": 22,
+      "stage": "D-first-game",
+      "playlist_key": "en-first-games",
+      "content_type": "full_game",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Play Your First Mini-Game",
+      "objective": "Apply basic movement and safety in a simplified game.",
+      "hook": "Before a full game, learn how a small army creates a real threat.",
+      "analysis_focus": "Treat each move as a conversation: plan, response, changed target, and next plan.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-022-why-chariots-need-open-lines"
+      ]
+    },
+    {
+      "lesson_key": "en-024-first-full-game",
+      "sequence_no": 23,
+      "stage": "D-first-game",
+      "playlist_key": "en-first-games",
+      "content_type": "full_game",
+      "difficulty": "beginner",
+      "format": "game",
+      "target_seconds": 120,
+      "title": "Your First Complete Beginner Game",
+      "objective": "Walk through a coherent full-game story from setup to finish.",
+      "hook": "You know the pieces. Now see why a game has phases.",
+      "analysis_focus": "Narrate plans and responses, not a list of moves; identify opening, turning point, and conversion.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-023-play-your-first-mini-game"
+      ]
+    },
+    {
+      "lesson_key": "en-025-three-opening-principles",
+      "sequence_no": 24,
+      "stage": "E-openings",
+      "playlist_key": "en-openings",
+      "content_type": "opening",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Three Xiangqi Opening Principles",
+      "objective": "Teach development, line opening, and general safety.",
+      "hook": "A good opening has three jobs before any tactic appears.",
+      "analysis_focus": "Tie every shown move to one opening principle and the opponent’s counter-plan.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-024-first-full-game"
+      ]
+    },
+    {
+      "lesson_key": "en-026-central-cannon-development",
+      "sequence_no": 25,
+      "stage": "E-openings",
+      "playlist_key": "en-openings",
+      "content_type": "opening",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Develop the Central Cannon",
+      "objective": "Teach central-cannon purpose and early risks.",
+      "hook": "The central cannon is not a ritual; it is a question for your opponent.",
+      "analysis_focus": "Explain target squares, screen logic, reply options, and how center pressure changes piece development.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-025-three-opening-principles"
+      ]
+    },
+    {
+      "lesson_key": "en-027-activate-the-chariot",
+      "sequence_no": 26,
+      "stage": "E-openings",
+      "playlist_key": "en-openings",
+      "content_type": "opening",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Activate the Chariot",
+      "objective": "Teach when a rook/chariot joins the opening.",
+      "hook": "The strongest line piece is useless behind its own pawn.",
+      "analysis_focus": "Explain clearance, activation, the defender’s reply, and the file now under pressure.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-026-central-cannon-development"
+      ]
+    },
+    {
+      "lesson_key": "en-028-central-pressure",
+      "sequence_no": 27,
+      "stage": "E-openings",
+      "playlist_key": "en-openings",
+      "content_type": "opening",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "Central Pressure Without Memorizing Lines",
+      "objective": "Teach central influence as a plan rather than memorized theory.",
+      "hook": "The center matters because it gives your heavy pieces choices.",
+      "analysis_focus": "Describe how each move asks a central question and how the reply changes the next route.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-027-activate-the-chariot"
+      ]
+    },
+    {
+      "lesson_key": "en-029-moving-the-same-piece-twice",
+      "sequence_no": 28,
+      "stage": "E-openings",
+      "playlist_key": "en-openings",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "The Cost of Moving the Same Piece Twice",
+      "objective": "Teach tempo and development discipline.",
+      "hook": "One extra move can let your opponent finish a whole plan.",
+      "analysis_focus": "Compare the tempting repeat move with the opponent’s developing reply and lost time.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-028-central-pressure"
+      ]
+    },
+    {
+      "lesson_key": "en-030-first-beginner-opening-trap",
+      "sequence_no": 29,
+      "stage": "E-openings",
+      "playlist_key": "en-openings",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "The First Beginner Opening Trap",
+      "objective": "Teach a safe early tactical pattern and defense.",
+      "hook": "The trap works only because one defender forgets a line.",
+      "analysis_focus": "Explain bait, natural reply, tactical consequence, and the defensive alternative.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-029-moving-the-same-piece-twice"
+      ]
+    },
+    {
+      "lesson_key": "en-031-what-is-a-forcing-move",
+      "sequence_no": 31,
+      "stage": "F-tactics",
+      "playlist_key": "en-tactics",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "What Is a Forcing Move?",
+      "objective": "Teach checks, captures, and threats as a calculation order.",
+      "hook": "The best move often leaves the opponent the fewest useful answers.",
+      "analysis_focus": "Explain the threat, enumerate the response type, and show why the reply changes the position.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-004-xiangqi-vs-western-chess-first-look"
+      ]
+    },
+    {
+      "lesson_key": "en-032-checks-captures-threats",
+      "sequence_no": 32,
+      "stage": "F-tactics",
+      "playlist_key": "en-tactics",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Checks, Captures, and Threats",
+      "objective": "Teach a repeatable move-search routine.",
+      "hook": "Calculate in this order before you guess.",
+      "analysis_focus": "State the immediate threat, the defensive reply, and the follow-up that makes the sequence work.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-031-what-is-a-forcing-move"
+      ]
+    },
+    {
+      "lesson_key": "en-033-the-cannon-screen",
+      "sequence_no": 33,
+      "stage": "F-tactics",
+      "playlist_key": "en-tactics",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "The Cannon Screen Tactic",
+      "objective": "Teach how one intervening piece enables a cannon capture.",
+      "hook": "The piece between the cannon and target is the whole tactic.",
+      "analysis_focus": "Identify screen, target, defender reply, and why removing or adding a screen changes everything.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-032-checks-captures-threats"
+      ]
+    },
+    {
+      "lesson_key": "en-034-the-horse-eye-tactic",
+      "sequence_no": 34,
+      "stage": "F-tactics",
+      "playlist_key": "en-tactics",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "The Horse Eye Tactic",
+      "objective": "Teach attack and defense through the horse-leg block.",
+      "hook": "You do not capture the horse; sometimes you capture its eye.",
+      "analysis_focus": "Explain the intended horse route, the blocking reply, and the strategic consequence.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-033-the-cannon-screen"
+      ]
+    },
+    {
+      "lesson_key": "en-035-the-flying-general",
+      "sequence_no": 35,
+      "stage": "F-tactics",
+      "playlist_key": "en-tactics",
+      "content_type": "rules",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "The Flying General Rule",
+      "objective": "Teach the direct-facing-generals rule and its tactical force.",
+      "hook": "One open file can make a position illegal immediately.",
+      "analysis_focus": "Explain the open line, the required response, and how pins arise from the general rule.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-034-the-horse-eye-tactic"
+      ]
+    },
+    {
+      "lesson_key": "en-036-the-pinned-line",
+      "sequence_no": 36,
+      "stage": "F-tactics",
+      "playlist_key": "en-tactics",
+      "content_type": "tactics",
+      "difficulty": "beginner",
+      "format": "lesson",
+      "target_seconds": 75,
+      "title": "The Pinned Line to the General",
+      "objective": "Teach line pins and overloads near the palace.",
+      "hook": "A piece can look defended until moving it loses the general.",
+      "analysis_focus": "Describe the pin, natural defender move, why it fails, and the clean alternative.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-035-the-flying-general"
+      ]
+    },
+    {
+      "lesson_key": "en-037-bronze-puzzle-01",
+      "sequence_no": 37,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "bronze",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Bronze Puzzle 01: Find the Check",
+      "objective": "Apply the forcing-move routine in one short puzzle.",
+      "hook": "Pause now. What is the only forcing check?",
+      "analysis_focus": "Give think time, then explain the threat, reply, and teaching point in natural language.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-036-the-pinned-line"
+      ]
+    },
+    {
+      "lesson_key": "en-038-bronze-puzzle-02",
+      "sequence_no": 38,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "bronze",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Bronze Puzzle 02: Open the File",
+      "objective": "Use clearance to create a line attack.",
+      "hook": "The winning move does not attack the general directly.",
+      "analysis_focus": "Explain clearance, forced defense, and the line revealed afterwards.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-037-bronze-puzzle-01"
+      ]
+    },
+    {
+      "lesson_key": "en-039-silver-puzzle-01",
+      "sequence_no": 39,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "silver",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Silver Puzzle 01: The Cannon Reply",
+      "objective": "Calculate a cannon-based reply beyond the first move.",
+      "hook": "The obvious capture loses. What response keeps the pressure?",
+      "analysis_focus": "Explain the opponent’s threat, the counter-move, and why the screen changes the exchange.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-038-bronze-puzzle-02"
+      ]
+    },
+    {
+      "lesson_key": "en-040-silver-puzzle-02",
+      "sequence_no": 40,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "silver",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Silver Puzzle 02: Save the Horse",
+      "objective": "Use a tempo move to solve a horse-eye problem.",
+      "hook": "Can you save the horse and create a threat at the same time?",
+      "analysis_focus": "Explain the blocked route, opponent reply, and dual-purpose continuation.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-039-silver-puzzle-01"
+      ]
+    },
+    {
+      "lesson_key": "en-041-gold-puzzle-01",
+      "sequence_no": 41,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "gold",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Gold Puzzle 01: Palace Pressure",
+      "objective": "Calculate a multi-move palace attack.",
+      "hook": "The general has only one safe square. Can you see why?",
+      "analysis_focus": "Track the escape squares, forced reply, and final net.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-040-silver-puzzle-02"
+      ]
+    },
+    {
+      "lesson_key": "en-042-gold-puzzle-02",
+      "sequence_no": 42,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "gold",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "Gold Puzzle 02: The Chariot Route",
+      "objective": "Find a chariot line that turns pressure into a concrete threat.",
+      "hook": "The chariot needs one route, but which route cannot be stopped?",
+      "analysis_focus": "Explain route selection, defender priority, and tactical payoff.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-041-gold-puzzle-01"
+      ]
+    },
+    {
+      "lesson_key": "en-043-master-puzzle-pattern",
+      "sequence_no": 43,
+      "stage": "G-puzzle-ladder",
+      "playlist_key": "en-puzzle-ladder",
+      "content_type": "advanced_puzzle",
+      "difficulty": "master",
+      "format": "short",
+      "target_seconds": 75,
+      "title": "Master Puzzle: The Last Piece",
+      "objective": "Combine line calculation, tempo, and palace awareness.",
+      "hook": "One quiet move makes every defense fail.",
+      "analysis_focus": "Explain why direct moves fail, why the quiet move works, and the forced response.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-042-gold-puzzle-02"
+      ]
+    },
+    {
+      "lesson_key": "en-044-open-lines-before-attacking",
+      "sequence_no": 44,
+      "stage": "H-middlegame",
+      "playlist_key": "en-middlegame",
+      "content_type": "tactics",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Open Lines Before Attacking",
+      "objective": "Teach preparation before an attack.",
+      "hook": "Do not attack a closed palace; open the route first.",
+      "analysis_focus": "Explain the preparatory move, defender’s response, and how the opened file changes the attack.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-043-master-puzzle-pattern"
+      ]
+    },
+    {
+      "lesson_key": "en-045-cannon-and-chariot-coordination",
+      "sequence_no": 45,
+      "stage": "H-middlegame",
+      "playlist_key": "en-middlegame",
+      "content_type": "tactics",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Cannon and Chariot Coordination",
+      "objective": "Teach heavy-piece cooperation.",
+      "hook": "A cannon asks the question; a chariot makes the answer painful.",
+      "analysis_focus": "Narrate how one piece fixes a defender and the other exploits the line.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-044-open-lines-before-attacking"
+      ]
+    },
+    {
+      "lesson_key": "en-046-when-material-is-not-enough",
+      "sequence_no": 46,
+      "stage": "H-middlegame",
+      "playlist_key": "en-middlegame",
+      "content_type": "definition",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "When Material Is Not Enough",
+      "objective": "Teach initiative, king safety, and activity beyond piece counting.",
+      "hook": "Being ahead a pawn means little if your general cannot breathe.",
+      "analysis_focus": "Explain how a move gains activity, forces a reply, and changes material evaluation.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-045-cannon-and-chariot-coordination"
+      ]
+    },
+    {
+      "lesson_key": "en-047-attack-the-palace-not-the-pawn",
+      "sequence_no": 47,
+      "stage": "H-middlegame",
+      "playlist_key": "en-middlegame",
+      "content_type": "tactics",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Attack the Palace, Not the Pawn",
+      "objective": "Teach target selection in the middlegame.",
+      "hook": "The loose pawn is tempting, but the palace is the real target.",
+      "analysis_focus": "Compare the greedy move with the palace attack, the opponent’s response, and the lasting pressure.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-046-when-material-is-not-enough"
+      ]
+    },
+    {
+      "lesson_key": "en-048-when-to-switch-plans",
+      "sequence_no": 48,
+      "stage": "H-middlegame",
+      "playlist_key": "en-middlegame",
+      "content_type": "full_game",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "When to Switch from Attack to Defense",
+      "objective": "Teach recognition of a changed position.",
+      "hook": "The best attack ends when the opponent gets a counter-threat.",
+      "analysis_focus": "Explain the original plan, opponent resource, defensive reply, and new strategic goal.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-047-attack-the-palace-not-the-pawn"
+      ]
+    },
+    {
+      "lesson_key": "en-049-general-and-soldier-endgames",
+      "sequence_no": 49,
+      "stage": "I-endgames",
+      "playlist_key": "en-endgames",
+      "content_type": "endgame",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "General and Soldier Endgames",
+      "objective": "Teach basic promotion-side pressure and general placement.",
+      "hook": "A single soldier becomes dangerous only when the general helps it.",
+      "analysis_focus": "Explain advance, defender king response, and how the next square changes the result.",
+      "position_template": "river-soldier",
+      "prerequisites": [
+        "en-048-when-to-switch-plans"
+      ]
+    },
+    {
+      "lesson_key": "en-050-chariot-endgame-basics",
+      "sequence_no": 50,
+      "stage": "I-endgames",
+      "playlist_key": "en-endgames",
+      "content_type": "endgame",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Chariot Endgame Basics",
+      "objective": "Teach active chariot placement and checking distance.",
+      "hook": "In a chariot ending, activity often matters before material.",
+      "analysis_focus": "Explain active file, enemy general reply, and why the chariot keeps checking distance.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-049-general-and-soldier-endgames"
+      ]
+    },
+    {
+      "lesson_key": "en-051-cannon-endgame-patterns",
+      "sequence_no": 51,
+      "stage": "I-endgames",
+      "playlist_key": "en-endgames",
+      "content_type": "endgame",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Cannon Endgame Patterns",
+      "objective": "Teach why cannon value changes with available screens.",
+      "hook": "A cannon without a screen is a different piece.",
+      "analysis_focus": "Explain screen availability, defender reply, and when the cannon should change roles.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-050-chariot-endgame-basics"
+      ]
+    },
+    {
+      "lesson_key": "en-052-how-to-recognize-a-draw",
+      "sequence_no": 52,
+      "stage": "I-endgames",
+      "playlist_key": "en-endgames",
+      "content_type": "rules",
+      "difficulty": "intermediate",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "How to Recognize a Draw",
+      "objective": "Teach practical draw recognition and rule-sensitive cautions.",
+      "hook": "More material does not always mean a win.",
+      "analysis_focus": "Explain why the active side cannot make progress, what the defender threatens, and when rules must be checked.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-051-cannon-endgame-patterns"
+      ]
+    },
+    {
+      "lesson_key": "en-053-full-game-cannon-plan",
+      "sequence_no": 53,
+      "stage": "J-full-games",
+      "playlist_key": "en-full-games",
+      "content_type": "full_game",
+      "difficulty": "intermediate",
+      "format": "game",
+      "target_seconds": 120,
+      "title": "A Full Game Built Around a Cannon",
+      "objective": "Show a game narrative with opening, middlegame, and conversion.",
+      "hook": "This whole game begins with one cannon question.",
+      "analysis_focus": "For each critical move, state plan, reply, tactical effect, and phase transition.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-052-how-to-recognize-a-draw"
+      ]
+    },
+    {
+      "lesson_key": "en-054-the-chariot-breakthrough",
+      "sequence_no": 54,
+      "stage": "J-full-games",
+      "playlist_key": "en-full-games",
+      "content_type": "full_game",
+      "difficulty": "intermediate",
+      "format": "game",
+      "target_seconds": 120,
+      "title": "The Chariot Breakthrough",
+      "objective": "Show how a file breakthrough changes a full game.",
+      "hook": "The breakthrough is prepared long before the chariot moves.",
+      "analysis_focus": "Explain preparation, forced response, breakthrough, and resulting endgame.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-053-full-game-cannon-plan"
+      ]
+    },
+    {
+      "lesson_key": "en-055-quiet-defensive-masterpiece",
+      "sequence_no": 55,
+      "stage": "J-full-games",
+      "playlist_key": "en-full-games",
+      "content_type": "full_game",
+      "difficulty": "intermediate",
+      "format": "game",
+      "target_seconds": 120,
+      "title": "The Quiet Defensive Masterpiece",
+      "objective": "Teach defense as active plan-making.",
+      "hook": "The best move does not attack; it removes every attack.",
+      "analysis_focus": "State the incoming threat, quiet defense, attacker response, and how initiative disappears.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-054-the-chariot-breakthrough"
+      ]
+    },
+    {
+      "lesson_key": "en-056-pause-before-critical-move",
+      "sequence_no": 56,
+      "stage": "J-full-games",
+      "playlist_key": "en-full-games",
+      "content_type": "viewer_challenge",
+      "difficulty": "intermediate",
+      "format": "game",
+      "target_seconds": 120,
+      "title": "Pause Before Every Critical Move",
+      "objective": "Teach analysis habits during a complete game.",
+      "hook": "Before the critical move, stop and calculate with me.",
+      "analysis_focus": "Invite prediction, then explain candidate move, opponent reply, and calculation result.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-055-quiet-defensive-masterpiece"
+      ]
+    },
+    {
+      "lesson_key": "en-057-triple-check-motif",
+      "sequence_no": 57,
+      "stage": "K-advanced-patterns",
+      "playlist_key": "en-advanced-tactics",
+      "content_type": "advanced_puzzle",
+      "difficulty": "advanced",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "The Triple-Check Motif",
+      "objective": "Introduce multiple-line check patterns responsibly.",
+      "hook": "In Xiangqi, more than two checking lines can appear at once.",
+      "analysis_focus": "Explain every checking line, forced defense, and the position’s legal constraints.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-056-pause-before-critical-move"
+      ]
+    },
+    {
+      "lesson_key": "en-058-sacrifice-to-open-palace",
+      "sequence_no": 58,
+      "stage": "K-advanced-patterns",
+      "playlist_key": "en-advanced-tactics",
+      "content_type": "advanced_puzzle",
+      "difficulty": "advanced",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Sacrifice to Open the Palace",
+      "objective": "Teach when a material sacrifice opens decisive access.",
+      "hook": "The sacrifice is not for material; it is for the palace door.",
+      "analysis_focus": "Explain sacrifice target, forced recapture or refusal, and opened route to the general.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-057-triple-check-motif"
+      ]
+    },
+    {
+      "lesson_key": "en-059-repetition-and-perpetual-check",
+      "sequence_no": 59,
+      "stage": "K-advanced-patterns",
+      "playlist_key": "en-rule-traps",
+      "content_type": "rules",
+      "difficulty": "advanced",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Repetition and Perpetual Check",
+      "objective": "Introduce rule-sensitive repetition concepts and direct viewers to official rules.",
+      "hook": "Repeated checks are not just a drawing tool; tournament rules matter.",
+      "analysis_focus": "Describe the repeated threat, defender choices, and why the applicable rule set must be named.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-058-sacrifice-to-open-palace"
+      ]
+    },
+    {
+      "lesson_key": "en-060-chasing-rules-explained",
+      "sequence_no": 60,
+      "stage": "K-advanced-patterns",
+      "playlist_key": "en-rule-traps",
+      "content_type": "rules",
+      "difficulty": "advanced",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Chasing Rules Explained",
+      "objective": "Introduce long-chase caution with a rule-reference disclaimer.",
+      "hook": "A repeated attack can be illegal depending on the tournament rule set.",
+      "analysis_focus": "Explain the chase, the defensive options, and the need for an official-rule check.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-059-repetition-and-perpetual-check"
+      ]
+    },
+    {
+      "lesson_key": "en-061-xiangqi-vs-western-chess",
+      "sequence_no": 61,
+      "stage": "L-comparisons",
+      "playlist_key": "en-comparisons",
+      "content_type": "comparison",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Xiangqi vs Western Chess",
+      "objective": "Compare board geometry, pieces, tactics, and game feel fairly.",
+      "hook": "Both games use armies, but they reward different instincts.",
+      "analysis_focus": "Use one shared-looking move to show why the response and tactical meaning differ.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-060-chasing-rules-explained"
+      ]
+    },
+    {
+      "lesson_key": "en-062-xiangqi-vs-shogi",
+      "sequence_no": 62,
+      "stage": "L-comparisons",
+      "playlist_key": "en-comparisons",
+      "content_type": "comparison",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Xiangqi vs Shogi",
+      "objective": "Compare capture consequences, board structures, and tactical priorities.",
+      "hook": "One game reuses captured pieces; the other makes files and cannons decisive.",
+      "analysis_focus": "Compare the same planning question and how Xiangqi’s line pieces answer it.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-061-xiangqi-vs-western-chess"
+      ]
+    },
+    {
+      "lesson_key": "en-063-xiangqi-vs-janggi",
+      "sequence_no": 63,
+      "stage": "L-comparisons",
+      "playlist_key": "en-comparisons",
+      "content_type": "comparison",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Xiangqi vs Janggi",
+      "objective": "Compare related traditions without flattening their rule differences.",
+      "hook": "These boards look related, but their tactical language is not identical.",
+      "analysis_focus": "Identify a visual similarity, then explain the strategic difference in a concrete line.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-062-xiangqi-vs-shogi"
+      ]
+    },
+    {
+      "lesson_key": "en-064-xiangqi-vs-go",
+      "sequence_no": 64,
+      "stage": "L-comparisons",
+      "playlist_key": "en-comparisons",
+      "content_type": "comparison",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Xiangqi vs Go",
+      "objective": "Compare direct-piece tactics with territory and influence.",
+      "hook": "One game attacks a general; the other surrounds space.",
+      "analysis_focus": "Use pressure and line control to explain different forms of initiative.",
+      "position_template": "rook-file",
+      "prerequisites": [
+        "en-063-xiangqi-vs-janggi"
+      ]
+    },
+    {
+      "lesson_key": "en-065-which-game-rewards-calculation",
+      "sequence_no": 65,
+      "stage": "L-comparisons",
+      "playlist_key": "en-comparisons",
+      "content_type": "comparison",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Which Board Game Rewards Calculation?",
+      "objective": "Frame different games by decision style rather than superiority.",
+      "hook": "Calculation means something different when the board itself changes the question.",
+      "analysis_focus": "Compare forcing lines, reply space, and strategic evaluation respectfully.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-064-xiangqi-vs-go"
+      ]
+    },
+    {
+      "lesson_key": "en-066-solve-viewer-positions",
+      "sequence_no": 66,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-viewer-challenges",
+      "content_type": "viewer_challenge",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Solve the Viewers’ Positions",
+      "objective": "Create a future community-review format with consent and anonymized positions.",
+      "hook": "What would you play if this were your game?",
+      "analysis_focus": "Explain the viewer’s threat, candidate response, opponent resource, and teaching takeaway.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-065-which-game-rewards-calculation"
+      ]
+    },
+    {
+      "lesson_key": "en-067-beginner-game-review",
+      "sequence_no": 67,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-community-review",
+      "content_type": "full_game",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 120,
+      "title": "Beginner Game Review: Find the Turning Point",
+      "objective": "Teach review habits through an anonymized beginner-style game.",
+      "hook": "The game was not lost on the last move; it changed here.",
+      "analysis_focus": "State the plan before the error, opponent’s reply, and a usable replacement plan.",
+      "position_template": "starting-pawn-cannon",
+      "prerequisites": [
+        "en-066-solve-viewer-positions"
+      ]
+    },
+    {
+      "lesson_key": "en-068-engine-or-human",
+      "sequence_no": 68,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-community-review",
+      "content_type": "comparison",
+      "difficulty": "all_levels",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Engine or Human? How to Analyze a Xiangqi Position",
+      "objective": "Teach engine-assisted analysis with human explanation and verification.",
+      "hook": "An engine can find a move; it cannot replace the reason you learn it.",
+      "analysis_focus": "Explain candidate move, human plan, engine check, and the practical meaning for a learner.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-067-beginner-game-review"
+      ]
+    },
+    {
+      "lesson_key": "en-069-the-central-cannon-pattern",
+      "sequence_no": 69,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-master-patterns",
+      "content_type": "tactics",
+      "difficulty": "advanced",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "The Central Cannon Pattern",
+      "objective": "Consolidate a recurring central-cannon strategic pattern.",
+      "hook": "The central cannon is a pattern, not one opening move.",
+      "analysis_focus": "Explain the pattern’s trigger, defender reaction, and alternate plan if the line closes.",
+      "position_template": "cannon-screen",
+      "prerequisites": [
+        "en-068-engine-or-human"
+      ]
+    },
+    {
+      "lesson_key": "en-070-palace-net-patterns",
+      "sequence_no": 70,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-master-patterns",
+      "content_type": "advanced_puzzle",
+      "difficulty": "advanced",
+      "format": "lesson",
+      "target_seconds": 90,
+      "title": "Palace Net Patterns",
+      "objective": "Recognize repeated attack geometry around the palace.",
+      "hook": "The net is built before the final check appears.",
+      "analysis_focus": "Track escape squares, defender movement, and why the final move has no safe reply.",
+      "position_template": "palace-defense",
+      "prerequisites": [
+        "en-069-the-central-cannon-pattern"
+      ]
+    },
+    {
+      "lesson_key": "en-071-last-piece-puzzle",
+      "sequence_no": 71,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-shorts",
+      "content_type": "advanced_puzzle",
+      "difficulty": "advanced",
+      "format": "short",
+      "target_seconds": 60,
+      "title": "The Last-Piece Puzzle",
+      "objective": "Test complete-pattern recognition in one compact challenge.",
+      "hook": "Only one piece can move. Can it change the whole position?",
+      "analysis_focus": "Give think time, then explain move purpose, forced answer, and final board effect.",
+      "position_template": "horse-development",
+      "prerequisites": [
+        "en-070-palace-net-patterns"
+      ]
+    },
+    {
+      "lesson_key": "en-072-play-and-analyze-a-full-game",
+      "sequence_no": 72,
+      "stage": "M-community-and-mastery",
+      "playlist_key": "en-full-games",
+      "content_type": "full_game",
+      "difficulty": "graduation",
+      "format": "game",
+      "target_seconds": 150,
+      "title": "Play and Analyze a Full Xiangqi Game",
+      "objective": "Graduate by combining rules, plans, tactics, endgame awareness, and self-review.",
+      "hook": "You are ready to play a full game and explain your decisions.",
+      "analysis_focus": "Treat the game as a continuous dialogue: objective, opponent reply, changed position, and revised plan.",
+      "position_template": "cannon-rook-coordination",
+      "prerequisites": [
+        "en-071-last-piece-puzzle"
+      ]
+    }
   ]
 }

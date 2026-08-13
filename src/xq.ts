@@ -77,7 +77,14 @@ export function boardAtSecond(job: VideoJob, second: number): BoardPiece[] {
       applyCompletedMove(pieces, move);
       continue;
     }
-    const progress = Math.max(0, Math.min(1, (second - move.startSec) / Math.max(0.001, move.endSec - move.startSec)));
+    const animationStart = move.animationStartSec ?? move.startSec;
+    const animationEnd = Math.max(animationStart + 0.05, move.animationEndSec ?? move.endSec);
+    if (second < animationStart) break;
+    if (second >= animationEnd) {
+      applyCompletedMove(pieces, move);
+      continue;
+    }
+    const progress = Math.max(0, Math.min(1, (second - animationStart) / Math.max(0.001, animationEnd - animationStart)));
     const captured = findAt(pieces, move.to);
     if (captured && captured.id !== moving.id && progress > 0.65) {
       pieces.splice(pieces.indexOf(captured), 1);

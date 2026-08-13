@@ -8,6 +8,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEN = "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r"
 
+STATIC_VISUAL_MODES = {"static_board", "board_introduction", "setup_overview"}
+
 TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "starting-pawn-cannon": [
         {"from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "label": "Open a route"},
@@ -44,6 +46,7 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"from": [2, 3], "to": [2, 4], "piece": "pawn", "side": "black", "label": "Block the elephant eye"},
         {"from": [4, 7], "to": [2, 5], "piece": "bishop", "side": "red", "label": "Choose the safe route"},
     ],
+    "board-only": [],
     "cannon-rook-coordination": [
         {"from": [1, 7], "to": [1, 4], "piece": "cannon", "side": "red", "label": "Fix the defender"},
         {"from": [0, 0], "to": [0, 4], "piece": "rook", "side": "black", "label": "Seek counterplay"},
@@ -58,11 +61,14 @@ def load_curriculum(path: str | Path = ROOT / "config" / "xiangqi_curriculum_en.
 
 def lesson_payload(lesson: dict[str, Any]) -> dict[str, Any]:
     template = str(lesson.get("position_template") or "starting-pawn-cannon")
-    moves = [dict(move) for move in TEMPLATES.get(template, TEMPLATES["starting-pawn-cannon"])]
+    visual_mode = str(lesson.get("visual_mode") or "")
+    moves = [] if visual_mode in STATIC_VISUAL_MODES else [dict(move) for move in TEMPLATES.get(template, TEMPLATES["starting-pawn-cannon"])]
     return {
         "fen": DEFAULT_FEN,
         "moves": moves,
         "topic_key": str(lesson["lesson_key"]),
+        "title": lesson.get("title"),
+        "content_type": lesson.get("content_type", "definition"),
         "curriculum_lesson_key": str(lesson["lesson_key"]),
         "curriculum_sequence": int(lesson["sequence_no"]),
         "curriculum_stage": lesson.get("stage"),
@@ -75,6 +81,8 @@ def lesson_payload(lesson: dict[str, Any]) -> dict[str, Any]:
         "hook": lesson.get("hook"),
         "prerequisites": lesson.get("prerequisites", []),
         "position_template": template,
+        "visual_mode": visual_mode or None,
+        "visual_focus": lesson.get("visual_focus"),
     }
 
 

@@ -26,6 +26,8 @@ export type Move = {
   side: Side;
   startSec: number;
   endSec: number;
+  animationStartSec?: number;
+  animationEndSec?: number;
   label: string;
   spokenText?: string;
   captionText?: string;
@@ -77,6 +79,8 @@ export type VideoJob = {
   difficulty?: string;
   format?: string;
   playlist_key?: string;
+  visual_mode?: "static_board" | "board_introduction" | "setup_overview";
+  visual_focus?: string;
 };
 
 export const BOARD_COLUMNS = 9;

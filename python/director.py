@@ -71,6 +71,15 @@ FALLBACKS = {
 
 ARABIC_RE = re.compile(r"[\u0600-\u06ff]")
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
+CURRICULUM_INTROS = {
+    "en-001-what-is-xiangqi": "Xiangqi, often called Chinese chess, is a two-player strategy game played by two armies on a battlefield of nine files and ten ranks. The goal is to checkmate the opposing general, but the path to that goal is shaped by a river, two palaces, open lines, and the special geometry of the cannon. In this first lesson, nothing moves yet. Take a moment to read the starting position: two mirrored armies face one another, each with a general at the center of a palace. The pieces are not placed inside squares; they stand on intersections. That single detail changes how lines, attacks, and defenses work. We will first learn the board, the river, the palaces, the complete setup, and every piece movement. Only after that foundation will we play training positions, opening ideas, tactics, full games, and advanced puzzles.",
+    "en-003-a-short-history-of-xiangqi": "Xiangqi has a long Chinese tradition and remains a living strategy game played casually, competitively, and online. Its familiar vocabulary is part of its identity: generals command from palaces, soldiers cross a river, and cannons use a screen to capture. Historians discuss the game’s development across different periods, so we will avoid reducing that history to one unsupported origin story. Instead, notice how the board itself preserves a battlefield language. The two sides begin in mirror formation, the river separates their territories, and the palace gives the generals a protected but restricted home. In the next lessons, we will turn that visual language into practical knowledge: first the board, then the setup, then the movement of each piece.",
+    "en-005-the-9x10-point-board": "Before you study a move, learn where a move happens. A Xiangqi board has nine vertical files and ten horizontal ranks, creating ninety intersections. The pieces stand on those intersections, and a move travels along the lines between them. The horizontal river divides the two sides, while the central files connect the battlefield from one palace to the other. Think of the board as a map of routes rather than a collection of enclosed squares. A chariot values an open file, a cannon values a line with the right screen, and a horse needs an unobstructed leg. Keep this starting position on screen and practice seeing the points, files, ranks, and central routes before we play a single training move.",
+    "en-006-the-river-and-palaces": "The river and the two palaces are the first special regions to recognize. The river separates the red and black territories and changes what soldiers and elephants can do. Each palace is a three-by-three zone where its general and advisors must remain. The palace is not just a safe corner: it creates narrow entry points, protected diagonals, and direct-line dangers. Later, you will learn the flying-general rule, but for now simply locate both palaces and the river on the still board. When you can point to those regions immediately, many Xiangqi explanations become easier because you can predict which routes are open, restricted, or impossible.",
+    "en-007-set-up-all-32-pieces": "A Xiangqi game begins with thirty-two pieces in a mirrored starting arrangement. Each side has one general, two advisors, two elephants, two horses, two chariots, two cannons, and five soldiers. The chariots begin on the corners, the horses stand beside them, the elephants and advisors protect the route toward the general, the cannons begin behind the soldiers, and the soldiers form a line facing the river. This arrangement is not decoration: it explains which files open first and which pieces need a road before they can become active. In this lesson the army stays still. Learn the names and starting homes now; the next lessons will show how each family moves with clear, isolated examples.",
+    "en-008-xiangqi-coordinates": "To follow a Xiangqi lesson, you need a simple way to name two points. We will use files one through nine from left to right on the displayed board and ranks one through ten from top to bottom. A move therefore has a source point and a destination point, such as file two, rank eight to file two, rank five. The exact orientation can be stated for the side being discussed, but the important habit is consistent: identify the piece, name where it starts, name where it ends, and then explain why the route is legal. No game is played in this lesson. We are building the visual language that will make every later example precise and easy to replay.",
+}
+
 FALLBACK_NARRATION_BY_TYPE = {
     "en": {
         "definition": "The board is more than a grid: the river, palaces, and open files determine which plans are possible. This lesson turns one position into a practical rule you can use immediately.",
@@ -204,11 +213,14 @@ def build_narration_segments(
     language: str,
     content_type: str,
     analysis_focus: str = "",
+    split_intro: bool = False,
 ) -> tuple[str, list[dict[str, Any]]]:
     segments: list[dict[str, Any]] = []
     intro = str(base_narration or "").strip()
     if intro:
-        segments.append({"kind": "intro", "text": intro, "captionText": intro, "captionPosition": "bottom"})
+        intro_parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", intro) if part.strip()] if split_intro else [intro]
+        for intro_part in intro_parts:
+            segments.append({"kind": "intro", "text": intro_part, "captionText": intro_part, "captionPosition": "bottom"})
     for move in moves:
         spoken_text, caption_text = _move_spoken_text(move, language, content_type, analysis_focus)
         move["spokenText"] = spoken_text
@@ -342,7 +354,8 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     topic_key = str(puzzle.get("topic_key") or topic).strip().lower()
     variant_index = int(hashlib.sha256(topic_key.encode("utf-8")).hexdigest()[:8], 16) % len(DEFAULT_MOVE_VARIANTS)
     supplied_moves = puzzle.get("moves")
-    raw_moves = supplied_moves or DEFAULT_MOVE_VARIANTS[variant_index]
+    static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "board_introduction", "setup_overview"}
+    raw_moves = [] if static_visual else (supplied_moves or DEFAULT_MOVE_VARIANTS[variant_index])
     if source_kind in {"rss", "youtube_search"} and (not supplied_moves or supplied_moves == DEFAULT_MOVE_VARIANTS[0]):
         raw_moves = DEFAULT_MOVE_VARIANTS[variant_index]
     moves: list[dict[str, Any]] = []
@@ -374,13 +387,15 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
             narration = f"今天的中国象棋话题是：{topic}。{FALLBACK_NARRATION_BY_TYPE['zh'].get('trend_breakdown', '')}"
         else:
             narration = f"Today’s Xiangqi topic is {topic}. {FALLBACK_NARRATION_BY_TYPE['en'].get('trend_breakdown', '')}"
+    elif static_visual and language == "en" and str(puzzle.get("curriculum_lesson_key") or "") in CURRICULUM_INTROS:
+        narration = CURRICULUM_INTROS[str(puzzle.get("curriculum_lesson_key"))]
     elif supplied_narration:
         narration = _safe_text(supplied_narration, FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"]), language)
     else:
         narration = FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"])
     if curriculum_hook and curriculum_hook.lower() not in narration.lower():
         narration = f"{curriculum_hook} {narration}"
-    narration, narration_segments = build_narration_segments(narration, moves, language, content_type, analysis_focus)
+    narration, narration_segments = build_narration_segments(narration, moves, language, content_type, analysis_focus, split_intro=static_visual)
     duration = estimate_content_duration(
         narration,
         moves,
@@ -395,6 +410,17 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
 def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[str, Any]) -> dict[str, Any]:
     fallback = _fallback(puzzle, language)
     result = dict(data)
+    static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "board_introduction", "setup_overview"}
+    if static_visual:
+        result["moves"] = []
+        result["title"] = _safe_text(puzzle.get("title"), result.get("title"), language)
+        lesson_key = str(puzzle.get("curriculum_lesson_key") or "")
+        intro = CURRICULUM_INTROS.get(lesson_key) if language == "en" else None
+        intro = _safe_text(intro or result.get("narration"), fallback["narration"], language)
+        result["narration"], result["narrationSegments"] = build_narration_segments(intro, [], language, str(puzzle.get("content_type") or "definition"), _safe_text(puzzle.get("analysis_focus"), "the board", language), split_intro=True)
+        result["durationInSeconds"] = estimate_content_duration(result["narration"], [], language, requested_duration=float(puzzle["durationInSeconds"]) if puzzle.get("durationInSeconds") else None)
+        result["captions"] = _segment_captions_without_audio(result["narrationSegments"], result["durationInSeconds"])
+        return result
     result["title"] = _safe_text(result.get("title"), fallback["title"], language)
     result["narration"] = _safe_text(result.get("narration"), fallback["narration"], language)
     if str(puzzle.get("source_kind") or "") in {"rss", "youtube_search"}:
@@ -493,5 +519,7 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
         "difficulty": puzzle.get("difficulty"),
         "format": puzzle.get("format"),
         "playlist_key": puzzle.get("playlist_key"),
+        "visual_mode": puzzle.get("visual_mode"),
+        "visual_focus": puzzle.get("visual_focus"),
         "pairing": puzzle.get("pairing", {}),
     }

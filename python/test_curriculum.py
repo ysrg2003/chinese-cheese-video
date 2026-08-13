@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
+from curriculum import candidate_from_lesson, load_curriculum
 
 
 class CurriculumStoreTests(unittest.TestCase):
@@ -38,15 +39,25 @@ class CurriculumStoreTests(unittest.TestCase):
         self.store.update_curriculum_episode(first_key, "en", "published", candidate_id=first["id"], job_id="job-001")
         next_candidate = self.store.get_next_curriculum_candidate("en")
         self.assertIsNotNone(next_candidate)
-        self.assertEqual(next_candidate["payload"]["curriculum_lesson_key"], "en-002-xiangqi-in-60-seconds")
+        self.assertEqual(next_candidate["payload"]["curriculum_lesson_key"], "en-003-a-short-history-of-xiangqi")
 
-    def test_curriculum_candidate_contains_teaching_and_board_contract(self) -> None:
+    def test_first_lesson_is_board_introduction_without_training_moves(self) -> None:
         candidate = self.store.get_next_curriculum_candidate("en")
         assert candidate is not None
         payload = candidate["payload"]
         self.assertTrue(payload["objective"])
         self.assertTrue(payload["analysis_focus"])
         self.assertTrue(payload["hook"])
+        self.assertEqual(payload["visual_mode"], "static_board")
+        self.assertEqual(payload["position_template"], "board-only")
+        self.assertEqual(payload["moves"], [])
+
+    def test_piece_lesson_keeps_teaching_move_examples(self) -> None:
+        curriculum = load_curriculum()
+        lesson = next(item for item in curriculum["lessons"] if item["lesson_key"] == "en-010-the-general")
+        candidate = candidate_from_lesson(lesson)
+        payload = candidate["payload"]
+        self.assertEqual(payload.get("visual_mode"), None)
         self.assertEqual(len(payload["moves"]), 3)
         self.assertTrue(all("piece" in move and "label" in move for move in payload["moves"]))
 

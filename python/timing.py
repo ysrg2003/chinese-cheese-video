@@ -37,6 +37,22 @@ def estimate_content_duration(
     return round(max(5.0, content_time), 3)
 
 
+def _move_animation_duration(move: dict[str, Any]) -> float:
+    try:
+        distance = abs(int(move.get("to", [0, 0])[0]) - int(move.get("from", [0, 0])[0])) + abs(int(move.get("to", [0, 0])[1]) - int(move.get("from", [0, 0])[1]))
+    except (TypeError, ValueError, IndexError):
+        distance = 1
+    return round(min(0.95, max(0.55, 0.64 + distance * 0.06)), 3)
+
+
+def _set_animation_window(move: dict[str, Any], start: float, end: float) -> None:
+    speech_length = max(0.05, end - start)
+    motion_length = min(_move_animation_duration(move), max(0.2, speech_length * 0.72))
+    motion_start = start
+    move["animationStartSec"] = round(motion_start, 3)
+    move["animationEndSec"] = round(min(end, motion_start + motion_length), 3)
+
+
 def retime_moves(moves: list[dict[str, Any]], duration: float) -> list[dict[str, Any]]:
     if not moves:
         return []
@@ -51,6 +67,7 @@ def retime_moves(moves: list[dict[str, Any]], duration: float) -> list[dict[str,
         start = start_padding + index * slot
         clone["startSec"] = round(start, 3)
         clone["endSec"] = round(min(duration - end_padding, start + move_length), 3)
+        _set_animation_window(clone, float(clone["startSec"]), float(clone["endSec"]))
         retimed.append(clone)
     return retimed
 
@@ -71,6 +88,7 @@ def sync_moves_to_narration_segments(moves: list[dict[str, Any]], segments: list
             end = max(start + 0.05, min(float(segment.get("endSec", duration)), duration))
             clone["startSec"] = round(start, 3)
             clone["endSec"] = round(end, 3)
+            _set_animation_window(clone, start, end)
         synced.append(clone)
     return synced
 
