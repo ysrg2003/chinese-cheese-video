@@ -158,6 +158,31 @@ def _captions_from_timed_segments(segments: list[dict[str, Any]]) -> list[dict[s
     return captions
 
 
+def fit_narration_segments_to_duration(segments: list[dict[str, Any]], duration: float) -> list[dict[str, Any]]:
+    """Scale already audio-aligned narration windows to the actual spoken duration.
+
+    Some curriculum jobs start with a requested lesson length (for example 75s),
+    while Edge-TTS may finish sooner. Without this normalization, visual scenes
+    and captions can extend past the MP4's real audio/video duration.
+    """
+    if not segments or duration <= 0:
+        return segments
+    clean = [dict(segment) for segment in segments]
+    try:
+        last_end = max(float(segment.get("endSec", 0.0)) for segment in clean)
+    except (TypeError, ValueError):
+        return segments
+    if last_end <= 0 or abs(last_end - duration) < 0.01:
+        return clean
+    scale = duration / last_end
+    normalized: list[dict[str, Any]] = []
+    for index, segment in enumerate(clean):
+        start = max(0.0, min(duration, float(segment.get("startSec", 0.0)) * scale))
+        end = duration if index == len(clean) - 1 else max(start + 0.05, min(duration, float(segment.get("endSec", duration)) * scale))
+        normalized.append({**segment, "startSec": round(start, 3), "endSec": round(end, 3)})
+    return normalized
+
+
 def finalize_timing(
     job: dict[str, Any],
     audio_duration: float | None = None,
@@ -176,6 +201,11 @@ def finalize_timing(
     timed_segments = [segment for segment in narration_segments if segment.get("startSec") is not None and segment.get("endSec") is not None]
     if narration_segments and not timed_segments:
         narration_segments = _time_narration_segments_without_audio(narration_segments, duration)
+        job["narrationSegments"] = narration_segments
+        timed_segments = narration_segments
+    target_speech_duration = float(audio_duration) if audio_duration and audio_duration > 0 else duration
+    if timed_segments and target_speech_duration > 0:
+        narration_segments = fit_narration_segments_to_duration(narration_segments, target_speech_duration)
         job["narrationSegments"] = narration_segments
         timed_segments = narration_segments
     job["moves"] = sync_moves_to_narration_segments(job["moves"], timed_segments, duration)
