@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -30,8 +31,39 @@ def select_diverse_candidates(store: LocalStore, *, language: str, limit: int) -
     """Choose fresh topics while rotating the channel's content program."""
     pool = [candidate for candidate in store.list_candidates(status="discovered", limit=500) if candidate.get("language") == language]
     published_topics = store.get_published_topic_keys(language)
+    published_moves = store.get_published_move_signatures(language)
     recent_types = store.get_recent_content_types(language, limit=6)
-    available = [candidate for candidate in pool if _candidate_topic_key(candidate) not in published_topics]
+    enriched_pool: list[dict[str, Any]] = []
+    for candidate in pool:
+        payload = dict(candidate.get("payload") or {})
+        topic_key = _candidate_topic_key(candidate)
+        payload.setdefault("topic_key", topic_key)
+        supplied_moves = payload.get("moves") or []
+        # Legacy candidates all carried the same three demo moves. Derive a
+        # stable variant from their topic before comparing them with history.
+        if supplied_moves == ["0,6-0,5", "0,3-0,4", "1,7-1,4"]:
+            variant_index = int(hashlib.sha256(topic_key.encode("utf-8")).hexdigest()[:8], 16) % 5
+            variants = [
+                ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+                ["1,9-2,7", "1,0-2,2", "1,7-1,4"],
+                ["1,7-1,4", "2,3-2,4", "7,9-6,7"],
+                ["0,9-0,5", "0,0-0,4", "2,6-2,5"],
+                ["3,9-4,8", "3,0-4,1", "7,7-7,4"],
+            ]
+            payload["moves"] = variants[variant_index]
+        enriched = dict(candidate)
+        enriched["payload"] = payload
+        enriched["topic_key"] = topic_key
+        enriched_pool.append(enriched)
+    available = []
+    for candidate in enriched_pool:
+        if _candidate_topic_key(candidate) in published_topics:
+            continue
+        payload = candidate.get("payload") or {}
+        signature = json.dumps({"fen": payload.get("fen"), "moves": payload.get("moves") or []}, ensure_ascii=False, sort_keys=True)
+        if signature in published_moves:
+            continue
+        available.append(candidate)
     if not available:
         return []
 
@@ -57,11 +89,19 @@ def select_diverse_candidates(store: LocalStore, *, language: str, limit: int) -
     else:
         selected = sorted(available, key=rank, reverse=True)[:1]
 
-    # For runs requesting more than one item, add only a different topic/type.
+    # For runs requesting more than one item, add only a different topic/type
+    # and a different board sequence within the same batch.
+    def move_signature(candidate: dict[str, Any]) -> str:
+        payload = candidate.get("payload") or {}
+        return json.dumps({"fen": payload.get("fen"), "moves": payload.get("moves") or []}, ensure_ascii=False, sort_keys=True)
+
     remaining = [candidate for candidate in available if candidate["id"] not in {item["id"] for item in selected}]
     while len(selected) < limit and remaining:
         used_types = {str(item.get("content_type") or "") for item in selected}
-        candidates = [candidate for candidate in remaining if candidate.get("content_type") not in used_types] or remaining
+        used_moves = {move_signature(item) for item in selected}
+        candidates = [candidate for candidate in remaining if candidate.get("content_type") not in used_types and move_signature(candidate) not in used_moves]
+        if not candidates:
+            candidates = [candidate for candidate in remaining if move_signature(candidate) not in used_moves] or remaining
         candidate = sorted(candidates, key=rank, reverse=True)[0]
         selected.append(candidate)
         remaining = [item for item in remaining if item["id"] != candidate["id"]]

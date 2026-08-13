@@ -516,6 +516,27 @@ class LocalStore:
             ).fetchall()
         return [str(row["content_type"]) for row in rows]
 
+    def get_published_move_signatures(self, language: str = "en", limit: int = 100) -> set[str]:
+        """Return signatures of board sequences already rendered/published."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT input_payload_json FROM video_jobs WHERE language = ? AND status IN ('completed', 'processing') ORDER BY updated_at DESC LIMIT ?",
+                (language, int(limit)),
+            ).fetchall()
+        signatures: set[str] = set()
+        for row in rows:
+            try:
+                payload = json.loads(row["input_payload_json"] or "{}")
+            except json.JSONDecodeError:
+                continue
+            signature = json.dumps(
+                {"fen": payload.get("fen"), "moves": payload.get("moves") or []},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            signatures.add(signature)
+        return signatures
+
     def get_provider_state(self, provider: str, model: str, slot_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
