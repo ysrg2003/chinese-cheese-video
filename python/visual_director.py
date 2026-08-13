@@ -31,6 +31,12 @@ ALL_VISUAL_KINDS = {
     "game_phase",
     "question_reveal",
     "result_summary",
+    "history_timeline",
+    "cultural_heritage",
+    "board_identity",
+    "rule_focus",
+    "coordinate_map",
+    "piece_spotlight",
 }
 FOUNDATION_ORDER = [
     "battlefield",
@@ -119,7 +125,7 @@ You are the visual director for an autonomous Xiangqi video pipeline. Return val
 
 Create exactly one scene for every supplied narration segment. Every scene must make the current spoken idea visible through a board change, highlight, path, arrow, before/after comparison, question, or result marker. Do not add decorative motion with no teaching purpose. Do not invent a game or move that is absent from the supplied data. Keep move scenes tied to the supplied movePly and coordinates. Keep captions short. Never write commands addressed to an animator as spoken narration. Use only the requested language and never Arabic.
 
-Permitted visualKind values: battlefield, two_armies, generals_goal, intersections, river_palaces, cannon_geometry, learning_roadmap, board_overview, army_setup, piece_movement, move_path, attack_line, defense_zone, threat_marker, capture_sequence, cannon_screen, before_after, comparison_split, game_phase, question_reveal, result_summary.
+Permitted visualKind values: battlefield, two_armies, generals_goal, intersections, river_palaces, cannon_geometry, learning_roadmap, board_overview, army_setup, piece_movement, move_path, attack_line, defense_zone, threat_marker, capture_sequence, cannon_screen, before_after, comparison_split, game_phase, question_reveal, result_summary, history_timeline, cultural_heritage, board_identity, rule_focus, coordinate_map, piece_spotlight.
 """.strip()
 
 VISUAL_DIRECTOR_INSTRUCTIONS_ZH = """
@@ -167,6 +173,115 @@ def _segment_payload(job: dict[str, Any]) -> list[dict[str, Any]]:
     return payload
 
 
+STATIC_SCENE_COPY = {
+    "history_timeline": {
+        "en": ("A Living History", "Show a three-stop timeline above the board: early origins, formal development, and modern Xiangqi."),
+        "zh": ("历史脉络", "在棋盘上方显示三段时间线：早期起源、定型发展和现代象棋。"),
+    },
+    "cultural_heritage": {
+        "en": ("Cultural Legacy", "Frame the board centre with a traditional seal motif and spotlight the two Generals as opposing armies."),
+        "zh": ("文化传承", "用传统印章纹样框住棋盘中央，并突出双方的将。"),
+    },
+    "board_identity": {
+        "en": ("The Xiangqi Board", "Trace nine files and ten ranks, then brighten the central river so the board structure is immediately visible."),
+        "zh": ("象棋棋盘", "描出九路十线，再点亮中间河界，让棋盘结构一目了然。"),
+    },
+    "rule_focus": {
+        "en": ("Rule In Focus", "Place a clear rule ring on the relevant board area and add an allowed-versus-not-allowed direction cue."),
+        "zh": ("规则重点", "在相关棋盘区域加上规则光圈，并显示允许与不允许的方向提示。"),
+    },
+    "coordinate_map": {
+        "en": ("Read The Map", "Label files and ranks around the board, then pulse the intersection used in the explanation."),
+        "zh": ("读懂坐标", "标出棋盘周围的线路，并脉冲讲解中的交叉点。"),
+    },
+    "piece_spotlight": {
+        "en": ("Piece Spotlight", "Spotlight the named piece on both armies and draw its legal direction or movement geometry."),
+        "zh": ("棋子聚焦", "突出双方对应的棋子，并绘制它的合法走向或移动几何。"),
+    },
+    "board_overview": {
+        "en": ("Board Overview", "Outline the playable grid and light the exact board region named in the explanation."),
+        "zh": ("棋盘概览", "勾勒可走的棋盘网格，并点亮口播提到的棋盘区域。"),
+    },
+    "army_setup": {
+        "en": ("Army Formation", "Tint the Red and Black starting zones separately and reveal their mirrored setup."),
+        "zh": ("军队阵形", "分别染色红黑双方的起始区域，并显示镜像摆法。"),
+    },
+    "two_armies": {
+        "en": ("Two Armies", "Split the board into Black and Red territory and guide both armies toward the river."),
+        "zh": ("两方军队", "将棋盘分为黑方与红方区域，并引导双方朝河界推进。"),
+    },
+    "intersections": {
+        "en": ("Play On Points", "Pulse the intersections and fade the square interiors to show where pieces actually stand."),
+        "zh": ("落子交叉点", "脉冲交叉点并淡化格内区域，显示棋子实际落点。"),
+    },
+    "river_palaces": {
+        "en": ("River And Palaces", "Highlight the river band and both palace boundaries, then point to the two Generals."),
+        "zh": ("河界与九宫", "高亮河界和两个九宫边界，再指向双方的将。"),
+    },
+    "cannon_geometry": {
+        "en": ("Cannon Geometry", "Draw a cannon line through exactly one screen to its target and fade invalid capture lines."),
+        "zh": ("炮的线路", "画出炮隔一个炮架到目标的线路，并淡化无效吃子线。"),
+    },
+    "generals_goal": {
+        "en": ("Protect The General", "Spotlight both Generals, draw a target line toward the opponent, and add a protective ring at home."),
+        "zh": ("保护自己的将", "突出双方的将，画出攻击对方的目标线，并给己方将加保护圈。"),
+    },
+    "learning_roadmap": {
+        "en": ("What Comes Next", "Animate a short learning path from board knowledge through setup, pieces, moves, games, and tactics."),
+        "zh": ("接下来学什么", "展示从棋盘、摆法、棋子、走法到对局和战术的学习路线。"),
+    },
+}
+
+
+def _lesson_profile(puzzle: dict[str, Any], job: dict[str, Any]) -> str:
+    context = " ".join(str(value or "") for value in (
+        puzzle.get("curriculum_lesson_key"), job.get("title"), puzzle.get("title"),
+        job.get("objective"), puzzle.get("objective"), job.get("content_type"), puzzle.get("content_type"),
+    )).lower()
+    if any(token in context for token in ("history", "origin", "ancient", "dynasty", "centur", "evolution", "heritage")):
+        return "history"
+    if any(token in context for token in ("coordinate", "rank", "file", "point", "intersection")):
+        return "coordinates"
+    if any(token in context for token in ("setup", "formation", "starting position", "arrange")):
+        return "setup"
+    if any(token in context for token in ("piece", "rook", "horse", "elephant", "advisor", "cannon", "pawn", "general")):
+        return "pieces"
+    if any(token in context for token in ("rule", "legal", "cannot", "must", "palace", "river")):
+        return "rules"
+    if any(token in context for token in ("board", "battlefield", "nine", "ten")):
+        return "board"
+    return "definition"
+
+
+def _static_kind_for(segment: dict[str, Any], index: int, profile: str) -> str:
+    text = " ".join(str(segment.get(key) or "") for key in ("text", "captionText", "kind")).lower()
+    keyword_kinds = (
+        (("river", "palace", "九宫", "河界"), "river_palaces"),
+        (("cannon", "screen", "炮架", "炮"), "cannon_geometry"),
+        (("general", "checkmate", "将死", "帅", "将"), "generals_goal"),
+        (("army", "armies", "red", "black", "军队", "红方", "黑方"), "two_armies"),
+        (("intersection", "point", "crossing", "交叉", "落点"), "intersections"),
+        (("file", "rank", "coordinate", "坐标", "线路"), "coordinate_map"),
+        (("rook", "horse", "elephant", "advisor", "pawn", "piece", "棋子", "车", "马", "相", "士", "兵"), "piece_spotlight"),
+        (("rule", "legal", "must", "cannot", "规则", "必须", "不能"), "rule_focus"),
+        (("next", "learn", "roadmap", "接下来", "学习"), "learning_roadmap"),
+    )
+    for markers, visual_kind in keyword_kinds:
+        if any(marker in text for marker in markers):
+            return visual_kind
+    profile_orders = {
+        "history": ("board_overview", "cultural_heritage", "history_timeline", "army_setup", "learning_roadmap"),
+        "definition": ("board_identity", "two_armies", "generals_goal", "intersections", "learning_roadmap"),
+        "board": ("board_identity", "intersections", "coordinate_map", "river_palaces", "learning_roadmap"),
+        "coordinates": ("coordinate_map", "intersections", "board_identity", "river_palaces", "learning_roadmap"),
+        "setup": ("army_setup", "two_armies", "board_identity", "river_palaces", "learning_roadmap"),
+        "pieces": ("piece_spotlight", "rule_focus", "board_overview", "intersections", "learning_roadmap"),
+        "rules": ("rule_focus", "board_identity", "river_palaces", "generals_goal", "learning_roadmap"),
+    }
+    order = profile_orders.get(profile, profile_orders["definition"])
+    return order[(index - 1) % len(order)]
+
+
 def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str, Any]]:
     language = _language(puzzle, job)
     key = str(puzzle.get("curriculum_lesson_key") or "")
@@ -177,6 +292,7 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
         return [dict(scene) for scene in FIRST_LESSON_FALLBACK]
 
     content_type = str(job.get("content_type") or puzzle.get("content_type") or "definition")
+    profile = _lesson_profile(puzzle, job)
     segments = _segment_payload(job)
     fallback: list[dict[str, Any]] = []
     intro_kind = {
@@ -187,28 +303,18 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
         "endgame": "result_summary",
         "trend_breakdown": "before_after",
         "skill_match": "comparison_split",
-    }.get(content_type, "board_overview")
-    intro_headline = {
-        "comparison": "Two Board Ideas",
-        "advanced_puzzle": "Find The Move",
-        "viewer_challenge": "Your Turn",
-        "full_game": "Game Phase",
-        "endgame": "Convert The Win",
-        "trend_breakdown": "The Turning Point",
-        "skill_match": "Plan Versus Plan",
-    }.get(content_type, "Board Idea")
+    }.get(content_type)
     for index, segment in enumerate(segments, start=1):
         move = segment.get("move") or {}
         is_move = segment.get("kind") == "move" and move
         if is_move:
             piece = str(move.get("piece") or "piece").title()
             kind = "cannon_screen" if piece.lower() == "cannon" else "move_path"
-            headline = f"Move {segment.get('movePly') or index} • {piece}"
-            instruction = "Show the supplied move path from its source point to its destination, then hold the destination highlight."
+            headline = f"Move {segment.get('movePly') or index} • {piece}" if language == "en" else f"第{segment.get('movePly') or index}手 • {piece}"
+            instruction = "Show the supplied move path from its source point to its destination, then hold the destination highlight." if language == "en" else "显示给定棋子从起点到终点的走法线路，然后保留终点高亮。"
         else:
-            kind = intro_kind if index == 1 else ("attack_line" if content_type in {"tactics", "opening"} else "before_after")
-            headline = intro_headline if index == 1 else "What Changes Next"
-            instruction = "Highlight the board region or line named by the spoken idea, then hold the explanatory marker."
+            kind = _static_kind_for(segment, index, profile) if not intro_kind else (intro_kind if index == 1 else _static_kind_for(segment, index, profile))
+            headline, instruction = STATIC_SCENE_COPY.get(kind, STATIC_SCENE_COPY["board_overview"])[language]
         caption = str(segment.get("captionText") or headline).strip()
         fallback.append({
             "index": index,
@@ -383,15 +489,28 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             continue
         if str(scene.get("visualKind") or "") not in allowed:
             errors.append(f"scene_{index} has unsupported visualKind")
-        if not str(scene.get("headline") or "").strip():
+        headline = str(scene.get("headline") or "").strip()
+        if not headline:
             errors.append(f"scene_{index} has no headline")
+        if headline.casefold() == "what changes next":
+            errors.append(f"scene_{index} uses the retired generic fallback headline")
         if not str(scene.get("visualInstruction") or "").strip():
             errors.append(f"scene_{index} has no visualInstruction")
     move_plies = {int(move.get("ply")) for move in job.get("moves", []) if isinstance(move, dict) and move.get("ply") is not None}
     latest_end = 0.0
+    previous_static_kind: str | None = None
+    fallback_source = str(job.get("visualStoryboardSource") or "") == "fallback"
     for index, segment in enumerate(segments, start=1):
-        if not segment.get("visualKind"):
+        visual_kind = str(segment.get("visualKind") or "")
+        if not visual_kind:
             errors.append(f"segment_{index} has no visualKind")
+        is_static_segment = segment.get("kind") != "move" and segment.get("movePly") is None
+        if fallback_source and is_static_segment and visual_kind and visual_kind == previous_static_kind:
+            errors.append(f"segment_{index} repeats fallback visualKind={visual_kind} without a visual change")
+        if is_static_segment and visual_kind:
+            previous_static_kind = visual_kind
+        elif not is_static_segment:
+            previous_static_kind = None
         if segment.get("kind") == "move" and segment.get("movePly") is not None and int(segment["movePly"]) not in move_plies:
             errors.append(f"segment_{index} references missing movePly={segment['movePly']}")
         try:

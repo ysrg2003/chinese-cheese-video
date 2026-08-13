@@ -6,7 +6,7 @@ Workflow run `31669851544` published `A Short History of Xiangqi` with `visualSt
 
 ## Evidence from the saved workflow artifact
 
-The workflow environment contained a masked `AI_ROUTER_GEMINI_KEYS_JSON` value and a masked `HF_TOKEN` value. `AI_ROUTER_HF_KEYS_JSON` was empty, which is valid because the router configuration declares `HF_TOKEN` as the fallback environment for the Hugging Face pool. The saved `ai_router.db` contained ten failed Hugging Face calls for the `director` operation, covering the ten configured Hugging Face models. Every failure was HTTP 401 with `Invalid username or password.`. No Gemini provider state was recorded, and no `visual_director:<lesson_key>` operation was recorded. Therefore, the artifact proves that the router did perform ordered Hugging Face model fallback for the director, but it does not prove that Gemini was loaded or that the storyboard request reached a usable Gemini key in that run.
+The workflow environment contained a masked `AI_ROUTER_GEMINI_KEYS_JSON` value and a masked `HF_TOKEN` value. `AI_ROUTER_HF_KEYS_JSON` was empty, so the router fell back to the single legacy `HF_TOKEN` environment value. The saved `ai_router.db` contained ten failed Hugging Face calls for the `director` operation, covering the ten configured Hugging Face models. Every failure was HTTP 401 with `Invalid username or password.`. No Gemini provider state was recorded, and no `visual_director:<lesson_key>` operation was recorded. Therefore, the artifact proves that the router did perform ordered Hugging Face model fallback for the director, but it does not prove that Gemini was loaded or that the storyboard request reached a usable Gemini key in that run. Future workflow artifacts must show the dedicated `visual_director:<lesson_key>` operation separately from the narration director operation; its absence is a diagnostic signal, not evidence of successful storyboard generation.
 
 ## Router contract
 
@@ -27,8 +27,12 @@ The expected GitHub Secret shape for Gemini is a JSON array such as:
 ]
 ```
 
-The Hugging Face pool may be an array in `AI_ROUTER_HF_KEYS_JSON` or a single valid access token in `HF_TOKEN`. The token used in the incident returned HTTP 401 and must be replaced with a valid, current token before expecting a successful Hugging Face fallback.
+The Hugging Face pool may be an array in `AI_ROUTER_HF_KEYS_JSON` or a single valid access token in `HF_TOKEN`. The production repository now stores a two-entry ordered pool in `AI_ROUTER_HF_KEYS_JSON`; the legacy `HF_TOKEN` remains only as compatibility fallback. Secret values must never be committed, written to artifacts, or copied into documentation. The token used in the incident returned HTTP 401 and must be rotated and replaced before expecting a successful Hugging Face fallback.
+
+## Visual-fallback hardening
+
+A provider outage is not allowed to produce a passive history or definition lesson. The deterministic fallback now opens such lessons with a board overview, reacts to named concepts such as armies, river/palaces, cannon geometry, coordinates, rules, and pieces, and ends a learning transition with a roadmap. Generic unnamed history beats may use a timeline or cultural-heritage overlay. The validation gate blocks the retired `What Changes Next` headline and adjacent repeated static fallback kinds before render or publication.
 
 ## Verification
 
-The AI Router test suite passes four tests, including ordered rotation and wrapper/API-key alias parsing. The Chinese Cheese Video suite passes 26 tests, TypeScript typecheck passes, workflow validation passes, and the preflight was tested with two Gemini entries plus one Hugging Face token without exposing their values.
+The AI Router suite covers ordered rotation and wrapper/API-key alias parsing. The Chinese Cheese Video suite now includes dedicated history and board-definition fallback cases in addition to move-storyboard validation. TypeScript is checked directly with the local compiler, and the workflow preflight verifies key-pool presence without exposing secret values. A real workflow run remains the final operational confirmation because only GitHub Actions receives the encrypted repository secrets.

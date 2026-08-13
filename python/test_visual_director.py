@@ -78,6 +78,56 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(result["visualStoryboard"][0]["visualKind"], "cannon_screen")
         self.assertEqual(result["narrationSegments"][0]["visualKind"], "cannon_screen")
 
+    def test_history_fallback_uses_specialized_visual_progression(self) -> None:
+        job = {
+            "id": "history-test",
+            "title": "A Short History of Xiangqi",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "definition",
+            "narration": "History introduction.",
+            "moves": [],
+            "captions": [],
+            "narrationSegments": [
+                {"kind": "intro", "text": "Xiangqi developed across centuries of Chinese culture."},
+                {"kind": "intro", "text": "The game became a contest between two disciplined armies."},
+                {"kind": "intro", "text": "Its board preserved a distinctive river and palace structure."},
+                {"kind": "intro", "text": "Today, players learn the board before the tactics."},
+            ],
+        }
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-002-history-of-xiangqi", "language": "en", "visual_mode": "storyboard"})
+        kinds = [scene["visualKind"] for scene in result["visualStoryboard"]]
+        self.assertEqual(kinds[0], "board_overview")
+        self.assertIn("two_armies", kinds)
+        self.assertIn("river_palaces", kinds)
+        self.assertEqual(kinds[-1], "learning_roadmap")
+        self.assertNotIn("before_after", kinds)
+        self.assertTrue(all(scene["headline"] != "What Changes Next" for scene in result["visualStoryboard"]))
+        self.assertEqual(validate_visual_storyboard(result), [])
+
+    def test_definition_fallback_maps_board_terms_to_rendered_visuals(self) -> None:
+        job = {
+            "id": "definition-test",
+            "title": "How the Xiangqi Board Works",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "definition",
+            "narration": "Board lesson.",
+            "moves": [],
+            "captions": [],
+            "narrationSegments": [
+                {"kind": "intro", "text": "The board has nine files and ten ranks."},
+                {"kind": "intro", "text": "Pieces stand on intersections, not inside squares."},
+                {"kind": "intro", "text": "The river separates the two sides."},
+                {"kind": "intro", "text": "Next, we learn the setup."},
+            ],
+        }
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-005-the-9x10-point-board", "language": "en", "visual_mode": "storyboard"})
+        self.assertEqual(
+            [scene["visualKind"] for scene in result["visualStoryboard"]],
+            ["coordinate_map", "intersections", "river_palaces", "learning_roadmap"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

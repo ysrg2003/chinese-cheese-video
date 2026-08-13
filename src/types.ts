@@ -68,7 +68,13 @@ export type VisualKind =
   | "comparison_split"
   | "game_phase"
   | "question_reveal"
-  | "result_summary";
+  | "result_summary"
+  | "history_timeline"
+  | "cultural_heritage"
+  | "board_identity"
+  | "rule_focus"
+  | "coordinate_map"
+  | "piece_spotlight";
 
 export type VisualStoryboardScene = {
   index: number;
