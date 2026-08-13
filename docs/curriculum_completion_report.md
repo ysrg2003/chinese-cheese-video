@@ -81,3 +81,11 @@ A 1080×1920 Remotion preview of the corrected first lesson showed the official 
 [2]: https://www.wxf-xiangqi.org/images/wxf-rules/2018_World_XiangQi_Rules_English2018.pdf "World Xiangqi Rules — English PDF"
 
 [3]: https://www.chess.com/blog/SamCopeland/how-to-play-chinese-chess "Chess.com — How To Play Chinese Chess (Xiangqi)"
+
+## Dynamic storyboard rerender
+
+After the originally published first video was deleted, the lesson was redesigned as a seven-scene foundation storyboard rather than being regenerated as a still-board narration. The AI visual director produced and validated the English scene script. The scenes cover the battlefield, two armies, the checkmate goal, intersections, river and palaces, cannon geometry, and the learning roadmap.
+
+The visual director is now part of the unattended pipeline. It uses the existing ordered AI Router and accepts only supported visual kinds, English learner-facing narration, short captions, and concrete renderer instructions. A deterministic fallback preserves the same educational structure if all external providers fail. The approved storyboard is stored in the curriculum data for reproducible rerendering of this first lesson.
+
+The full local render used `en-US-GuyNeural`, produced a 55-second 1080×1920 MP4, and aligned the seven scene windows to Edge-TTS timing. The visual review confirmed that the board changes with each idea: the coordinate markers sit outside the board, the two armies receive separate visual emphasis, the Generals are spotlighted for the checkmate goal, intersections are marked, the river and palaces are outlined, a real screen piece appears between cannon and target, and the roadmap appears at the end.

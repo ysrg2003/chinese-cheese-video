@@ -354,7 +354,7 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     topic_key = str(puzzle.get("topic_key") or topic).strip().lower()
     variant_index = int(hashlib.sha256(topic_key.encode("utf-8")).hexdigest()[:8], 16) % len(DEFAULT_MOVE_VARIANTS)
     supplied_moves = puzzle.get("moves")
-    static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "board_introduction", "setup_overview"}
+    static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "foundation_storyboard", "board_introduction", "setup_overview"}
     raw_moves = [] if static_visual else (supplied_moves or DEFAULT_MOVE_VARIANTS[variant_index])
     if source_kind in {"rss", "youtube_search"} and (not supplied_moves or supplied_moves == DEFAULT_MOVE_VARIANTS[0]):
         raw_moves = DEFAULT_MOVE_VARIANTS[variant_index]
@@ -410,7 +410,7 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
 def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[str, Any]) -> dict[str, Any]:
     fallback = _fallback(puzzle, language)
     result = dict(data)
-    static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "board_introduction", "setup_overview"}
+    static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "foundation_storyboard", "board_introduction", "setup_overview"}
     if static_visual:
         result["moves"] = []
         result["title"] = _safe_text(puzzle.get("title"), result.get("title"), language)

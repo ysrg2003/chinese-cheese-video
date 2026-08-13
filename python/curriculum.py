@@ -8,7 +8,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEN = "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r"
 
-STATIC_VISUAL_MODES = {"static_board", "board_introduction", "setup_overview"}
+STATIC_VISUAL_MODES = {"static_board", "foundation_storyboard", "board_introduction", "setup_overview"}
 
 TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "starting-pawn-cannon": [
@@ -83,6 +83,8 @@ def lesson_payload(lesson: dict[str, Any]) -> dict[str, Any]:
         "position_template": template,
         "visual_mode": visual_mode or None,
         "visual_focus": lesson.get("visual_focus"),
+        "visualStoryboard": lesson.get("visual_storyboard"),
+        "visualStoryboardSource": lesson.get("visual_storyboard_source"),
     }
 
 

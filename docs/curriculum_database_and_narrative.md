@@ -91,3 +91,11 @@ The local suite now passes 20 tests. It covers curriculum seeding, the static fi
 [2]: https://www.wxf-xiangqi.org/images/wxf-rules/2018_World_XiangQi_Rules_English2018.pdf "World Xiangqi Rules — English PDF"
 
 [3]: https://www.chess.com/blog/SamCopeland/how-to-play-chinese-chess "Chess.com — How To Play Chinese Chess (Xiangqi)"
+
+## Dynamic foundation storyboard
+
+The first lesson is no longer a static-board exception. It uses `visual_mode=foundation_storyboard` and carries a validated seven-scene storyboard. The AI visual director proposes learner-facing narration, a short caption, a headline, a permitted visual kind, and a renderer instruction. The supported visual kinds are `battlefield`, `two_armies`, `generals_goal`, `intersections`, `river_palaces`, `cannon_geometry`, and `learning_roadmap`.
+
+The production pipeline sends the storyboard request through the same ordered AI Router used by the director. A schema-and-language gate rejects malformed, non-English, or unsupported scenes. When all providers fail, a deterministic seven-scene educational fallback still produces meaningful visual changes rather than a silent voiceover over an unchanged board. For the regenerated first episode, the approved AI storyboard is stored in the curriculum JSON so that the public rerender is reproducible and does not depend on a transient provider response.
+
+Each scene is aligned to its Edge-TTS narration window. Remotion then applies the corresponding overlay: file/rank markers and a board frame, army tinting and direction markers, General spotlights and a goal line, glowing intersections, river and palace boundaries, an actual screen piece between cannon and target, or a roadmap beneath the board. This is intentional signaling and temporal contiguity: the picture changes at the same moment as the spoken idea.

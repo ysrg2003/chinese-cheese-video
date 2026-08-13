@@ -19,8 +19,70 @@
       "analysis_focus": "Identify the two armies, the 9x10 board, the river, the palaces, and the learning path.",
       "position_template": "board-only",
       "prerequisites": [],
-      "visual_mode": "static_board",
-      "visual_focus": "A complete starting board remains still while the narrator introduces the battlefield and the course."
+      "visual_mode": "foundation_storyboard",
+      "visual_focus": "Show the complete board as a sequence of seven visual explanations: battlefield, armies, generals, intersections, river and palaces, cannon geometry, and roadmap.",
+      "visual_storyboard": {
+        "title": "What Is Xiangqi?",
+        "scenes": [
+          {
+            "index": 1,
+            "narration": "Welcome to Xiangqi, Chinese chess. You’ll meet a battlefield where your plans truly matter from move one.",
+            "caption": "Chinese chess begins",
+            "visualKind": "battlefield",
+            "headline": "Meet Xiangqi",
+            "visualInstruction": "Show a top-down empty Xiangqi grid. Add a header label 'Xiangqi — Chinese Chess'. Apply a soft board-wide highlight to focus attention on the grid."
+          },
+          {
+            "index": 2,
+            "narration": "You see two mirrored armies facing each other across the board: red and black, evenly matched.",
+            "caption": "Mirrored armies",
+            "visualKind": "two_armies",
+            "headline": "Two Armies",
+            "visualInstruction": "Render the standard starting position. Add a vertical symmetry axis line through the center. Use short arrows from front ranks on both sides pointing toward the opposing side. Add small side labels 'Red' and 'Black' near each army."
+          },
+          {
+            "index": 3,
+            "narration": "Your mission is to checkmate the opposing General, giving no safe escape from continuous threat ever.",
+            "caption": "Checkmate wins",
+            "visualKind": "generals_goal",
+            "headline": "Win By Checkmate",
+            "visualInstruction": "Highlight both Generals with glows. Draw converging red attack arrows toward the enemy General. Mark X icons on all its adjacent escape intersections to show no safe squares."
+          },
+          {
+            "index": 4,
+            "narration": "You’re playing on nine files and ten ranks, with pieces standing on intersections, not inside squares.",
+            "caption": "Lines, not boxes",
+            "visualKind": "intersections",
+            "headline": "Lines And Points",
+            "visualInstruction": "Show an empty grid with bolded lines. Add bracket annotations reading 'nine files' along columns and 'ten ranks' along rows. Pulse small dots at each intersection. Crosshatch square interiors lightly to contrast with the intersection points."
+          },
+          {
+            "index": 5,
+            "narration": "Between you and your opponent, a river divides the sides, and each General begins within a walled palace.",
+            "caption": "River and palaces",
+            "visualKind": "river_palaces",
+            "headline": "River And Palaces",
+            "visualInstruction": "Display the standard board. Shade the central river row and add a 'River' label. Draw thin borders around both three-by-three palace areas with 'Palace' labels. Highlight each General inside its palace."
+          },
+          {
+            "index": 6,
+            "narration": "You’ll see the Cannon create distinctive line geometry, jumping a single screen to capture along straight firing lines.",
+            "caption": "Cannon’s lines",
+            "visualKind": "cannon_geometry",
+            "headline": "Cannon Geometry",
+            "visualInstruction": "Arrange a Cannon, one intervening screen piece, and a target in the same file. Use a dashed line from Cannon to screen, then a solid line to the target. Add a small 'screen' label above the middle piece. Fade forbidden capture lines where no screen exists."
+          },
+          {
+            "index": 7,
+            "narration": "In this course, you’ll learn the board, setup, pieces, moves, complete games, then tactics, step by step.",
+            "caption": "Your roadmap",
+            "visualKind": "learning_roadmap",
+            "headline": "Your Learning Path",
+            "visualInstruction": "Show a left-to-right timeline with arrows and text boxes: 'Board' → 'Setup' → 'Pieces' → 'Moves' → 'Games' → 'Tactics'. Add a checkmark style for progression."
+          }
+        ]
+      },
+      "visual_storyboard_source": "provided_ai"
     },
     {
       "lesson_key": "en-002-xiangqi-in-60-seconds",

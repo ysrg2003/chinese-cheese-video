@@ -1,4 +1,3 @@
-import React from "react";
 import {
   AbsoluteFill,
   Audio,
@@ -8,52 +7,36 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import type { BoardPiece, Move, VideoJob } from "./types";
+import type { BoardPiece, Move, VideoJob, VisualStoryboardScene } from "./types";
 import { activeMoveAtSecond, boardAtSecond } from "./xq";
 
 const COLORS = {
   ink: "#211a16",
   paper: "#f6ecd7",
-  paperDark: "#e3c79d",
   red: "#b63c2f",
   black: "#302c2a",
   gold: "#c58a3a",
   line: "#7f4d2f",
+  river: "#4a9ac2",
 };
 
 const UI_COPY = {
-  en: {
-    subtitle: "Fast tactical analysis in Xiangqi",
-    move: "Move",
-    footer: "xiangqi",
-    seconds: "s",
-  },
-  zh: {
-    subtitle: "中国象棋快速战术分析",
-    move: "第",
-    footer: "中国象棋",
-    seconds: "秒",
-  },
+  en: { subtitle: "Fast tactical analysis in Xiangqi", move: "Move", footer: "xiangqi", seconds: "s" },
+  zh: { subtitle: "中国象棋快速战术分析", move: "第", footer: "中国象棋", seconds: "秒" },
 } as const;
 
-const board = {
-  x: 70,
-  y: 390,
-  width: 940,
-  height: 1040,
-};
-
+const board = { x: 70, y: 390, width: 940, height: 1040 };
 const cell = 104;
-const grid = {
-  x: board.x + 2,
-  y: board.y + 2,
-  width: cell * 8,
-  height: cell * 9,
-};
+const grid = { x: board.x + 2, y: board.y + 2, width: cell * 8, height: cell * 9 };
+
+type VisualKind = VisualStoryboardScene["visualKind"];
 
 function pieceAsset(piece: BoardPiece): string {
-  const fileName = `${piece.side}_${piece.type}.svg`;
-  return staticFile(`assets/pieces/${fileName}`);
+  return staticFile(`assets/pieces/${piece.side}_${piece.type}.svg`);
+}
+
+function boardPoint(file: number, rank: number) {
+  return { x: board.x + 28 + file * cell, y: board.y + 28 + rank * cell };
 }
 
 function Board({ job, second }: { job: VideoJob; second: number }) {
@@ -63,77 +46,111 @@ function Board({ job, second }: { job: VideoJob; second: number }) {
   const activeTo = active ? active.to : undefined;
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: board.x,
-        top: board.y,
-        width: board.width,
-        height: board.height,
-        borderRadius: 30,
-        background: "linear-gradient(145deg, #d6a869, #b4773d)",
-        boxShadow: "0 22px 50px rgba(44, 25, 10, 0.32)",
-        padding: 26,
-        boxSizing: "border-box",
-      }}
-    >
+    <div style={{ position: "absolute", left: board.x, top: board.y, width: board.width, height: board.height, borderRadius: 30, background: "linear-gradient(145deg, #d6a869, #b4773d)", boxShadow: "0 22px 50px rgba(44, 25, 10, 0.32)", padding: 26, boxSizing: "border-box" }}>
       <svg width={grid.width + 4} height={grid.height + 4} viewBox={`0 0 ${grid.width + 4} ${grid.height + 4}`}>
         <rect x={0} y={0} width={grid.width + 4} height={grid.height + 4} rx={10} fill="#e7c18a" />
-        {Array.from({ length: 10 }).map((_, row) => (
-          <line
-            key={`row-${row}`}
-            x1={2}
-            y1={2 + row * cell}
-            x2={grid.width + 2}
-            y2={2 + row * cell}
-            stroke={COLORS.line}
-            strokeWidth={4}
-          />
-        ))}
-        {Array.from({ length: 9 }).map((_, column) => (
-          <line
-            key={`col-${column}`}
-            x1={2 + column * cell}
-            y1={2}
-            x2={2 + column * cell}
-            y2={grid.height + 2}
-            stroke={COLORS.line}
-            strokeWidth={4}
-          />
-        ))}
+        {Array.from({ length: 10 }).map((_, row) => <line key={`row-${row}`} x1={2} y1={2 + row * cell} x2={grid.width + 2} y2={2 + row * cell} stroke={COLORS.line} strokeWidth={4} />)}
+        {Array.from({ length: 9 }).map((_, column) => <line key={`col-${column}`} x1={2 + column * cell} y1={2} x2={2 + column * cell} y2={grid.height + 2} stroke={COLORS.line} strokeWidth={4} />)}
         <line x1={2} y1={2} x2={2 + 2 * cell} y2={2 + 2 * cell} stroke={COLORS.line} strokeWidth={4} />
         <line x1={2 + 2 * cell} y1={2} x2={2} y2={2 + 2 * cell} stroke={COLORS.line} strokeWidth={4} />
-        <line x1={2} y1={2 + 7 * cell} x2={2 + 2 * cell} y2={2 + 9 * cell} stroke={COLORS.line} strokeWidth={4} />
+        <line x1={2} y1={2 + 7 *cell} x2={2 + 2 * cell} y2={2 + 9 * cell} stroke={COLORS.line} strokeWidth={4} />
         <line x1={2 + 2 * cell} y1={2 + 7 * cell} x2={2} y2={2 + 9 * cell} stroke={COLORS.line} strokeWidth={4} />
-        <text x={grid.width / 2} y={5 * cell + 12} fill={COLORS.line} textAnchor="middle" fontSize={34} fontFamily="serif" opacity={0.74}>
-          楚 河　　　　　　 漢 界
-        </text>
-        {activeFrom && (
-          <circle cx={2 + activeFrom[0] * cell} cy={2 + activeFrom[1] * cell} r={32} fill="none" stroke={COLORS.gold} strokeWidth={8} opacity={0.9} />
-        )}
-        {activeTo && (
-          <circle cx={2 + activeTo[0] * cell} cy={2 + activeTo[1] * cell} r={32} fill="none" stroke={COLORS.red} strokeWidth={8} opacity={0.9} />
-        )}
+        <text x={grid.width / 2} y={5 * cell + 12} fill={COLORS.line} textAnchor="middle" fontSize={34} fontFamily="serif" opacity={0.74}>楚 河　　　　　　 漢 界</text>
+        {activeFrom && <circle cx={2 + activeFrom[0] * cell} cy={2 + activeFrom[1] * cell} r={32} fill="none" stroke={COLORS.gold} strokeWidth={8} opacity={0.9} />}
+        {activeTo && <circle cx={2 + activeTo[0] * cell} cy={2 + activeTo[1] * cell} r={32} fill="none" stroke={COLORS.red} strokeWidth={8} opacity={0.9} />}
       </svg>
       {pieces.map((piece) => {
         const [column, row] = piece.position;
-        return (
-          <Img
-            key={piece.id}
-            src={pieceAsset(piece)}
-            style={{
-              position: "absolute",
-              width: 94,
-              height: 94,
-              objectFit: "contain",
-              left: 26 + column * cell - 47,
-              top: 26 + row * cell - 47,
-              filter: active?.to[0] === column && active?.to[1] === row ? "drop-shadow(0 0 18px rgba(255, 231, 143, .95))" : "drop-shadow(0 8px 5px rgba(67, 32, 8, .35))",
-            }}
-          />
-        );
+        return <Img key={piece.id} src={pieceAsset(piece)} style={{ position: "absolute", width: 94, height: 94, objectFit: "contain", left: 26 + column * cell - 47, top: 26 + row * cell - 47, filter: active?.to[0] === column && active?.to[1] === row ? "drop-shadow(0 0 18px rgba(255, 231, 143, .95))" : "drop-shadow(0 8px 5px rgba(67, 32, 8, .35))" }} />;
       })}
     </div>
+  );
+}
+
+function Marker({ children, left, top, opacity = 1, tone = "gold" }: { children: React.ReactNode; left: number; top: number; opacity?: number; tone?: "gold" | "red" | "black" | "blue" }) {
+  const palette = {
+    gold: { background: "rgba(111, 70, 20, .91)", border: "#f8cf74" },
+    red: { background: "rgba(148, 39, 31, .92)", border: "#ffd1b6" },
+    black: { background: "rgba(31, 29, 30, .90)", border: "#d9d9d9" },
+    blue: { background: "rgba(22, 81, 119, .91)", border: "#bde7ff" },
+  }[tone];
+  return <div style={{ position: "absolute", left, top, transform: "translate(-50%, -50%)", opacity, zIndex: 5, padding: "7px 12px", borderRadius: 999, background: palette.background, border: `2px solid ${palette.border}`, color: "#fff9ed", fontSize: 18, lineHeight: 1, fontWeight: 800, letterSpacing: 0.4, whiteSpace: "nowrap", boxShadow: "0 7px 16px rgba(45, 24, 9, .28)" }}>{children}</div>;
+}
+
+function FoundationVisuals({ job, second }: { job: VideoJob; second: number }) {
+  if (job.visual_mode !== "foundation_storyboard" || !job.narrationSegments?.length) return null;
+  const active = job.narrationSegments.find((segment) => segment.visualKind && second >= Number(segment.startSec ?? 0) && second < Number(segment.endSec ?? -1));
+  if (!active?.visualKind) return null;
+  const start = Number(active.startSec ?? 0);
+  const end = Number(active.endSec ?? start + 1);
+  const enterEnd = Math.min(start + 0.42, end);
+  const exitStart = Math.max(enterEnd, end - 0.26);
+  const opacity = interpolate(second, [start, enterEnd, exitStart, end], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const kind = active.visualKind as VisualKind;
+  const headline = active.headline || job.visualStoryboard?.find((scene) => scene.index === active.sceneId)?.headline || "Xiangqi Lab";
+  const redGeneral = boardPoint(4, 9);
+  const blackGeneral = boardPoint(4, 0);
+  const cannon = boardPoint(1, 7);
+  const screen = boardPoint(1, 4);
+  const target = boardPoint(1, 2);
+
+  return (
+    <>
+      <div style={{ position: "absolute", top: 268, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
+        <div style={{ padding: "10px 24px", borderRadius: 18, background: "rgba(33, 26, 22, .88)", color: "#fff8e9", fontSize: 27, fontWeight: 900, letterSpacing: 1.1, boxShadow: "0 10px 24px rgba(64, 35, 12, .24)" }}>{headline}</div>
+      </div>
+
+      {kind === "battlefield" && <>
+        <div style={{ position: "absolute", left: board.x + 26, top: board.y - 18, width: grid.width, display: "flex", justifyContent: "space-between", opacity, zIndex: 5 }}>
+{Array.from({ length: 9 }).map((_, index) => <Marker key={index} left={index * cell} top={0} opacity={opacity}>F{index + 1}</Marker>)}</div>
+        <div style={{ position: "absolute", left: board.x - 18, top: board.y + 28, height: grid.height, display: "flex", flexDirection: "column", justifyContent: "space-between", opacity, zIndex: 5 }}>
+{Array.from({ length: 10 }).map((_, index) => <Marker key={index} left={0} top={index * cell} opacity={opacity}>R{index + 1}</Marker>)}</div>
+        <div style={{ position: "absolute", left: board.x + 44, top: board.y + 44, width: board.width - 88, height: board.height - 88, border: "5px solid rgba(255, 241, 182, .92)", borderRadius: 18, boxShadow: "inset 0 0 0 7px rgba(197, 138, 58, .24)", opacity, zIndex: 3 }} />
+      </>}
+
+      {kind === "two_armies" && <>
+        <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28, width: grid.width, height: grid.height / 2 - 10, background: "linear-gradient(180deg, rgba(35,35,35,.48), rgba(35,35,35,.08))", opacity: opacity * .9, zIndex: 3, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28 + grid.height / 2 + 10, width: grid.width, height: grid.height / 2 - 10, background: "linear-gradient(0deg, rgba(182,60,47,.42), rgba(182,60,47,.06))", opacity: opacity * .9, zIndex: 3, pointerEvents: "none" }} />
+        <Marker left={board.x + board.width / 2} top={board.y + 255} opacity={opacity} tone="black">BLACK ARMY ↓</Marker>
+        <Marker left={board.x + board.width / 2} top={board.y + board.height - 255} opacity={opacity} tone="red">↑ RED ARMY</Marker>
+      </>}
+
+      {kind === "generals_goal" && <>
+        {[{ point: blackGeneral, label: "BLACK GENERAL", tone: "black" as const }, { point: redGeneral, label: "RED GENERAL", tone: "red" as const }].map(({ point, label, tone }) => <div key={label} style={{ position: "absolute", left: point.x - 62, top: point.y - 62, width: 124, height: 124, borderRadius: 999, border: `7px solid ${tone === "red" ? "#ff876d" : "#f5e0ad"}`, boxShadow: `0 0 0 12px ${tone === "red" ? "rgba(182,60,47,.24)" : "rgba(35,35,35,.22)"}`, opacity, zIndex: 5 }} />)}
+        <Marker left={blackGeneral.x} top={blackGeneral.y + 88} opacity={opacity} tone="black">BLACK GENERAL</Marker>
+        <Marker left={redGeneral.x} top={redGeneral.y - 88} opacity={opacity} tone="red">RED GENERAL</Marker>
+        <svg style={{ position: "absolute", inset: 0, zIndex: 4, opacity }} width="1080" height="1920"><line x1={redGeneral.x} y1={redGeneral.y - 110} x2={blackGeneral.x} y2={blackGeneral.y + 110} stroke="#f3ca62" strokeWidth="8" strokeDasharray="18 14" /><polygon points={`${blackGeneral.x},${blackGeneral.y + 84} ${blackGeneral.x - 17},${blackGeneral.y + 122} ${blackGeneral.x + 17},${blackGeneral.y + 122}`} fill="#f3ca62" /></svg>
+      </>}
+
+      {kind === "intersections" && <>
+        <svg style={{ position: "absolute", inset: 0, zIndex: 4, opacity }} width="1080" height="1920">{Array.from({ length: 10 }).flatMap((_, row) => Array.from({ length: 9 }).map((__, column) => <circle key={`${column}-${row}`} cx={boardPoint(column, row).x} cy={boardPoint(column, row).y} r={row === 4 && column === 4 ? 18 : 5} fill={row === 4 && column === 4 ? "#fff2ad" : "rgba(255, 246, 210, .72)"} stroke={row === 4 && column === 4 ? COLORS.red : "none"} strokeWidth={5} />))}</svg>
+        <Marker left={boardPoint(4, 4).x} top={boardPoint(4, 4).y - 64} opacity={opacity} tone="gold">INTERSECTION</Marker>
+        <div style={{ position: "absolute", left: boardPoint(4, 4).x - 50, top: boardPoint(4, 4).y - 50, width: 100, height: 100, border: "4px dashed rgba(255,255,255,.75)", opacity, zIndex: 4 }} />
+      </>}
+
+      {kind === "river_palaces" && <>
+        <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28 + 4 * cell, width: grid.width, height: cell, background: "rgba(60, 145, 194, .54)", borderTop: "4px solid #b9eaff", borderBottom: "4px solid #b9eaff", opacity, zIndex: 3 }} />
+        <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28, width: 2 * cell, height: 2 * cell, border: "7px solid #f5ce74", borderRadius: 12, opacity, zIndex: 4 }} />
+        <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28 + 7 * cell, width: 2 * cell, height: 2 * cell, border: "7px solid #f5ce74", borderRadius: 12, opacity, zIndex: 4 }} />
+        <Marker left={board.x + board.width / 2} top={board.y + 28 + 4.5 * cell} opacity={opacity} tone="blue">THE RIVER</Marker>
+        <Marker left={board.x + 28 + cell} top={board.y + 28 + 2.25 * cell} opacity={opacity}>BLACK PALACE</Marker>
+        <Marker left={board.x + 28 + cell} top={board.y + 28 + 6.75 * cell} opacity={opacity}>RED PALACE</Marker>
+      </>}
+
+      {kind === "cannon_geometry" && <>
+        <svg style={{ position: "absolute", inset: 0, zIndex: 5, opacity }} width="1080" height="1920"><line x1={cannon.x} y1={cannon.y} x2={target.x} y2={target.y} stroke="#ff6658" strokeWidth="12" strokeLinecap="round" /><line x1={cannon.x} y1={cannon.y} x2={target.x} y2={target.y} stroke="#fff1ac" strokeWidth="4" strokeDasharray="18 12" /><circle cx={target.x} cy={target.y} r="46" fill="none" stroke="#ff6658" strokeWidth="8" /></svg>
+        <Img src={staticFile("assets/pieces/black_pawn.svg")} style={{ position: "absolute", left: screen.x - 47, top: screen.y - 47, width: 94, height: 94, objectFit: "contain", opacity, zIndex: 6, filter: "drop-shadow(0 0 16px rgba(255,224,120,.95))" }} />
+        <div style={{ position: "absolute", left: screen.x - 34, top: screen.y - 86, width: 68, height: 44, borderRadius: 999, background: "rgba(246, 222, 139, .97)", color: "#442214", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, textAlign: "center", opacity, zIndex: 7, boxShadow: "0 0 0 8px rgba(255,224,120,.30)" }}>ONE SCREEN</div>
+        <Marker left={cannon.x + 88} top={cannon.y + 32} opacity={opacity} tone="red">CANNON</Marker>
+        <Marker left={target.x + 94} top={target.y - 20} opacity={opacity} tone="black">TARGET</Marker>
+      </>}
+
+      {kind === "learning_roadmap" && <>
+        <div style={{ position: "absolute", left: 60, right: 60, top: 1474, height: 128, opacity, zIndex: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          {["BOARD", "SETUP", "PIECES", "MOVES", "GAMES", "TACTICS"].map((step, index, steps) => <div key={step} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}><div style={{ flex: 1, padding: "12px 6px", borderRadius: 15, background: index < 2 ? "#b63c2f" : "#3a312b", color: "#fff9e9", fontSize: 18, fontWeight: 900, textAlign: "center", boxShadow: "0 8px 16px rgba(56,31,13,.22)" }}>{step}</div>{index < steps.length - 1 && <div style={{ margin: "0 5px", color: COLORS.red, fontWeight: 900, fontSize: 26 }}>→</div>}</div>)}
+        </div>
+      </>}
+    </>
   );
 }
 
@@ -141,78 +158,18 @@ function Caption({ job, second }: { job: VideoJob; second: number }) {
   const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
   if (!cue) return null;
   const isIntro = cue.captionPosition === "bottom" || cue.kind === "intro";
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: isIntro ? undefined : 342,
-        bottom: isIntro ? 112 : undefined,
-        left: isIntro ? 82 : 104,
-        right: isIntro ? 82 : 104,
-        minHeight: isIntro ? 54 : 42,
-        maxHeight: isIntro ? 170 : 72,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        padding: isIntro ? "12px 22px" : "8px 18px",
-        borderRadius: 16,
-        background: isIntro ? "rgba(31, 22, 17, .78)" : "rgba(31, 22, 17, .82)",
-        color: "#fff8e9",
-        fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif",
-        fontSize: isIntro ? 24 : 22,
-        lineHeight: 1.18,
-        fontWeight: 700,
-        direction: "ltr",
-        overflow: "hidden",
-        whiteSpace: "normal",
-      }}
-    >
-      {cue.text}
-    </div>
-  );
+  return <div style={{ position: "absolute", top: isIntro ? undefined : 342, bottom: isIntro ? 112 : undefined, left: isIntro ? 82 : 104, right: isIntro ? 82 : 104, minHeight: isIntro ? 54 : 42, maxHeight: isIntro ? 170 : 72, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: isIntro ? "12px 22px" : "8px 18px", borderRadius: 16, background: "rgba(31, 22, 17, .82)", color: "#fff8e9", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif", fontSize: isIntro ? 24 : 22, lineHeight: 1.18, fontWeight: 700, direction: "ltr", overflow: "hidden", whiteSpace: "normal", zIndex: 10 }}>{cue.text}</div>;
 }
 
-function pointLabel(point: [number, number]): string {
-  return `F${point[0] + 1}R${point[1] + 1}`;
-}
-
-function pieceLabel(piece: Move["piece"]): string {
-  return {
-    pawn: "Pawn",
-    rook: "Rook",
-    knight: "Horse",
-    bishop: "Elephant",
-    advisor: "Advisor",
-    king: "General",
-    cannon: "Cannon",
-  }[piece];
-}
+function pointLabel(point: [number, number]): string { return `F${point[0] + 1}R${point[1] + 1}`; }
+function pieceLabel(piece: Move["piece"]): string { return { pawn: "Pawn", rook: "Rook", knight: "Horse", bishop: "Elephant", advisor: "Advisor", king: "General", cannon: "Cannon" }[piece]; }
 
 function MoveCard({ move, second, language }: { move?: Move; second: number; language: VideoJob["language"] }) {
   const opacity = move ? interpolate(second, [move.startSec - 0.25, move.startSec, move.endSec, move.endSec + 0.35], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 0;
   if (!move) return null;
   const copy = UI_COPY[language];
   const moveText = `${pieceLabel(move.piece)} ${pointLabel(move.from)}→${pointLabel(move.to)}`;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 258,
-        left: 74,
-        right: 74,
-        display: "flex",
-        justifyContent: "center",
-        opacity,
-        direction: "ltr",
-      }}
-    >
-      <div style={{ background: COLORS.red, color: "#fff9ed", borderRadius: 22, padding: "10px 26px", fontSize: 28, lineHeight: 1.15, fontWeight: 800, boxShadow: "0 12px 24px rgba(92, 20, 14, .25)" }}>
-        <span>{language === "zh" ? `${copy.move}${move.ply}` : `${copy.move} ${move.ply}`} • {moveText}</span>
-        <span style={{ display: "block", marginTop: 4, fontSize: 20, fontWeight: 600, opacity: 0.92 }}>{move.label}</span>
-      </div>
-    </div>
-  );
+  return <div style={{ position: "absolute", top: 258, left: 74, right: 74, display: "flex", justifyContent: "center", opacity, direction: "ltr", zIndex: 11 }}><div style={{ background: COLORS.red, color: "#fff9ed", borderRadius: 22, padding: "10px 26px", fontSize: 28, lineHeight: 1.15, fontWeight: 800, boxShadow: "0 12px 24px rgba(92, 20, 14, .25)" }}><span>{language === "zh" ? `${copy.move}${move.ply}` : `${copy.move} ${move.ply}`} • {moveText}</span><span style={{ display: "block", marginTop: 4, fontSize: 20, fontWeight: 600, opacity: 0.92 }}>{move.label}</span></div></div>;
 }
 
 export const XiangqiComposition: React.FC<VideoJob> = (job) => {
@@ -223,23 +180,20 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   const copy = UI_COPY[job.language];
   const introOpacity = interpolate(frame, [0, 18, 42], [0, 1, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleScale = interpolate(frame, [0, 36], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : copy.subtitle;
 
-  return (
-    <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
-      <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
-      <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})` }}>
-        <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
-        <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
-        <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{copy.subtitle}</div>
-      </div>
-      <Board job={job} second={second} />
-      <MoveCard move={active} second={second} language={job.language} />
-      <Caption job={job} second={second} />
-      {job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
-      <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr" }}>
-        <span>{copy.footer} • {job.language.toUpperCase()}</span>
-        <span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span>
-      </div>
-    </AbsoluteFill>
-  );
+  return <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
+    <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
+    <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
+      <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
+      <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
+      <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div>
+    </div>
+    <Board job={job} second={second} />
+    <FoundationVisuals job={job} second={second} />
+    <MoveCard move={active} second={second} language={job.language} />
+    <Caption job={job} second={second} />
+    {job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
+    <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>
+  </AbsoluteFill>;
 };

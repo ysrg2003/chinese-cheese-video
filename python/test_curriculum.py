@@ -41,16 +41,17 @@ class CurriculumStoreTests(unittest.TestCase):
         self.assertIsNotNone(next_candidate)
         self.assertEqual(next_candidate["payload"]["curriculum_lesson_key"], "en-003-a-short-history-of-xiangqi")
 
-    def test_first_lesson_is_board_introduction_without_training_moves(self) -> None:
+    def test_first_lesson_is_visual_storyboard_without_training_moves(self) -> None:
         candidate = self.store.get_next_curriculum_candidate("en")
         assert candidate is not None
         payload = candidate["payload"]
         self.assertTrue(payload["objective"])
         self.assertTrue(payload["analysis_focus"])
         self.assertTrue(payload["hook"])
-        self.assertEqual(payload["visual_mode"], "static_board")
+        self.assertEqual(payload["visual_mode"], "foundation_storyboard")
         self.assertEqual(payload["position_template"], "board-only")
         self.assertEqual(payload["moves"], [])
+        self.assertIn("battlefield", payload["visual_focus"].lower())
 
     def test_piece_lesson_keeps_teaching_move_examples(self) -> None:
         curriculum = load_curriculum()

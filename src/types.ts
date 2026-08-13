@@ -47,6 +47,15 @@ export type CaptionCue = {
   source?: string;
 };
 
+export type VisualStoryboardScene = {
+  index: number;
+  visualKind: "battlefield" | "two_armies" | "generals_goal" | "intersections" | "river_palaces" | "cannon_geometry" | "learning_roadmap";
+  headline: string;
+  narration: string;
+  caption: string;
+  visualInstruction?: string;
+};
+
 export type NarrationSegment = {
   kind: "intro" | "move";
   text: string;
@@ -56,6 +65,9 @@ export type NarrationSegment = {
   startSec?: number;
   endSec?: number;
   source?: string;
+  sceneId?: number;
+  visualKind?: VisualStoryboardScene["visualKind"];
+  headline?: string;
 };
 
 export type VideoJob = {
@@ -79,8 +91,10 @@ export type VideoJob = {
   difficulty?: string;
   format?: string;
   playlist_key?: string;
-  visual_mode?: "static_board" | "board_introduction" | "setup_overview";
+  visual_mode?: "static_board" | "foundation_storyboard" | "board_introduction" | "setup_overview";
   visual_focus?: string;
+  visualStoryboard?: VisualStoryboardScene[];
+  visualStoryboardSource?: "ai_router" | "provided_ai" | "fallback";
 };
 
 export const BOARD_COLUMNS = 9;

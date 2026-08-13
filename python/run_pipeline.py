@@ -17,6 +17,7 @@ from supabase_store import SupabaseStore
 from tts import align_narration_segments_to_cues, captions_from_narration, captions_from_narration_segments, captions_from_word_cues, synthesize
 from timing import finalize_timing
 from youtube_publisher import publish_video
+from visual_director import add_visual_storyboard
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -139,6 +140,7 @@ def main() -> int:
     try:
         director_data = generate_director_data(puzzle, store=store, operation=f"director:{job_id}")
         job = make_job(job_id, puzzle, director_data)
+        job = add_visual_storyboard(job, puzzle, store=store)
         if store:
             # A JSON input may be a one-off puzzle that is not yet registered in the local catalog.
             puzzle_id = None if args.input else puzzle.get("id")
