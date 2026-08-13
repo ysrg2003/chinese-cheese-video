@@ -71,6 +71,36 @@ FALLBACKS = {
 
 ARABIC_RE = re.compile(r"[\u0600-\u06ff]")
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
+FALLBACK_NARRATION_BY_TYPE = {
+    "en": {
+        "definition": "The board is more than a grid: the river, palaces, and open files determine which plans are possible. This lesson turns one position into a practical rule you can use immediately.",
+        "rules": "One Xiangqi rule changes the value of every move that follows. Learn the rule, see the legal consequence on the board, and use it to avoid a common beginner mistake.",
+        "opening": "A strong Xiangqi opening is a plan, not a memorized move list. Develop with purpose, protect the critical line, and watch how the first exchanges shape the middlegame.",
+        "tactics": "This tactical pattern begins with a threat that looks small. Count the forcing replies, keep the cannon line open, and calculate the final move before you capture anything.",
+        "endgame": "An endgame advantage only matters if you can convert it. Improve the king and remaining pieces, restrict the opponent's choices, and make each final move serve the win.",
+        "full_game": "Follow this complete Xiangqi game as a compact story: the opening plan, the turning point, and the final conversion. The goal is to understand why each phase leads to the next.",
+        "advanced_puzzle": "Pause before the reveal and search for the forcing sequence. Look for checks, captures, and threats in that order, then compare the winning line with the tempting mistake.",
+        "comparison": "Xiangqi shares ideas with other board games, but its river, palaces, and cannon geometry change the calculation. Compare the two systems through one concrete position.",
+        "trend_breakdown": "We turn this current Xiangqi topic into a board lesson: identify the key idea, test the natural reply, and follow the tactical change that matters to players.",
+        "skill_match": "Two skill profiles meet in this structured Xiangqi lesson. Watch how the stronger plan handles space, tempo, and threats, then take one practical improvement for your own games.",
+        "viewer_challenge": "Your move comes first. Pause the position, choose the most forcing continuation, and use the reveal to compare your calculation with the board's best idea.",
+    },
+    "zh": {
+        "definition": "棋盘不只是九条直线：河界、九宫和开放线路决定了计划。这个课程把一个局面变成可以马上使用的实战原则。",
+        "rules": "一条中国象棋规则会改变后续每一步的价值。先理解规则，再观察它在棋盘上的结果，避免常见的入门错误。",
+        "opening": "好的中国象棋开局不是死记着法，而是清晰的计划。带着目的出子，保护关键线路，观察交换如何影响中局。",
+        "tactics": "这个战术从一个看似微小的威胁开始。按将军、吃子和威胁计算，保持炮路畅通，再决定是否交换。",
+        "endgame": "残局优势只有转化为胜势才有意义。改善将帅和剩余棋子的协调，限制对手选择，让每一步都服务于胜利。",
+        "full_game": "跟随这盘完整棋局，观察开局计划、转折点和最后的取胜过程，理解每个阶段为什么会进入下一个阶段。",
+        "advanced_puzzle": "揭晓之前先暂停思考，按将军、吃子和威胁寻找强制手段，再比较最佳变化与诱人的错误。",
+        "comparison": "中国象棋与其他棋类有共同思想，但河界、九宫和炮的几何关系改变了计算。通过一个具体局面比较它们。",
+        "trend_breakdown": "我们把这个中国象棋热点转化为棋盘课程：找出核心观点，测试自然回应，再观察真正重要的战术变化。",
+        "skill_match": "两个水平档次在这堂结构化课程中相遇。观察更强的计划如何处理空间、节奏和威胁，再带走一个实战改进。",
+        "viewer_challenge": "先轮到你走。暂停局面，选择最有强制力的续着，再用答案比较自己的计算与最佳思路。",
+    },
+}
+
+
 DEFAULT_MOVE_VARIANTS = [
     ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
     ["1,9-2,7", "1,0-2,2", "1,7-1,4"],
@@ -194,14 +224,17 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
 
     fallback = FALLBACKS[language]
     title = _safe_text(puzzle.get("title"), fallback["title"], language)
+    content_type = str(puzzle.get("content_type") or "definition")
     supplied_narration = puzzle.get("narration")
     if source_kind in {"rss", "youtube_search"} and topic and topic != fallback["title"]:
         if language == "zh":
-            narration = f"今天的中国象棋话题是：{topic}。我们把这个主题转化为棋盘上的实战课程，观察第一步如何制造压力，再看对手的回应和最后的战术变化。"
+            narration = f"今天的中国象棋话题是：{topic}。{FALLBACK_NARRATION_BY_TYPE['zh'].get('trend_breakdown', '')}"
         else:
-            narration = f"Today’s Xiangqi topic is {topic}. We turn that headline into a board lesson: watch the first move create pressure, test the natural reply, and follow the tactical change that decides the line."
+            narration = f"Today’s Xiangqi topic is {topic}. {FALLBACK_NARRATION_BY_TYPE['en'].get('trend_breakdown', '')}"
+    elif supplied_narration:
+        narration = _safe_text(supplied_narration, FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"]), language)
     else:
-        narration = _safe_text(supplied_narration, fallback["narration"], language)
+        narration = FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"])
     duration = estimate_content_duration(
         narration,
         moves,

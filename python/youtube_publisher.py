@@ -309,7 +309,7 @@ def ensure_playlist(
 def _is_playlist_not_found(exc: Exception) -> bool:
     status = getattr(getattr(exc, "resp", None), "status", None)
     message = str(exc)
-    return status == 404 and ("playlistNotFound" in message or "playlist" in message.lower())
+    return str(status) == "404" and ("playlistNotFound" in message or "playlist" in message.lower())
 
 
 def add_to_playlist(service: Any, playlist_id: str, video_id: str) -> dict[str, Any]:
@@ -381,13 +381,18 @@ def publish_video(
             # the bad ID, then create/use a fresh playlist when permitted.
             if not _is_playlist_not_found(exc):
                 raise
+            stale_playlist_id = playlist_id
+            playlist_id = None
             playlist_id, playlist_created = ensure_playlist(
                 service,
                 playlist_config,
                 auto_create=auto_create,
-                exclude_ids={playlist_id},
+                exclude_ids={stale_playlist_id} if stale_playlist_id else set(),
                 force_create=True,
             )
+            # Newly-created YouTube playlists can take a short moment before
+            # playlistItems.list accepts them consistently.
+            time.sleep(2)
             playlist_response = add_to_playlist(service, playlist_id, video_id)
     except Exception as exc:
         return {

@@ -110,6 +110,22 @@ class YouTubePublisherLocalTests(unittest.TestCase):
             second = store.get_youtube_publication("candidate-1-en")
             self.assertEqual(second["video_id"], "video-123")
             self.assertEqual(second["status"], "published")
+            store.upsert_youtube_publication(
+                "candidate-1-en",
+                "en",
+                "tactics",
+                "uploaded_playlist_pending",
+                video_id="video-123",
+                video_url="https://www.youtube.com/watch?v=video-123",
+                playlist_id=None,
+                playlist_url=None,
+                metadata={"title": "A test"},
+                error_message="playlistNotFound",
+            )
+            pending = store.get_youtube_publication("candidate-1-en")
+            self.assertEqual(pending["video_id"], "video-123")
+            self.assertIsNone(pending["playlist_id"])
+            self.assertEqual(pending["status"], "uploaded_playlist_pending")
 
 
 if __name__ == "__main__":
