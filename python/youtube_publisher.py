@@ -261,16 +261,31 @@ def upload_video(service: Any, video_path: str | Path, metadata: dict[str, Any])
     return response
 
 
-def ensure_playlist(service: Any, playlist_config: dict[str, Any], *, auto_create: bool = True) -> tuple[str, bool]:
+def ensure_playlist(
+    service: Any,
+    playlist_config: dict[str, Any],
+    *,
+    auto_create: bool = True,
+    exclude_ids: set[str] | None = None,
+) -> tuple[str, bool]:
+    """Resolve a playlist by title, ignoring IDs known to be stale or deleted.
+
+    YouTube can occasionally return a playlist entry that subsequently produces
+    playlistNotFound when playlistItems.list is called.  The caller can pass
+    that ID in ``exclude_ids`` so the next resolution creates a fresh playlist
+    instead of looping on the same stale identifier.
+    """
     title = str(playlist_config["title"])
+    excluded = {str(value) for value in (exclude_ids or set()) if str(value).strip()}
     page_token: str | None = None
     while True:
         response = _execute_with_backoff(
             lambda: service.playlists().list(part="id,snippet", mine=True, maxResults=50, pageToken=page_token)
         )
         for item in response.get("items", []):
-            if item.get("snippet", {}).get("title") == title:
-                return str(item["id"]), False
+            playlist_id = str(item.get("id") or "").strip()
+            if playlist_id and playlist_id not in excluded and item.get("snippet", {}).get("title") == title:
+                return playlist_id, False
         page_token = response.get("nextPageToken")
         if not page_token:
             break
@@ -288,6 +303,12 @@ def ensure_playlist(service: Any, playlist_config: dict[str, Any], *, auto_creat
     if not response.get("id"):
         raise YouTubePublisherError(f"Playlist creation returned no id: {title}")
     return str(response["id"]), True
+
+
+def _is_playlist_not_found(exc: Exception) -> bool:
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    message = str(exc)
+    return status == 404 and ("playlistNotFound" in message or "playlist" in message.lower())
 
 
 def add_to_playlist(service: Any, playlist_id: str, video_id: str) -> dict[str, Any]:
@@ -341,16 +362,38 @@ def publish_video(
         video_id = str(video_response["id"])
     playlists = load_playlists(playlists_path)
     playlist_config = playlists["playlists"][metadata["playlist_key"]]
+    playlist_id: str | None = None
+    playlist_created = False
     try:
         auto_create = os.getenv("YOUTUBE_AUTO_CREATE_PLAYLISTS", "1").lower() in {"1", "true", "yes"}
         auto_create = auto_create and bool(playlists.get("auto_create", True))
-        playlist_id, playlist_created = ensure_playlist(service, playlist_config, auto_create=auto_create)
-        playlist_response = add_to_playlist(service, playlist_id, video_id)
+        existing_playlist_id = str((existing_publication or {}).get("playlist_id") or "").strip()
+        if existing_playlist_id:
+            playlist_id = existing_playlist_id
+        else:
+            playlist_id, playlist_created = ensure_playlist(service, playlist_config, auto_create=auto_create)
+        try:
+            playlist_response = add_to_playlist(service, playlist_id, video_id)
+        except Exception as exc:
+            # A stale/deleted playlist must not strand a public video or cause
+            # an endless retry loop. Resolve the title again while excluding
+            # the bad ID, then create/use a fresh playlist when permitted.
+            if not _is_playlist_not_found(exc):
+                raise
+            playlist_id, playlist_created = ensure_playlist(
+                service,
+                playlist_config,
+                auto_create=auto_create,
+                exclude_ids={playlist_id},
+            )
+            playlist_response = add_to_playlist(service, playlist_id, video_id)
     except Exception as exc:
         return {
             "status": "uploaded_playlist_pending",
             "video_id": video_id,
             "video_url": f"https://www.youtube.com/watch?v={video_id}",
+            "playlist_id": playlist_id,
+            "playlist_url": f"https://www.youtube.com/playlist?list={playlist_id}" if playlist_id else None,
             "metadata": metadata,
             "error_message": str(exc),
         }

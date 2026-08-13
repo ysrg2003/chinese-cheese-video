@@ -33,20 +33,34 @@ class FakeUploadRequest:
 class FakePlaylists:
     def __init__(self):
         self.created = []
+        self.stale = False
 
     def list(self, **kwargs):
+        if self.stale:
+            return FakeRequest({"items": [{"id": "playlist-stale", "snippet": {"title": "EN — Tactics 101"}}]})
         return FakeRequest({"items": []})
 
     def insert(self, **kwargs):
         self.created.append(kwargs)
+        self.stale = False
         return FakeRequest({"id": "playlist-001"})
+
+
+class FakeHttpError(Exception):
+    def __init__(self, message="playlistNotFound"):
+        super().__init__(message)
+        self.resp = type("Response", (), {"status": 404})()
 
 
 class FakePlaylistItems:
     def __init__(self):
         self.inserted = []
+        self.raise_stale_once = False
 
     def list(self, **kwargs):
+        if self.raise_stale_once and kwargs.get("playlistId") == "playlist-stale":
+            self.raise_stale_once = False
+            raise FakeHttpError()
         return FakeRequest({"items": []})
 
     def insert(self, **kwargs):
@@ -93,6 +107,35 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
         self.assertEqual(len(service.playlist_items_api.inserted), 1)
         resource = service.playlist_items_api.inserted[0]["body"]["snippet"]["resourceId"]
         self.assertEqual(resource["videoId"], "video-001")
+
+    def test_stale_playlist_is_replaced_without_reupload(self):
+        service = FakeService()
+        service.playlists_api.stale = True
+        service.playlist_items_api.raise_stale_once = True
+        job = {
+            "id": "job-stale-playlist",
+            "title": "Replace a Stale Playlist",
+            "language": "en",
+            "content_type": "tactics",
+            "narration": "The video already exists; replace only the deleted playlist.",
+        }
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1"}, clear=False), patch.object(
+            youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
+        ):
+            result = youtube_publisher.publish_video(
+                video.name,
+                job,
+                policy_path=POLICY,
+                playlists_path=PLAYLISTS,
+                service=service,
+                existing_publication={"video_id": "video-existing"},
+            )
+        self.assertEqual(result["status"], "published")
+        self.assertEqual(result["video_id"], "video-existing")
+        self.assertEqual(result["playlist_id"], "playlist-001")
+        self.assertEqual(len(service.playlists_api.created), 1)
+        resource = service.playlist_items_api.inserted[0]["body"]["snippet"]["resourceId"]
+        self.assertEqual(resource["videoId"], "video-existing")
 
     def test_retry_reuses_existing_video_id(self):
         service = FakeService()
