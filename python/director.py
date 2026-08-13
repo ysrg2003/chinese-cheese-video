@@ -109,6 +109,60 @@ DEFAULT_MOVE_VARIANTS = [
     ["3,9-4,8", "3,0-4,1", "7,7-7,4"],
 ]
 
+PIECE_NAMES = {
+    "pawn": {"en": "pawn", "zh": "兵"},
+    "rook": {"en": "rook", "zh": "车"},
+    "knight": {"en": "horse", "zh": "马"},
+    "bishop": {"en": "elephant", "zh": "象"},
+    "advisor": {"en": "advisor", "zh": "士"},
+    "king": {"en": "general", "zh": "将"},
+    "cannon": {"en": "cannon", "zh": "炮"},
+}
+
+
+def _coordinate_label(point: Any, language: str) -> str:
+    try:
+        column, row = int(point[0]), int(point[1])
+    except (TypeError, ValueError, IndexError):
+        return "the marked square" if language == "en" else "标记位置"
+    if language == "zh":
+        return f"{column + 1}路{row + 1}行"
+    return f"file {column + 1}, rank {row + 1}"
+
+
+def _move_spoken_text(move: dict[str, Any], language: str, content_type: str) -> str:
+    ply = int(move.get("ply", 1))
+    piece = PIECE_NAMES.get(str(move.get("piece", "pawn")), PIECE_NAMES["pawn"])[language]
+    side = "red" if str(move.get("side", "red")) == "red" else "black"
+    if language == "zh":
+        return f"第{ply}步，{side}方{piece}从{_coordinate_label(move.get('from'), language)}到{_coordinate_label(move.get('to'), language)}，观察关键压力。"
+    purpose = {
+        "opening": "opening pressure",
+        "tactics": "the forcing threat",
+        "endgame": "the conversion",
+        "advanced_puzzle": "the forcing idea",
+        "full_game": "the game plan",
+        "comparison": "the different geometry",
+        "skill_match": "the skill test",
+        "viewer_challenge": "your best reply",
+        "definition": "the board rule",
+        "rules": "the legal rule",
+        "trend_breakdown": "the practical idea",
+    }.get(content_type, "the practical idea")
+    return f"Move {ply}: {side} {piece}, from {_coordinate_label(move.get('from'), language)} to {_coordinate_label(move.get('to'), language)}. Focus: {purpose}."
+
+
+def build_narration_segments(base_narration: str, moves: list[dict[str, Any]], language: str, content_type: str) -> tuple[str, list[dict[str, Any]]]:
+    segments: list[dict[str, Any]] = []
+    intro = str(base_narration or "").strip()
+    if intro:
+        segments.append({"kind": "intro", "text": intro})
+    for move in moves:
+        spoken_text = _move_spoken_text(move, language, content_type)
+        move["spokenText"] = spoken_text
+        segments.append({"kind": "move", "movePly": int(move.get("ply", len(segments))), "text": spoken_text})
+    return " ".join(segment["text"] for segment in segments).strip(), segments
+
 
 def normalize_language(value: Any) -> str:
     value = str(value or DEFAULT_LANGUAGE).lower().strip()
@@ -235,6 +289,7 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
         narration = _safe_text(supplied_narration, FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"]), language)
     else:
         narration = FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"])
+    narration, narration_segments = build_narration_segments(narration, moves, language, content_type)
     duration = estimate_content_duration(
         narration,
         moves,
@@ -249,7 +304,7 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     ]
     moves = retime_moves(moves, duration)
     captions = clamp_captions(captions, duration)
-    return {"title": title, "narration": narration, "moves": moves, "captions": captions, "durationInSeconds": duration}
+    return {"title": title, "narration": narration, "moves": moves, "captions": captions, "narrationSegments": narration_segments, "durationInSeconds": duration}
 
 
 def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[str, Any]) -> dict[str, Any]:
@@ -268,6 +323,10 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     if not isinstance(raw_captions, list) or any(_text_is_invalid(cue.get("text", ""), language) for cue in raw_captions if isinstance(cue, dict)):
         result["captions"] = fallback["captions"]
     result["moves"] = result.get("moves") if isinstance(result.get("moves"), list) else fallback["moves"]
+    if not isinstance(result.get("narrationSegments"), list) or not result.get("narrationSegments"):
+        result["narration"], result["narrationSegments"] = build_narration_segments(
+            result["narration"], result["moves"], language, str(puzzle.get("content_type") or "definition")
+        )
     result["durationInSeconds"] = estimate_content_duration(
         result["narration"],
         result["moves"],
@@ -321,6 +380,7 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
         "narration": clean_data.get("narration", FALLBACKS[language]["narration"]),
         "moves": clean_data.get("moves", []),
         "captions": clean_data.get("captions", []),
+        "narrationSegments": clean_data.get("narrationSegments", []),
         "audioSrc": "",
         "durationInSeconds": duration,
         "theme": puzzle.get("theme", "wood"),

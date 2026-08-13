@@ -14,7 +14,7 @@ from typing import Any
 from director import generate_director_data, make_job, normalize_language
 from local_store import LocalStore
 from supabase_store import SupabaseStore
-from tts import captions_from_narration, captions_from_word_cues, synthesize
+from tts import align_narration_segments_to_cues, captions_from_narration, captions_from_narration_segments, captions_from_word_cues, synthesize
 from timing import finalize_timing
 from youtube_publisher import publish_video
 
@@ -154,12 +154,19 @@ def main() -> int:
             shutil.copy2(generated_audio, public_dir / "voice.mp3")
             job["audioSrc"] = f"generated/{job_id}/voice.mp3"
             audio_duration = word_cues[-1]["endSec"] if word_cues else None
-            if word_cues:
-                # Captions are a transcript of the generated audio, not an
-                # independently paraphrased editorial layer. This prevents the
-                # on-screen text from disagreeing with the spoken narration.
-                job["captions"] = captions_from_word_cues(word_cues, job["language"])
-                job["captions_source"] = "edge_tts_word_boundaries"
+            if job.get("narrationSegments"):
+                # The spoken move sentence, its caption, and the board move
+                # all share one audio-derived window. This prevents a full
+                # narration sentence from covering later move labels.
+                job["narrationSegments"] = align_narration_segments_to_cues(
+                    job["narrationSegments"], word_cues, job["language"],
+                    fallback_duration=float(job.get("durationInSeconds") or 0),
+                )
+                job["captions"] = captions_from_narration_segments(job["narrationSegments"], job["language"])
+                job["captions_source"] = "move_narration_audio"
+            elif word_cues:
+                job["captions"] = captions_from_word_cues(word_cues, job["language"], max_units=4, max_duration=1.6)
+                job["captions_source"] = "edge_tts_word_boundaries_short"
             else:
                 job["captions"] = captions_from_narration(job["narration"], float(job.get("durationInSeconds") or 0), job["language"])
                 job["captions_source"] = "narration_fallback"

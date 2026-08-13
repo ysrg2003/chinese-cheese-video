@@ -55,6 +55,26 @@ def retime_moves(moves: list[dict[str, Any]], duration: float) -> list[dict[str,
     return retimed
 
 
+def sync_moves_to_narration_segments(moves: list[dict[str, Any]], segments: list[dict[str, Any]], duration: float) -> list[dict[str, Any]]:
+    """Use the audio-aligned move segment windows for board animation."""
+    by_ply = {
+        int(segment["movePly"]): segment
+        for segment in segments
+        if segment.get("kind") == "move" and segment.get("movePly") is not None and segment.get("startSec") is not None and segment.get("endSec") is not None
+    }
+    synced: list[dict[str, Any]] = []
+    for move in moves:
+        clone = dict(move)
+        segment = by_ply.get(int(move.get("ply", 0)))
+        if segment:
+            start = max(0.0, min(float(segment.get("startSec", 0.0)), duration))
+            end = max(start + 0.05, min(float(segment.get("endSec", duration)), duration))
+            clone["startSec"] = round(start, 3)
+            clone["endSec"] = round(end, 3)
+        synced.append(clone)
+    return synced
+
+
 def clamp_captions(captions: list[dict[str, Any]], duration: float) -> list[dict[str, Any]]:
     clean: list[dict[str, Any]] = []
     for cue in captions:
@@ -97,5 +117,7 @@ def finalize_timing(
     )
     job["durationInSeconds"] = duration
     job["moves"] = retime_moves(job.get("moves", []), duration)
-    job["captions"] = fit_captions(job.get("captions", []), duration)
+    timed_segments = [segment for segment in job.get("narrationSegments", []) if segment.get("startSec") is not None and segment.get("endSec") is not None]
+    job["moves"] = sync_moves_to_narration_segments(job["moves"], timed_segments, duration)
+    job["captions"] = clamp_captions(job.get("captions", []), duration) if timed_segments else fit_captions(job.get("captions", []), duration)
     return job

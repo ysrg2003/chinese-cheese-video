@@ -27,6 +27,7 @@ export type Move = {
   startSec: number;
   endSec: number;
   label: string;
+  spokenText?: string;
   captured?: PieceType;
 };
 
@@ -34,6 +35,18 @@ export type CaptionCue = {
   startSec: number;
   endSec: number;
   text: string;
+  kind?: "intro" | "move" | "speech";
+  movePly?: number;
+  source?: string;
+};
+
+export type NarrationSegment = {
+  kind: "intro" | "move";
+  text: string;
+  movePly?: number;
+  startSec?: number;
+  endSec?: number;
+  source?: string;
 };
 
 export type VideoJob = {
@@ -44,6 +57,8 @@ export type VideoJob = {
   narration: string;
   moves: Move[];
   captions: CaptionCue[];
+  narrationSegments?: NarrationSegment[];
+  captions_source?: string;
   audioSrc: string;
   durationInSeconds: number;
   theme?: "wood" | "paper";

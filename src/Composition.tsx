@@ -138,44 +138,65 @@ function Board({ job, second }: { job: VideoJob; second: number }) {
 }
 
 function Caption({ job, second }: { job: VideoJob; second: number }) {
-  const cue = job.captions.find((item) => second >= item.startSec && second <= item.endSec);
+  const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
+  if (!cue) return null;
   return (
     <div
       style={{
         position: "absolute",
-        left: 80,
-        right: 80,
-        bottom: 124,
-        minHeight: 94,
+        top: 342,
+        left: 104,
+        right: 104,
+        minHeight: 42,
+        maxHeight: 64,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         textAlign: "center",
-        padding: "18px 26px",
-        borderRadius: 24,
-        background: "rgba(31, 22, 17, .88)",
+        padding: "8px 18px",
+        borderRadius: 16,
+        background: "rgba(31, 22, 17, .82)",
         color: "#fff8e9",
         fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif",
-        fontSize: 38,
+        fontSize: 22,
+        lineHeight: 1.18,
         fontWeight: 700,
         direction: "ltr",
-        opacity: cue ? 1 : 0,
+        overflow: "hidden",
+        whiteSpace: "normal",
       }}
     >
-      {cue?.text ?? ""}
+      {cue.text}
     </div>
   );
+}
+
+function pointLabel(point: [number, number]): string {
+  return `F${point[0] + 1}R${point[1] + 1}`;
+}
+
+function pieceLabel(piece: Move["piece"]): string {
+  return {
+    pawn: "Pawn",
+    rook: "Rook",
+    knight: "Horse",
+    bishop: "Elephant",
+    advisor: "Advisor",
+    king: "General",
+    cannon: "Cannon",
+  }[piece];
 }
 
 function MoveCard({ move, second, language }: { move?: Move; second: number; language: VideoJob["language"] }) {
   const opacity = move ? interpolate(second, [move.startSec - 0.25, move.startSec, move.endSec, move.endSec + 0.35], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) : 0;
   if (!move) return null;
   const copy = UI_COPY[language];
+  const moveText = `${pieceLabel(move.piece)} ${pointLabel(move.from)}→${pointLabel(move.to)}`;
   return (
     <div
       style={{
         position: "absolute",
-        top: 280,
+        top: 258,
         left: 74,
         right: 74,
         display: "flex",
@@ -184,8 +205,9 @@ function MoveCard({ move, second, language }: { move?: Move; second: number; lan
         direction: "ltr",
       }}
     >
-      <div style={{ background: COLORS.red, color: "#fff9ed", borderRadius: 999, padding: "16px 36px", fontSize: 34, fontWeight: 800, boxShadow: "0 12px 24px rgba(92, 20, 14, .25)" }}>
-        {language === "zh" ? `${copy.move}${move.ply}${move.label}` : `${copy.move} ${move.ply}: ${move.label}`}
+      <div style={{ background: COLORS.red, color: "#fff9ed", borderRadius: 22, padding: "10px 26px", fontSize: 28, lineHeight: 1.15, fontWeight: 800, boxShadow: "0 12px 24px rgba(92, 20, 14, .25)" }}>
+        <span>{language === "zh" ? `${copy.move}${move.ply}` : `${copy.move} ${move.ply}`} • {moveText}</span>
+        <span style={{ display: "block", marginTop: 4, fontSize: 20, fontWeight: 600, opacity: 0.92 }}>{move.label}</span>
       </div>
     </div>
   );

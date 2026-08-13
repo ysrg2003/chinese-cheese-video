@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,76 @@ async def _synthesize(text: str, voice: str, audio_path: Path) -> list[dict[str,
                 end = start + chunk["duration"] / 10_000_000
                 cues.append({"startSec": round(start, 3), "endSec": round(end, 3), "text": chunk["text"]})
     return cues
+
+
+def _spoken_units(text: Any, language: Any = "en") -> list[str]:
+    normalized_language = normalize_language(language)
+    value = str(text or "")
+    if normalized_language == "zh":
+        return re.findall(r"[\u3400-\u9fff]|[A-Za-z0-9]+", value)
+    return re.findall(r"[\w’'-]+", value)
+
+
+def align_narration_segments_to_cues(
+    segments: list[dict[str, Any]],
+    cues: list[dict[str, Any]],
+    language: Any = "en",
+    *,
+    fallback_duration: float | None = None,
+) -> list[dict[str, Any]]:
+    """Attach exact audio windows to intro/move narration segments in order."""
+    if not segments:
+        return []
+    if not cues:
+        duration = float(fallback_duration or 0.0)
+        weights = [max(1, len(_spoken_units(segment.get("text"), language))) for segment in segments]
+        total = float(sum(weights)) or 1.0
+        cursor = 0.0
+        aligned: list[dict[str, Any]] = []
+        for index, (segment, weight) in enumerate(zip(segments, weights)):
+            end = duration if index == len(segments) - 1 else cursor + duration * weight / total
+            aligned.append({**segment, "startSec": round(cursor, 3), "endSec": round(max(cursor + 0.05, end), 3), "source": "narration_segments"})
+            cursor = end
+        return aligned
+
+    aligned = []
+    cue_index = 0
+    for segment in segments:
+        expected = max(1, len(_spoken_units(segment.get("text"), language)))
+        start = None
+        end = None
+        consumed = 0
+        while cue_index < len(cues) and consumed < expected:
+            cue = cues[cue_index]
+            cue_index += 1
+            cue_text = str(cue.get("text", "")).strip()
+            units = len(_spoken_units(cue_text, language)) or 1
+            start = float(cue.get("startSec", 0.0)) if start is None else start
+            end = max(float(cue.get("endSec", 0.0)), float(start) + 0.05)
+            consumed += units
+        if start is None:
+            start = float(aligned[-1]["endSec"]) if aligned else 0.0
+            end = start + 0.05
+        aligned.append({**segment, "startSec": round(start, 3), "endSec": round(max(start + 0.05, end or start), 3), "source": "edge_tts_segment_alignment"})
+    return aligned
+
+
+def captions_from_narration_segments(segments: list[dict[str, Any]], language: Any = "en") -> list[dict[str, Any]]:
+    """Use one short spoken segment per cue; no caption persists across moves."""
+    captions = []
+    for segment in segments:
+        text = str(segment.get("text", "")).strip()
+        if not text:
+            continue
+        captions.append({
+            "startSec": float(segment.get("startSec", 0.0)),
+            "endSec": float(segment.get("endSec", 0.05)),
+            "text": text,
+            "kind": segment.get("kind", "speech"),
+            "movePly": segment.get("movePly"),
+            "source": segment.get("source", "move_narration_audio"),
+        })
+    return captions
 
 
 def captions_from_word_cues(
