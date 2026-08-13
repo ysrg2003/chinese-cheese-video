@@ -155,6 +155,27 @@ function FoundationVisuals({ job, second }: { job: VideoJob; second: number }) {
 }
 
 
+function GeneratedVisualAsset({ job, second }: { job: VideoJob; second: number }) {
+  if (!job.narrationSegments?.length || !job.visualStoryboard?.length) return null;
+  const active = job.narrationSegments.find((segment) => segment.sceneId && second >= Number(segment.startSec ?? 0) && second < Number(segment.endSec ?? -1));
+  if (!active?.sceneId) return null;
+  const asset = job.visualStoryboard.find((scene) => scene.index === active.sceneId)?.generatedAsset;
+  if (!asset?.src) return null;
+  const start = Number(active.startSec ?? 0);
+  const end = Number(active.endSec ?? start + 1);
+  const revealEnd = Math.min(start + 0.38, end);
+  // This is an establishing shot, not a replacement for the board diagram.
+  // It clears quickly so exact rules, pieces, and coordinates remain legible.
+  const fadeStart = Math.max(revealEnd, Math.min(end - 0.24, start + 0.88));
+  const fadeEnd = Math.max(fadeStart, Math.min(end, fadeStart + 0.28));
+  const opacity = interpolate(second, [start, revealEnd, fadeStart, fadeEnd], [0, 0.92, 0.92, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const cameraScale = interpolate(second, [start, Math.max(start + 0.01, fadeEnd)], [1.02, 1.075], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return <div style={{ position: "absolute", inset: 0, zIndex: 2, opacity, overflow: "hidden", background: COLORS.ink }}>
+    <Img src={staticFile(asset.src)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transform: `scale(${cameraScale})` }} />
+    <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(20,14,10,.28) 0%, rgba(20,14,10,.06) 46%, rgba(20,14,10,.46) 100%)" }} />
+  </div>;
+}
+
 function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   if (job.visual_mode !== "storyboard" || !job.narrationSegments?.length) return null;
   const active = job.narrationSegments.find((segment) => segment.visualKind && second >= Number(segment.startSec ?? 0) && second < Number(segment.endSec ?? -1));
@@ -287,6 +308,7 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
       {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
     </div>
     <Board job={job} second={second} />
+    <GeneratedVisualAsset job={job} second={second} />
     <FoundationVisuals job={job} second={second} />
     <StoryboardVisuals job={job} second={second} />
     <MoveCard move={active} second={second} language={job.language} />

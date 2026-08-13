@@ -59,6 +59,11 @@ jobs:
       TTS_VOICE_ZH: zh-CN-YunjianNeural
       USE_WORD_CAPTIONS: "1"
       VISUAL_STORYBOARD_ENABLED: "1"
+      CHATGPT_VISUAL_API_BASE: ${{ vars.CHATGPT_VISUAL_API_BASE || 'https://yousefsg-chatgpt-api.hf.space' }}
+      CHATGPT_VISUAL_API_KEY: ${{ secrets.CHATGPT_VISUAL_API_KEY }}
+      VISUAL_ASSET_ENABLED: ${{ vars.VISUAL_ASSET_ENABLED || '1' }}
+      VISUAL_ASSET_MAX_PER_VIDEO: ${{ vars.VISUAL_ASSET_MAX_PER_VIDEO || '2' }}
+      VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
 
     steps:
       - name: Checkout repository and persistent SQLite catalog
@@ -145,6 +150,7 @@ jobs:
             output/jobs/**/*.mp4
             public/generated/**/job.json
             public/generated/**/voice.mp3
+            public/generated/**/assets/**
           if-no-files-found: warn
 
       - name: Commit SQLite catalog and workflow state

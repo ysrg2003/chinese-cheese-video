@@ -18,6 +18,7 @@ from tts import align_narration_segments_to_cues, captions_from_narration, capti
 from timing import finalize_timing
 from youtube_publisher import publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
+from visual_assets import add_generated_visual_assets
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -141,6 +142,10 @@ def main() -> int:
         director_data = generate_director_data(puzzle, store=store, operation=f"director:{job_id}")
         job = make_job(job_id, puzzle, director_data)
         job = add_visual_storyboard(job, puzzle, store=store)
+        # Generated images are optional editorial establishing shots. The
+        # deterministic Xiangqi board remains available if planning, service
+        # authentication, image validation, or download fails.
+        job = add_generated_visual_assets(job, puzzle, stage_dir, public_dir)
         if store:
             # A JSON input may be a one-off puzzle that is not yet registered in the local catalog.
             puzzle_id = None if args.input else puzzle.get("id")

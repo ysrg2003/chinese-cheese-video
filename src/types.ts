@@ -76,6 +76,11 @@ export type VisualKind =
   | "coordinate_map"
   | "piece_spotlight";
 
+export type GeneratedVisualAsset = {
+  src: string;
+  assetRole: "editorial_backdrop" | "historical_inset" | "cultural_inset" | "concept_inset";
+};
+
 export type VisualStoryboardScene = {
   index: number;
   segmentIndex?: number;
@@ -85,6 +90,7 @@ export type VisualStoryboardScene = {
   narration: string;
   caption: string;
   visualInstruction?: string;
+  generatedAsset?: GeneratedVisualAsset;
 };
 
 export type NarrationSegment = {

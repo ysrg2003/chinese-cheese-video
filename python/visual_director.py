@@ -496,6 +496,19 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             errors.append(f"scene_{index} uses the retired generic fallback headline")
         if not str(scene.get("visualInstruction") or "").strip():
             errors.append(f"scene_{index} has no visualInstruction")
+        asset = scene.get("generatedAsset")
+        if asset is not None:
+            if not isinstance(asset, dict):
+                errors.append(f"scene_{index} generatedAsset is not an object")
+            else:
+                src = str(asset.get("src") or "")
+                role = str(asset.get("assetRole") or "")
+                if scene.get("movePly") is not None:
+                    errors.append(f"scene_{index} attaches generatedAsset to a move scene")
+                if not src.startswith("generated/") or ".." in src:
+                    errors.append(f"scene_{index} generatedAsset has unsafe source")
+                if role not in {"editorial_backdrop", "historical_inset", "cultural_inset", "concept_inset"}:
+                    errors.append(f"scene_{index} generatedAsset has unsupported role")
     move_plies = {int(move.get("ply")) for move in job.get("moves", []) if isinstance(move, dict) and move.get("ply") is not None}
     latest_end = 0.0
     previous_static_kind: str | None = None

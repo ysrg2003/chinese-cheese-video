@@ -49,6 +49,16 @@ class VisualDirectorTests(unittest.TestCase):
         }
         self.assertEqual(validate_visual_storyboard(job, audio_duration=4.0), [])
 
+    def test_storyboard_validation_blocks_generated_asset_on_move_scene(self) -> None:
+        job = {
+            "visual_mode": "storyboard",
+            "visualStoryboard": [{"index": 1, "visualKind": "move_path", "headline": "Move One", "visualInstruction": "Show the supplied path.", "movePly": 1, "generatedAsset": {"src": "generated/example/assets/scene.png", "assetRole": "editorial_backdrop"}}],
+            "moves": [{"ply": 1, "from": [1, 7], "to": [1, 4]}],
+            "narrationSegments": [{"kind": "move", "movePly": 1, "visualKind": "move_path", "startSec": 0.0, "endSec": 4.0}],
+        }
+        errors = validate_visual_storyboard(job, audio_duration=4.0)
+        self.assertTrue(any("generatedAsset to a move scene" in error for error in errors))
+
     def test_storyboard_validation_blocks_scene_past_audio(self) -> None:
         job = {
             "visual_mode": "storyboard",

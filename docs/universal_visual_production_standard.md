@@ -14,9 +14,25 @@ The Remotion composition reads the active narration segment at the current video
 
 A **storyboard** in this system is a small, structured JSON production plan. It binds each spoken segment to exactly one renderer-supported visual change. A scene records its segment index, optional move ply, short headline, caption, `visualKind`, and concrete `visualInstruction`. It is **not an image-generation request**, not a collection of AI-generated still images, and not a request to a text-to-image model.
 
-The AI Router receives only a compact text-and-data request: the video language, lesson identifier and objective, content type, hook or analysis focus, narration segments, and supplied move coordinates where they exist. It returns JSON only. Remotion then draws the final video directly from the existing Xiangqi board, SVG piece assets, labels, paths, rings, regions, timeline, and teaching markers. As a result, the pipeline has no image-generation dependency, no image prompt cost, and no risk that an invented image will contradict the actual board position.
+The AI Router receives only a compact text-and-data request: the video language, lesson identifier and objective, content type, hook or analysis focus, narration segments, and supplied move coordinates where they exist. It returns JSON only. Remotion then draws the core teaching layer directly from the existing Xiangqi board, SVG piece assets, labels, paths, rings, regions, timeline, and teaching markers.
 
 > A valid storyboard is an **editing specification**, not artwork: “while this sentence is spoken, highlight this board concept in this supported way.”
+
+## Optional generated editorial assets
+
+A second, independent stage may add **zero to two generated visual assets** to a job. `visual_assets.py` sends the completed storyboard and spoken context to the AI Router again, but this time as a constrained **asset planner**. The planner may select only a non-move scene that genuinely benefits from a contextual establishing shot, such as a historical-scroll image for an origin story or a cultural detail for a game-identity lesson. It returns a short JSON plan with a scene index, approved role, and a tightly constrained English image prompt.
+
+The selected prompt is sent to the authenticated `chatgpt-api` visual-assets service. The service queues the request, receives a ChatGPT-generated image, verifies its image bytes, and exposes it for immediate download. The pipeline validates the file type, byte size, dimensions, and SHA-256; saves it under `public/generated/<job-id>/assets/`; then records the relative source in the corresponding storyboard scene. The image is rendered by Remotion as a short, subtle 9:16 editorial establishing shot with a slow camera drift and quick fade-out.
+
+| Invariant | Enforcement |
+| --- | --- |
+| The Xiangqi board is the teaching authority | Generated assets are an optional contextual layer that clears before detailed instruction. |
+| Moves, legal rules, squares, captures, and tactics stay exact | The asset planner cannot select a move scene or move-related visual kind. Remotion continues to draw those from supplied move data. |
+| No repeated stock scene is forced | The AI planner may select **zero** assets when a deterministic board signal is more appropriate. |
+| An unavailable image service never blocks publication | Failure is recorded inside `visualAssets`; the job continues with the existing board storyboard and fallback. |
+| Generated assets cannot bypass the validator | `validate_visual_storyboard` rejects an asset attached to a move scene, an unsafe source path, or an unsupported asset role. |
+
+The service is authenticated with `CHATGPT_VISUAL_API_KEY`, stored as a GitHub Actions Secret; its URL and image limits are configurable through `CHATGPT_VISUAL_API_BASE`, `VISUAL_ASSET_ENABLED`, `VISUAL_ASSET_MAX_PER_VIDEO`, and `VISUAL_ASSET_TIMEOUT_SECONDS`. The remote ChatGPT session is stored only as the Hugging Face Space Secret `CHATGPT_COOKIES_NETSCAPE`; it must never appear in source control, workflow artifacts, or logs.
 
 ## Content-specific visual behavior
 
@@ -45,7 +61,7 @@ The first foundation episode may use an approved storyboard stored in the curric
 
 The audio path first uses Edge-TTS word-boundary timing. If word cues are unavailable, the pipeline probes the generated MP3 with `ffprobe` and uses the actual audio duration. `finalize_timing` then fits narration segments and captions to that duration. The latest scene cannot extend beyond the spoken audio window.
 
-Before rendering or YouTube upload, `validate_visual_storyboard` checks that the storyboard exists, the scene count matches the narration segment count, every scene uses a supported visual kind and has a headline and visual instruction, every move segment references an existing move, and no scene exceeds the actual audio duration. It also blocks the retired generic fallback headline `What Changes Next` and repeated adjacent static fallback kinds, because either condition signals a passive or repetitive lesson. If validation fails, `run_pipeline.py` raises an error before render/publication and marks the job failed. The workflow now has an explicit `autonomous_run` step id, so a production failure also makes GitHub Actions fail instead of appearing successful.
+Before rendering or YouTube upload, `validate_visual_storyboard` checks that the storyboard exists, the scene count matches the narration segment count, every scene uses a supported visual kind and has a headline and visual instruction, every move segment references an existing move, and no scene exceeds the actual audio duration. It also blocks the retired generic fallback headline `What Changes Next`, repeated adjacent static fallback kinds, an unsafe generated-asset path, an unsupported asset role, or a generated asset attached to a move scene. If validation fails, `run_pipeline.py` raises an error before render/publication and marks the job failed. The workflow now has an explicit `autonomous_run` step id, so a production failure also makes GitHub Actions fail instead of appearing successful.
 
 ## Autonomous execution
 
@@ -55,4 +71,4 @@ To intentionally disable the visual layer for a special job, set `visual_mode` t
 
 ## Verification completed
 
-The implementation is in GitHub commit `4a011f0`. The local suite passes 26 tests, including generic move storyboard creation, fallback behavior, storyboard validation, audio-duration boundaries, fast move animation, YouTube idempotency, playlist association, and the existing curriculum tests. Python compilation, workflow validation, and TypeScript typecheck pass. A 1080×1920 generic cannon-tactics preview was rendered with Edge-TTS and showed a real screen piece, a cannon path, source/destination markers, MoveCard, and a short aligned caption. A second move preview showed the next move path without headline overlap.
+The core visual-standard implementation began in GitHub commit `4a011f0`; the optional asset layer extends it with `visual_assets.py`, protected service credentials, image validation, and Remotion integration. The local suite now passes 32 tests, including generic move storyboard creation, fallback behavior, asset-plan filtering, image-byte validation, generated-asset move protection, storyboard validation, audio-duration boundaries, fast move animation, YouTube idempotency, playlist association, and curriculum tests. Python compilation and TypeScript typecheck pass. A live visual-assets smoke test completed through the deployed service and returned a 941×1672 PNG historical establishing image. A 1080×1920 Remotion composite confirmed that the generated asset sits below the title, captions, and board overlays, then clears before the deterministic Xiangqi teaching scene.
