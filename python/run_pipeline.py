@@ -156,6 +156,17 @@ def main() -> int:
             shutil.copy2(generated_audio, public_dir / "voice.mp3")
             job["audioSrc"] = f"generated/{job_id}/voice.mp3"
             audio_duration = word_cues[-1]["endSec"] if word_cues else None
+            if audio_duration is None:
+                try:
+                    probe = subprocess.run(
+                        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nk=1", str(generated_audio)],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    audio_duration = float(probe.stdout.strip())
+                except (OSError, subprocess.CalledProcessError, ValueError):
+                    audio_duration = None
             if job.get("narrationSegments"):
                 # The spoken move sentence, its caption, and the board move
                 # all share one audio-derived window. This prevents a full
