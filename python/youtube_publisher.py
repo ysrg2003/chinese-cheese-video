@@ -267,6 +267,7 @@ def ensure_playlist(
     *,
     auto_create: bool = True,
     exclude_ids: set[str] | None = None,
+    force_create: bool = False,
 ) -> tuple[str, bool]:
     """Resolve a playlist by title, ignoring IDs known to be stale or deleted.
 
@@ -278,7 +279,7 @@ def ensure_playlist(
     title = str(playlist_config["title"])
     excluded = {str(value) for value in (exclude_ids or set()) if str(value).strip()}
     page_token: str | None = None
-    while True:
+    while not force_create:
         response = _execute_with_backoff(
             lambda: service.playlists().list(part="id,snippet", mine=True, maxResults=50, pageToken=page_token)
         )
@@ -385,6 +386,7 @@ def publish_video(
                 playlist_config,
                 auto_create=auto_create,
                 exclude_ids={playlist_id},
+                force_create=True,
             )
             playlist_response = add_to_playlist(service, playlist_id, video_id)
     except Exception as exc:
