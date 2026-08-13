@@ -82,7 +82,7 @@ The curriculum row supplies `playlist_key` directly to the publisher. The publis
 
 ## Verification
 
-The local suite now passes 20 tests. It covers curriculum seeding, the static first lesson, prerequisite unlocking, piece lessons retaining move examples, natural narration, caption positions, fast animation windows, audio-alignment timing, playlist overrides, publication idempotency, and fake-API retry behavior. Python compilation and TypeScript typechecking pass. Two Remotion previews were rendered at 1080×1920: the first lesson showed the correct title, a still starting board, no MoveCard, and short bottom captions; a piece lesson showed the piece reaching its destination quickly while the MoveCard and explanation caption remained active.
+The local suite now passes 26 tests. It covers curriculum seeding, the static first lesson, prerequisite unlocking, piece lessons retaining move examples, natural narration, caption positions, fast animation windows, audio-alignment timing, universal storyboard fallback, generic move visual beats, storyboard validation, playlist overrides, publication idempotency, and fake-API retry behavior. Python compilation, workflow validation, and TypeScript typechecking pass. Remotion previews were rendered at 1080×1920 for the foundation lesson and a generic cannon tactic; the latter showed a real screen piece, move path, MoveCard, and aligned short caption without headline overlap.
 
 ## References
 
@@ -99,3 +99,14 @@ The first lesson is no longer a static-board exception. It uses `visual_mode=fou
 The production pipeline sends the storyboard request through the same ordered AI Router used by the director. A schema-and-language gate rejects malformed, non-English, or unsupported scenes. When all providers fail, a deterministic seven-scene educational fallback still produces meaningful visual changes rather than a silent voiceover over an unchanged board. For the regenerated first episode, the approved AI storyboard is stored in the curriculum JSON so that the public rerender is reproducible and does not depend on a transient provider response.
 
 Each scene is aligned to its Edge-TTS narration window. Remotion then applies the corresponding overlay: file/rank markers and a board frame, army tinting and direction markers, General spotlights and a goal line, glowing intersections, river and palace boundaries, an actual screen piece between cannon and target, or a roadmap beneath the board. This is intentional signaling and temporal contiguity: the picture changes at the same moment as the spoken idea.
+
+
+## Universal visual storyboard standard
+
+The visual storyboard is no longer limited to the first foundation lesson. Unless a job explicitly sets `visual_mode` to `none`, the pipeline attaches one validated visual beat to every narration segment. Foundation lessons retain their seven-scene teaching sequence; ordinary lessons, tactics, openings, endgames, complete games, comparisons, viewer challenges, skill matches, and trend breakdowns receive move paths, attack lines, defense zones, cannon-screen demonstrations, before/after markers, question reveals, game-phase markers, or result summaries according to the content type and supplied move data.
+
+The AI Router receives the actual narration segments, move coordinates, move purpose, opponent reply, effect, content type, objective, hook, and analysis focus. It returns short scene headlines, captions, a supported `visualKind`, and a concrete visual instruction. The spoken narration is not replaced for ordinary jobs: the visual director attaches the scene to the existing speech and move window. The first foundation lesson is the intentional exception because its script is itself generated as seven visual teaching beats.
+
+A deterministic fallback is always available. If every AI provider fails, the system derives a scene from the segment and its move: cannon moves use `cannon_screen`, other move explanations use `move_path`, tactical and opening ideas use `attack_line`, comparisons use `comparison_split`, challenges use `question_reveal`, and complete-game phases use `game_phase`. This means AI improves specificity but is not a runtime dependency for producing a valid educational video.
+
+Before rendering or YouTube publication, `validate_visual_storyboard` checks that every scene has a supported kind, headline, and visual instruction; that the scene count matches the narration segments; that every move segment points to an existing move; and that the latest scene end does not exceed the actual Edge-TTS duration. A failure marks the job failed and prevents publication. Word-boundary timing is preferred, with MP3 duration probing as the fallback when word cues are unavailable.

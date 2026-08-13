@@ -154,6 +154,80 @@ function FoundationVisuals({ job, second }: { job: VideoJob; second: number }) {
   );
 }
 
+
+function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
+  if (job.visual_mode !== "storyboard" || !job.narrationSegments?.length) return null;
+  const active = job.narrationSegments.find((segment) => segment.visualKind && second >= Number(segment.startSec ?? 0) && second < Number(segment.endSec ?? -1));
+  if (!active?.visualKind) return null;
+  const start = Number(active.startSec ?? 0);
+  const end = Number(active.endSec ?? start + 1);
+  const enterEnd = Math.min(start + 0.28, end);
+  const exitStart = Math.max(enterEnd, end - 0.2);
+  const opacity = interpolate(second, [start, enterEnd, exitStart, end], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const kind = active.visualKind;
+  const move = active.movePly ? job.moves.find((candidate) => candidate.ply === active.movePly) : undefined;
+  const from = move ? boardPoint(move.from[0], move.from[1]) : boardPoint(1, 7);
+  const to = move ? boardPoint(move.to[0], move.to[1]) : boardPoint(4, 4);
+  const target = move ? boardPoint(move.to[0], move.to[1]) : boardPoint(4, 0);
+  const headline = active.headline || "Board Idea";
+  const isMoveSegment = active.kind === "move" || active.movePly !== undefined;
+  const overlayLine = (color: string, dashed = false) => <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={10} strokeLinecap="round" strokeDasharray={dashed ? "18 14" : undefined} />;
+
+  return <>
+    {!isMoveSegment && <div style={{ position: "absolute", top: 205, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
+      <div style={{ padding: "9px 22px", borderRadius: 16, background: "rgba(33, 26, 22, .88)", color: "#fff8e9", fontSize: 25, fontWeight: 900, letterSpacing: 0.8, boxShadow: "0 10px 22px rgba(64, 35, 12, .22)" }}>{headline}</div>
+    </div>}
+
+    {(kind === "board_overview" || kind === "army_setup") && <>
+      <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28, width: grid.width, height: grid.height, border: "5px solid rgba(255, 241, 182, .9)", borderRadius: 18, opacity, zIndex: 3 }} />
+      <Marker left={board.x + board.width / 2} top={board.y - 22} opacity={opacity} tone="gold">BOARD MAP</Marker>
+      {kind === "army_setup" && <><div style={{ position: "absolute", left: board.x + 28, top: board.y + 28, width: grid.width, height: grid.height / 2, background: "rgba(45,45,45,.2)", opacity, zIndex: 3 }} /><div style={{ position: "absolute", left: board.x + 28, top: board.y + 28 + grid.height / 2, width: grid.width, height: grid.height / 2, background: "rgba(182,60,47,.18)", opacity, zIndex: 3 }} /><Marker left={board.x + board.width / 2} top={board.y + 170} opacity={opacity} tone="black">BLACK SETUP</Marker><Marker left={board.x + board.width / 2} top={board.y + board.height - 170} opacity={opacity} tone="red">RED SETUP</Marker></>}
+    </>}
+
+    {(kind === "piece_movement" || kind === "move_path" || kind === "attack_line" || kind === "capture_sequence" || kind === "cannon_screen") && <>
+      <svg style={{ position: "absolute", inset: 0, zIndex: 5, opacity }} width="1080" height="1920">
+        {overlayLine("#e0a63c", kind === "move_path")}
+        <polygon points={`${to.x},${to.y} ${to.x - 18},${to.y - 34} ${to.x + 18},${to.y - 34}`} fill="#e0a63c" />
+        {kind === "capture_sequence" && <circle cx={target.x} cy={target.y} r={58} fill="none" stroke="#ef6655" strokeWidth="9" />}
+      </svg>
+      {move && <Marker left={from.x} top={from.y - 62} opacity={opacity} tone="gold">FROM</Marker>}
+      {move && <Marker left={to.x} top={to.y + 62} opacity={opacity} tone="red">TO</Marker>}
+      {kind === "cannon_screen" && <><Img src={staticFile("assets/pieces/black_pawn.svg")} style={{ position: "absolute", left: boardPoint(1, 4).x - 47, top: boardPoint(1, 4).y - 47, width: 94, height: 94, objectFit: "contain", opacity, zIndex: 6 }} /><Marker left={boardPoint(1, 4).x} top={boardPoint(1, 4).y - 78} opacity={opacity} tone="gold">SCREEN</Marker></>}
+    </>}
+
+    {kind === "defense_zone" && <>
+      <div style={{ position: "absolute", left: to.x - 100, top: to.y - 100, width: 200, height: 200, borderRadius: 999, border: "9px solid #4a9ac2", boxShadow: "0 0 0 16px rgba(74,154,194,.2)", opacity, zIndex: 5 }} />
+      <Marker left={to.x} top={to.y - 132} opacity={opacity} tone="blue">SAFE ZONE</Marker>
+    </>}
+
+    {kind === "threat_marker" && <>
+      <div style={{ position: "absolute", left: target.x - 78, top: target.y - 78, width: 156, height: 156, borderRadius: 999, border: "10px solid #e95b4c", boxShadow: "0 0 0 18px rgba(233,91,76,.18)", opacity, zIndex: 5 }} />
+      <Marker left={target.x} top={target.y - 112} opacity={opacity} tone="red">THREAT</Marker>
+    </>}
+
+    {(kind === "before_after" || kind === "comparison_split") && <>
+      <div style={{ position: "absolute", left: board.x + 48, top: board.y + 48, width: board.width - 96, height: board.height - 96, border: "5px dashed rgba(255,241,182,.85)", borderRadius: 20, opacity, zIndex: 4 }} />
+      <Marker left={board.x + 180} top={board.y + board.height - 34} opacity={opacity} tone="black">BEFORE</Marker>
+      <Marker left={board.x + board.width - 180} top={board.y + board.height - 34} opacity={opacity} tone="red">AFTER</Marker>
+    </>}
+
+    {kind === "game_phase" && <>
+      <div style={{ position: "absolute", left: board.x + 30, top: board.y + 28 + 4 * cell - 30, width: grid.width, height: cell + 60, background: "rgba(197,138,58,.22)", borderTop: "5px solid rgba(255,241,182,.9)", borderBottom: "5px solid rgba(255,241,182,.9)", opacity, zIndex: 3 }} />
+      <Marker left={board.x + board.width / 2} top={board.y + board.height / 2} opacity={opacity} tone="gold">TURNING POINT</Marker>
+    </>}
+
+    {kind === "question_reveal" && <>
+      <div style={{ position: "absolute", left: target.x - 72, top: target.y - 72, width: 144, height: 144, borderRadius: 999, border: "8px dashed #f5ce74", opacity, zIndex: 5 }} />
+      <Marker left={target.x} top={target.y - 108} opacity={opacity} tone="gold">YOUR TURN?</Marker>
+    </>}
+
+    {kind === "result_summary" && <>
+      <div style={{ position: "absolute", left: target.x - 88, top: target.y - 88, width: 176, height: 176, borderRadius: 999, border: "10px solid #56a76c", boxShadow: "0 0 0 18px rgba(86,167,108,.2)", opacity, zIndex: 5 }} />
+      <Marker left={target.x} top={target.y - 120} opacity={opacity} tone="blue">RESULT</Marker>
+    </>}
+  </>;
+}
+
 function Caption({ job, second }: { job: VideoJob; second: number }) {
   const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
   if (!cue) return null;
@@ -180,17 +254,18 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   const copy = UI_COPY[job.language];
   const introOpacity = interpolate(frame, [0, 18, 42], [0, 1, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleScale = interpolate(frame, [0, 36], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : copy.subtitle;
+  const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : job.visual_mode === "storyboard" ? "" : copy.subtitle;
 
   return <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
     <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
     <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
       <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
       <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
-      <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div>
+      {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
     </div>
     <Board job={job} second={second} />
     <FoundationVisuals job={job} second={second} />
+    <StoryboardVisuals job={job} second={second} />
     <MoveCard move={active} second={second} language={job.language} />
     <Caption job={job} second={second} />
     {job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}

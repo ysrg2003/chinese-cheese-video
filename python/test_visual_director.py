@@ -1,6 +1,6 @@
 import unittest
 
-from visual_director import FIRST_LESSON_FALLBACK, add_visual_storyboard
+from visual_director import FIRST_LESSON_FALLBACK, add_visual_storyboard, validate_visual_storyboard
 
 
 class VisualDirectorTests(unittest.TestCase):
@@ -35,10 +35,48 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertTrue(all(segment["captionPosition"] == "bottom" for segment in storyboard_job["narrationSegments"]))
         self.assertGreater(storyboard_job["durationInSeconds"], 40)
 
-    def test_non_foundation_job_is_unchanged(self) -> None:
-        ordinary = {**self.job, "visual_mode": None, "narration": "Normal lesson"}
-        result = add_visual_storyboard(dict(ordinary), {**self.puzzle, "visual_mode": None})
+    def test_disabled_job_is_unchanged(self) -> None:
+        ordinary = {**self.job, "visual_mode": "none", "narration": "Normal lesson"}
+        result = add_visual_storyboard(dict(ordinary), {**self.puzzle, "visual_mode": "none"})
         self.assertEqual(result, ordinary)
+
+    def test_storyboard_validation_passes_for_synced_move(self) -> None:
+        job = {
+            "visual_mode": "storyboard",
+            "visualStoryboard": [{"index": 1, "visualKind": "move_path", "headline": "Move One", "visualInstruction": "Show the supplied path."}],
+            "moves": [{"ply": 1, "from": [1, 7], "to": [1, 4]}],
+            "narrationSegments": [{"kind": "move", "movePly": 1, "visualKind": "move_path", "startSec": 0.0, "endSec": 4.0}],
+        }
+        self.assertEqual(validate_visual_storyboard(job, audio_duration=4.0), [])
+
+    def test_storyboard_validation_blocks_scene_past_audio(self) -> None:
+        job = {
+            "visual_mode": "storyboard",
+            "visualStoryboard": [{"index": 1, "visualKind": "move_path", "headline": "Move One", "visualInstruction": "Show the supplied path."}],
+            "moves": [{"ply": 1, "from": [1, 7], "to": [1, 4]}],
+            "narrationSegments": [{"kind": "move", "movePly": 1, "visualKind": "move_path", "startSec": 0.0, "endSec": 7.0}],
+        }
+        errors = validate_visual_storyboard(job, audio_duration=5.0)
+        self.assertTrue(any("exceeds_audio_duration" in error for error in errors))
+
+    def test_generic_move_job_gets_visual_beat_without_rewriting_audio(self) -> None:
+        ordinary = {
+            "id": "tactics-test",
+            "title": "Cannon Tactic",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "tactics",
+            "narration": "The cannon opens a forcing line.",
+            "moves": [{"ply": 1, "from": [1, 7], "to": [1, 4], "piece": "cannon", "side": "red", "purpose": "open the line"}],
+            "narrationSegments": [{"kind": "move", "movePly": 1, "text": "The cannon opens a forcing line.", "captionText": "Open the line", "captionPosition": "board"}],
+            "captions": [],
+        }
+        result = add_visual_storyboard(dict(ordinary), {"language": "en", "content_type": "tactics", "visual_mode": "storyboard"})
+        self.assertEqual(result["visual_mode"], "storyboard")
+        self.assertEqual(result["narration"], ordinary["narration"])
+        self.assertEqual(len(result["visualStoryboard"]), 1)
+        self.assertEqual(result["visualStoryboard"][0]["visualKind"], "cannon_screen")
+        self.assertEqual(result["narrationSegments"][0]["visualKind"], "cannon_screen")
 
 
 if __name__ == "__main__":
