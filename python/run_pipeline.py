@@ -14,7 +14,7 @@ from typing import Any
 from director import generate_director_data, make_job, normalize_language
 from local_store import LocalStore
 from supabase_store import SupabaseStore
-from tts import captions_from_word_cues, synthesize
+from tts import captions_from_narration, captions_from_word_cues, synthesize
 from timing import finalize_timing
 from youtube_publisher import publish_video
 
@@ -159,6 +159,10 @@ def main() -> int:
                 # independently paraphrased editorial layer. This prevents the
                 # on-screen text from disagreeing with the spoken narration.
                 job["captions"] = captions_from_word_cues(word_cues, job["language"])
+                job["captions_source"] = "edge_tts_word_boundaries"
+            else:
+                job["captions"] = captions_from_narration(job["narration"], float(job.get("durationInSeconds") or 0), job["language"])
+                job["captions_source"] = "narration_fallback"
 
         job = finalize_timing(
             job,

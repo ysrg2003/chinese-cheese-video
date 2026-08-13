@@ -93,6 +93,33 @@ def captions_from_word_cues(
     return captions
 
 
+def captions_from_narration(text: str, duration: float, language: Any = "en") -> list[dict[str, Any]]:
+    """Split the exact narration into timed display cues when boundaries are absent."""
+    import re
+
+    clean = " ".join(str(text or "").split()).strip()
+    if not clean or duration <= 0:
+        return []
+    normalized_language = normalize_language(language)
+    parts = [part.strip() for part in re.split(r"(?<=[.!?。！？])\\s+", clean) if part.strip()]
+    if not parts:
+        parts = [clean]
+    weights = [max(1, len(re.findall(r"[\\u3400-\\u9fff]", part)) if normalized_language == "zh" else len(re.findall(r"\\b[\\w’'-]+\\b", part))) for part in parts]
+    total = float(sum(weights)) or 1.0
+    captions: list[dict[str, Any]] = []
+    cursor = 0.0
+    for index, (part, weight) in enumerate(zip(parts, weights)):
+        end = duration if index == len(parts) - 1 else cursor + duration * (weight / total)
+        captions.append({
+            "startSec": round(cursor, 3),
+            "endSec": round(max(cursor + 0.05, end), 3),
+            "text": part,
+            "source": "narration_fallback",
+        })
+        cursor = end
+    return captions
+
+
 def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path, list[dict[str, Any]]]:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)

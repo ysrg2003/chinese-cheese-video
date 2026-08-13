@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import html
 import os
 import re
@@ -10,7 +11,7 @@ from typing import Any
 
 import requests
 
-from local_store import DEFAULT_FEN, LocalStore
+from local_store import DEFAULT_FEN, LocalStore, normalize_topic_key
 from ai_router_bridge import load_router
 
 SKILL_LEVELS = ["beginner", "intermediate", "advanced", "expert", "professional", "legendary"]
@@ -27,6 +28,19 @@ CONTENT_TYPES = [
     "skill_match",
     "viewer_challenge",
 ]
+
+DEFAULT_MOVE_VARIANTS = [
+    ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+    ["1,9-2,7", "1,0-2,2", "1,7-1,4"],
+    ["1,7-1,4", "2,3-2,4", "7,9-6,7"],
+    ["0,9-0,5", "0,0-0,4", "2,6-2,5"],
+    ["3,9-4,8", "3,0-4,1", "7,7-7,4"],
+]
+
+
+def _topic_moves(topic_key: str) -> list[str]:
+    index = int(hashlib.sha256(topic_key.encode("utf-8")).hexdigest()[:8], 16) % len(DEFAULT_MOVE_VARIANTS)
+    return list(DEFAULT_MOVE_VARIANTS[index])
 
 
 def _clean(value: str) -> str:
@@ -78,8 +92,10 @@ def discover_rss(store: LocalStore, limit: int = 20) -> int:
             published = _clean(item.findtext("pubDate", default=""))
             if not title or not link:
                 continue
+            topic_key = normalize_topic_key(title)
             candidate = {
                 "id": "news-" + re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:50],
+                "topic_key": topic_key,
                 "content_type": "trend_breakdown",
                 "title": f"Trending Xiangqi: {title}",
                 "language": "en",
@@ -88,7 +104,8 @@ def discover_rss(store: LocalStore, limit: int = 20) -> int:
                 "priority_score": _score(title, published),
                 "payload": {
                     "fen": DEFAULT_FEN,
-                    "moves": ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+                    "moves": _topic_moves(topic_key),
+                    "topic_key": topic_key,
                     "trend_title": title,
                     "published": published,
                     "source_url": link,
@@ -128,8 +145,10 @@ def discover_youtube(store: LocalStore, limit: int = 10) -> int:
         title = _clean(snippet.get("title", ""))
         if not video_id or not title:
             continue
+        topic_key = normalize_topic_key(title)
         candidate = {
             "id": f"youtube-{video_id}",
+            "topic_key": topic_key,
             "content_type": "trend_breakdown",
             "title": f"Trending Xiangqi Video: {title}",
             "language": "en",
@@ -138,7 +157,8 @@ def discover_youtube(store: LocalStore, limit: int = 10) -> int:
             "priority_score": _score(title) + 3,
             "payload": {
                 "fen": DEFAULT_FEN,
-                "moves": ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+                "moves": _topic_moves(topic_key),
+                "topic_key": topic_key,
                 "trend_title": title,
                 "source_url": f"https://www.youtube.com/watch?v={video_id}",
                 "rights_note": "Use public metadata as inspiration; do not download or re-upload source footage without rights.",
@@ -163,9 +183,11 @@ def _pairing_candidates(store: LocalStore, count: int = 12) -> int:
             "language": "en",
             "source_kind": "generated_pairing",
             "priority_score": 4.0 + (step / 100.0),
+            "topic_key": f"skill match {a} {b} {today}",
             "payload": {
                 "fen": DEFAULT_FEN,
-                "moves": ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+                "moves": _topic_moves(f"skill match {a} {b}"),
+                "topic_key": f"skill match {a} {b} {today}",
                 "pairing": {"red": a, "black": b},
                 "series_date": today,
                 "hook": f"A structured Xiangqi match between {a} and {b} skill profiles, with a clear lesson for viewers.",
@@ -190,8 +212,10 @@ def _perpetual_candidates(store: LocalStore, count: int = 8) -> int:
     ]
     inserted = 0
     for index, (content_type, title) in enumerate(ideas[:count]):
+        topic_key = f"{content_type} series {week} {index + 1}"
         candidate = {
             "id": f"evergreen-{week}-{index}-{today}",
+            "topic_key": topic_key,
             "content_type": content_type,
             "title": f"{title} — Series {week}.{index + 1}",
             "language": "en",
@@ -199,12 +223,14 @@ def _perpetual_candidates(store: LocalStore, count: int = 8) -> int:
             "priority_score": 3.0 - index / 100.0,
             "payload": {
                 "fen": DEFAULT_FEN,
-                "moves": ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+                "moves": _topic_moves(topic_key),
+                "topic_key": topic_key,
                 "series_week": week,
                 "content_type": content_type,
             },
         }
         inserted += int(store.add_candidate(candidate))
+
     return inserted
 
 
@@ -227,6 +253,7 @@ def generate_ai_candidate(store: LocalStore, language: str = "en") -> dict[str, 
     finally:
         router.close()
     result.setdefault("language", language)
+    result.setdefault("topic_key", normalize_topic_key(result.get("title", "")))
     result.setdefault("source_kind", "ai_generated")
     result.setdefault("priority_score", 5.0)
     result.setdefault("fen", DEFAULT_FEN)
@@ -245,6 +272,7 @@ def discover_all(store: LocalStore, limit: int = 20) -> dict[str, int]:
     }
     ai_candidate = generate_ai_candidate(store)
     if ai_candidate:
+        ai_candidate["topic_key"] = ai_candidate.get("topic_key") or normalize_topic_key(ai_candidate.get("title", ""))
         ai_candidate["payload"] = dict(ai_candidate)
         metrics["ai_inserted"] = int(store.add_candidate(ai_candidate))
     return metrics

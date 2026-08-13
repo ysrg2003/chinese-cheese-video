@@ -18,7 +18,7 @@ on:
       languages:
         description: "Comma-separated languages"
         required: true
-        default: "en,zh"
+        default: "en"
         type: string
       discovery_limit:
         description: "Maximum discovery candidates to inspect"
@@ -111,7 +111,7 @@ jobs:
           RUN_DISCOVERY_LIMIT: ${{ inputs.discovery_limit }}
         run: |
           COUNT="${RUN_DAILY_COUNT:-1}"
-          LANGUAGES="${RUN_LANGUAGES:-en,zh}"
+          LANGUAGES="${RUN_LANGUAGES:-en}"
           LIMIT="${RUN_DISCOVERY_LIMIT:-20}"
           python python/automation_runner.py --daily-count "$COUNT" --languages "$LANGUAGES" --discover-limit "$LIMIT" | tee automation-run.json
 

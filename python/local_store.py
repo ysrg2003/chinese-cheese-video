@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,16 @@ DEFAULT_FEN = "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r"
 DEFAULT_YOUTUBE_CHANNEL_ID = "UCM7pTdgZRwDZ2gZDtC6SITg"
 DEFAULT_YOUTUBE_CHANNEL_HANDLE = "@XiangqiLab"
 DEFAULT_YOUTUBE_CHANNEL_TITLE = "Xiangqi Lab | 中国象棋实验室"
+
+
+def normalize_topic_key(value: Any) -> str:
+    text = unicodedata.normalize("NFKC", str(value or "")).lower().strip()
+    text = re.sub(r"^trending xiangqi(?: video)?\s*:\s*", "", text)
+    text = re.sub(r"\s+[—–-]\s+series\s+\d+(?:\.\d+)?\s*$", "", text)
+    text = re.sub(r"\s+\|\s+[^|]+$", "", text)
+    text = re.sub(r"\s+-\s+.*$", "", text)
+    text = re.sub(r"[^\w\u3400-\u9fff]+", " ", text, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 class LocalStore:
@@ -464,15 +476,45 @@ class LocalStore:
 
     @staticmethod
     def fingerprint(candidate: dict[str, Any]) -> str:
+        payload = candidate.get("payload") or {}
+        topic_key = candidate.get("topic_key") or payload.get("topic_key") or normalize_topic_key(candidate.get("title", ""))
         stable = {
             "content_type": candidate.get("content_type", "puzzle"),
             "language": candidate.get("language", "en"),
-            "title": str(candidate.get("title", "")).strip().lower(),
-            "fen": candidate.get("fen") or candidate.get("payload", {}).get("fen", ""),
-            "moves": candidate.get("moves") or candidate.get("payload", {}).get("moves", []),
-            "pairing": candidate.get("pairing") or candidate.get("payload", {}).get("pairing", {}),
+            "topic_key": normalize_topic_key(topic_key),
+            "title": "" if topic_key else str(candidate.get("title", "")).strip().lower(),
+            "fen": candidate.get("fen") or payload.get("fen", ""),
+            "moves": candidate.get("moves") or payload.get("moves", []),
+            "pairing": candidate.get("pairing") or payload.get("pairing", {}),
         }
         return hashlib.sha256(json.dumps(stable, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+
+    def get_published_topic_keys(self, language: str | None = None) -> set[str]:
+        query = "SELECT language, payload_json, title FROM content_candidates WHERE status = 'published'"
+        params: tuple[Any, ...] = ()
+        if language:
+            query += " AND language = ?"
+            params = (language,)
+        keys: set[str] = set()
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        for row in rows:
+            try:
+                payload = json.loads(row["payload_json"] or "{}")
+            except json.JSONDecodeError:
+                payload = {}
+            key = payload.get("topic_key") or normalize_topic_key(row["title"])
+            if key:
+                keys.add(normalize_topic_key(key))
+        return keys
+
+    def get_recent_content_types(self, language: str = "en", limit: int = 8) -> list[str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT content_type FROM content_candidates WHERE status = 'published' AND language = ? ORDER BY updated_at DESC LIMIT ?",
+                (language, int(limit)),
+            ).fetchall()
+        return [str(row["content_type"]) for row in rows]
 
     def get_provider_state(self, provider: str, model: str, slot_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:

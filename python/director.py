@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -70,6 +71,13 @@ FALLBACKS = {
 
 ARABIC_RE = re.compile(r"[\u0600-\u06ff]")
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
+DEFAULT_MOVE_VARIANTS = [
+    ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+    ["1,9-2,7", "1,0-2,2", "1,7-1,4"],
+    ["1,7-1,4", "2,3-2,4", "7,9-6,7"],
+    ["0,9-0,5", "0,0-0,4", "2,6-2,5"],
+    ["3,9-4,8", "3,0-4,1", "7,7-7,4"],
+]
 
 
 def normalize_language(value: Any) -> str:
@@ -158,7 +166,18 @@ def _parse_move_token(token: str, ply: int, language: str) -> dict[str, Any]:
 
 
 def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
-    raw_moves = puzzle.get("moves") or ["0,6-0,5", "0,3-0,4", "1,7-1,4"]
+    topic = _safe_text(
+        puzzle.get("trend_title") or puzzle.get("topic_title") or puzzle.get("title"),
+        FALLBACKS[language]["title"],
+        language,
+    )
+    source_kind = str(puzzle.get("source_kind") or "")
+    topic_key = str(puzzle.get("topic_key") or topic).strip().lower()
+    variant_index = int(hashlib.sha256(topic_key.encode("utf-8")).hexdigest()[:8], 16) % len(DEFAULT_MOVE_VARIANTS)
+    supplied_moves = puzzle.get("moves")
+    raw_moves = supplied_moves or DEFAULT_MOVE_VARIANTS[variant_index]
+    if source_kind in {"rss", "youtube_search"} and (not supplied_moves or supplied_moves == DEFAULT_MOVE_VARIANTS[0]):
+        raw_moves = DEFAULT_MOVE_VARIANTS[variant_index]
     moves: list[dict[str, Any]] = []
     for index, raw_move in enumerate(raw_moves, start=1):
         if isinstance(raw_move, dict):
@@ -175,7 +194,14 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
 
     fallback = FALLBACKS[language]
     title = _safe_text(puzzle.get("title"), fallback["title"], language)
-    narration = _safe_text(puzzle.get("narration"), fallback["narration"], language)
+    supplied_narration = puzzle.get("narration")
+    if source_kind in {"rss", "youtube_search"} and topic and topic != fallback["title"]:
+        if language == "zh":
+            narration = f"今天的中国象棋话题是：{topic}。我们把这个主题转化为棋盘上的实战课程，观察第一步如何制造压力，再看对手的回应和最后的战术变化。"
+        else:
+            narration = f"Today’s Xiangqi topic is {topic}. We turn that headline into a board lesson: watch the first move create pressure, test the natural reply, and follow the tactical change that decides the line."
+    else:
+        narration = _safe_text(supplied_narration, fallback["narration"], language)
     duration = estimate_content_duration(
         narration,
         moves,
@@ -198,6 +224,13 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     result = dict(data)
     result["title"] = _safe_text(result.get("title"), fallback["title"], language)
     result["narration"] = _safe_text(result.get("narration"), fallback["narration"], language)
+    if str(puzzle.get("source_kind") or "") in {"rss", "youtube_search"}:
+        if result["narration"].strip() == FALLBACKS[language]["narration"].strip() or not result["narration"].strip():
+            result["narration"] = fallback["narration"]
+        if not isinstance(result.get("moves"), list) or result.get("moves") == [
+            {"from": [0, 6], "to": [0, 5]},
+        ]:
+            result["moves"] = fallback["moves"]
     raw_captions = result.get("captions")
     if not isinstance(raw_captions, list) or any(_text_is_invalid(cue.get("text", ""), language) for cue in raw_captions if isinstance(cue, dict)):
         result["captions"] = fallback["captions"]
@@ -261,6 +294,7 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
         "content_type": puzzle.get("content_type", "definition"),
         "source_url": puzzle.get("source_url"),
         "source_kind": puzzle.get("source_kind", "generated"),
+        "topic_key": puzzle.get("topic_key"),
         "hook": puzzle.get("hook"),
         "pairing": puzzle.get("pairing", {}),
     }
