@@ -102,8 +102,11 @@ jobs:
             *) echo "Invalid YOUTUBE_PUBLISH_MODE: $YOUTUBE_PUBLISH_MODE" >&2; exit 1 ;;
           esac
 
+      - name: Reconcile public videos with pending playlist associations
+        if: always()
+        run: python python/reconcile_youtube.py | tee youtube-reconcile.json
+
       - name: Run autonomous discovery and production
-        id: autonomous_run
         continue-on-error: true
         env:
           RUN_DAILY_COUNT: ${{ inputs.daily_count }}
@@ -127,6 +130,7 @@ jobs:
           retention-days: 14
           path: |
             automation-run.json
+            youtube-reconcile.json
             youtube-catalog.json
             data/chinese_cheese_video.db
             data/ai_router.db
