@@ -320,6 +320,11 @@ class LocalStore:
         lessons = curriculum.get("lessons") or []
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
+            # Reordering lessons can temporarily collide with the UNIQUE sequence_no
+            # constraint (for example, old lesson 2 becoming new lesson 15). Move
+            # existing rows out of the positive namespace before applying the new order.
+            if lessons:
+                connection.execute("UPDATE curriculum_lessons SET sequence_no = -ABS(sequence_no) - 100000")
             for lesson in lessons:
                 lesson_key = str(lesson.get("lesson_key") or "").strip()
                 if not lesson_key:
