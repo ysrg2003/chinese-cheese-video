@@ -46,6 +46,7 @@ jobs:
       AI_ROUTER_HF_KEYS_JSON: ${{ secrets.AI_ROUTER_HF_KEYS_JSON }}
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       AI_ROUTER_CHAIN: default
+      AI_ROUTER_REQUIRE_KEYS: "1"
       HF_BASE_URL: https://router.huggingface.co/v1
       HF_MODELS: ${{ vars.HF_MODELS || 'openai/gpt-oss-120b:fastest' }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -94,6 +95,9 @@ jobs:
 
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r python/requirements.txt && python -m pip install -e ai-provider-router
+
+      - name: Validate AI Router key pools and ordered chain
+        run: python python/validate_ai_router_runtime.py
 
       - name: Validate YouTube publishing configuration
         if: env.YOUTUBE_PUBLISH_ENABLED == '1'
