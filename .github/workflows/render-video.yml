@@ -147,6 +147,7 @@ jobs:
             data/chinese_cheese_video.db
             data/ai_router.db
             output/jobs/**/job.json
+            output/jobs/**/references/**
             output/jobs/**/*.mp4
             public/generated/**/job.json
             public/generated/**/voice.mp3

@@ -10,7 +10,9 @@ import hashlib
 import io
 import json
 import os
+import subprocess
 import time
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,23 +21,28 @@ import requests
 from PIL import Image
 
 from ai_router_bridge import load_router
+from reference_render import render_reference_scene
 
 
 ASSET_API_DEFAULT = "https://yousefsg-chatgpt-api.hf.space"
 MAX_ASSETS_DEFAULT = 2
 POLL_SECONDS = 3.0
+ROOT = Path(__file__).resolve().parents[1]
+REFERENCE_FPS = 30
+BOARD_X, BOARD_Y, CELL = 70, 390, 104
+EDITABLE_SCENE_KINDS = {"river_palaces", "generals_goal", "rule_focus"}
 ALLOWED_ROLES = {"editorial_backdrop", "historical_inset", "cultural_inset", "concept_inset"}
 INELIGIBLE_KINDS = {"move_path", "attack_line", "capture_sequence", "cannon_screen", "defense_zone", "threat_marker"}
 
 VISUAL_ASSET_PLANNER_INSTRUCTIONS = """
-You are the asset planner for an autonomous Xiangqi educational video. Return valid JSON only:
-{"assets":[{"sceneIndex":1,"useGeneratedAsset":true,"assetRole":"editorial_backdrop","prompt":"English image prompt","reason":"short factual reason"}]}
+You are the reference-edit planner for an autonomous Xiangqi educational video. Return valid JSON only:
+{"assets":[{"sceneIndex":1,"useGeneratedAsset":true,"assetRole":"concept_inset","editPrompt":"English localized edit instruction","reason":"short factual reason"}]}
 
-Study the supplied narration and canonical board storyboard. Select zero, one, or two non-move scenes where a carefully controlled generated image would make the spoken idea more tangible. Do not generate an asset merely to decorate a board scene. The canonical Xiangqi board, real move arrows, piece positions, captions, and timing remain the primary teaching layer.
+Study the supplied narration and canonical board storyboard. Select zero, one, or two non-move scenes only when a localized material or color edit would make the exact existing scene clearer. The pipeline will upload the original Remotion scene and an exact transparent mask. Never request a new composition, a new board, a realistic replacement scene, or a full-image regeneration.
 
-An eligible generated asset is an editorial atmospheric backdrop or inset, for example an ancient Chinese military-map texture for history, carved wooden Xiangqi tokens for cultural context, or a restrained strategic landscape for a high-level concept. Do not select a scene that explains an exact legal move, exact square, coordinate, capture, tactical line, or board geometry: those must remain deterministic Remotion diagrams.
+The reference image is authoritative. The editPrompt must describe only what to add inside the masked region and must explicitly preserve all unmasked pixels, board lines, piece positions, labels, perspective, and layout. For the river scene, request a flat cool-blue flowing-water texture inside the existing rectangular river band; never request a scenic landscape or a new river surrounding a board. For palace or setup scenes, request only a subtle material or color treatment inside the existing region. Exact moves, coordinates, captures, tactical lines, and piece geometry stay deterministic Remotion overlays and must not be edited.
 
-Every prompt must be English, portrait-friendly, and contain all of these constraints: no written words, no numerals, no logos, no watermarks, no readable Chinese characters, no Western chessboard, no Xiangqi board grid, no identifiable real person, no hands moving pieces, no UI, no collage, and a clear central subject with quiet edges for overlay. Use one consistent premium editorial style: warm cinematic Chinese-heritage palette, lacquer red, ink black, antique gold, natural paper texture, dramatic soft light, realistic but tasteful, suitable behind a 9:16 educational video. Do not claim historical facts not in the narration.
+Every editPrompt must be English, concise, and include: edit only the transparent masked region; preserve everything outside it exactly; no new text, numerals, logos, watermarks, people, hands, chessboard, Xiangqi grid, or changed pieces. Do not invent historical facts.
 
 Allowed assetRole values: editorial_backdrop, historical_inset, cultural_inset, concept_inset.
 """.strip()
@@ -63,41 +70,51 @@ class VisualAssetClient:
     def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
-    def generate(self, prompt: str) -> tuple[bytes, str, dict[str, Any]]:
-        created = requests.post(
-            f"{self.base_url}/v1/visual-assets/jobs",
-            headers=self.headers,
-            json={"prompt": prompt},
-            timeout=45,
-        )
-        created.raise_for_status()
-        job_id = str(created.json().get("job_id") or "")
-        if not job_id:
-            raise RuntimeError("visual asset service did not return job_id")
-
+    def _poll_and_download(self, job_id: str, status_path: str, download_path: str) -> tuple[bytes, str, dict[str, Any]]:
         deadline = time.monotonic() + self.timeout_seconds
         last_payload: dict[str, Any] = {}
         while time.monotonic() < deadline:
-            response = requests.get(
-                f"{self.base_url}/v1/visual-assets/jobs/{job_id}",
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=30,
-            )
+            response = requests.get(f"{self.base_url}{status_path}", headers={"Authorization": f"Bearer {self.api_key}"}, timeout=30)
             response.raise_for_status()
             last_payload = response.json()
             status = str(last_payload.get("status") or "")
             if status == "done":
-                downloaded = requests.get(
-                    f"{self.base_url}/v1/visual-assets/jobs/{job_id}/download",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    timeout=120,
-                )
+                downloaded = requests.get(f"{self.base_url}{download_path}", headers={"Authorization": f"Bearer {self.api_key}"}, timeout=120)
                 downloaded.raise_for_status()
-                return downloaded.content, str(last_payload.get("extension") or "png"), {"service_job_id": job_id, **last_payload}
+                return downloaded.content, str(last_payload.get("extension") or "png"), last_payload
             if status == "error":
                 raise RuntimeError(str(last_payload.get("error") or "visual asset job failed"))
             time.sleep(POLL_SECONDS)
         raise TimeoutError(f"visual asset job timed out after {self.timeout_seconds}s: {job_id}")
+
+    def generate(self, prompt: str) -> tuple[bytes, str, dict[str, Any]]:
+        created = requests.post(f"{self.base_url}/v1/visual-assets/jobs", headers=self.headers, json={"prompt": prompt}, timeout=45)
+        created.raise_for_status()
+        job_id = str(created.json().get("job_id") or "")
+        if not job_id:
+            raise RuntimeError("visual asset service did not return job_id")
+        body, extension, metadata = self._poll_and_download(job_id, f"/v1/visual-assets/jobs/{job_id}", f"/v1/visual-assets/jobs/{job_id}/download")
+        return body, extension, {"service_job_id": job_id, **metadata}
+
+    def reference_edit(self, reference_path: Path, mask_path: Path | None, edit_prompt: str) -> tuple[bytes, str, dict[str, Any]]:
+        files: dict[str, tuple[str, bytes, str]] = {
+            "reference": (reference_path.name, reference_path.read_bytes(), "image/png"),
+        }
+        if mask_path:
+            files["mask"] = (mask_path.name, mask_path.read_bytes(), "image/png")
+        created = requests.post(
+            f"{self.base_url}/v1/visual-assets/reference-edits",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            files=files,
+            data={"prompt": edit_prompt, "preserve_outside_mask": "true"},
+            timeout=60,
+        )
+        created.raise_for_status()
+        job_id = str(created.json().get("job_id") or "")
+        if not job_id:
+            raise RuntimeError("reference edit service did not return job_id")
+        body, extension, metadata = self._poll_and_download(job_id, f"/v1/visual-assets/reference-edits/{job_id}", f"/v1/visual-assets/reference-edits/{job_id}/download")
+        return body, extension, {"service_job_id": job_id, "mode": "reference_edit", **metadata}
 
 
 def _positive_int(value: Any, default: int) -> int:
@@ -109,7 +126,9 @@ def _positive_int(value: Any, default: int) -> int:
 
 def _asset_prompt_is_safe(value: Any) -> bool:
     prompt = str(value or "").strip()
-    return 60 <= len(prompt) <= 2500 and "arabic" not in prompt.lower()
+    lowered = prompt.lower()
+    forbidden = ("new scene", "new board", "full image", "from scratch", "replace the board", "arabic")
+    return 40 <= len(prompt) <= 2500 and not any(term in lowered for term in forbidden) and "preserve" in lowered and "masked" in lowered
 
 
 def _eligible_scenes(job: dict[str, Any]) -> dict[int, dict[str, Any]]:
@@ -135,6 +154,11 @@ def _plan_assets_with_ai(job: dict[str, Any], puzzle: dict[str, Any]) -> list[di
         "objective": job.get("objective") or puzzle.get("objective"),
         "content_type": job.get("content_type") or puzzle.get("content_type"),
         "visual_focus": job.get("visual_focus") or puzzle.get("visual_focus"),
+        "reference_contract": {
+            "reference": "An exact Remotion PNG of the canonical scene will be uploaded.",
+            "mask": "A same-size transparent PNG will mark the only editable region.",
+            "allowed_scene_kinds": sorted(EDITABLE_SCENE_KINDS),
+        },
         "scenes": [
             {
                 "sceneIndex": scene.get("index", index),
@@ -142,6 +166,7 @@ def _plan_assets_with_ai(job: dict[str, Any], puzzle: dict[str, Any]) -> list[di
                 "visualKind": scene.get("visualKind"),
                 "narration": scene.get("narration"),
                 "visualInstruction": scene.get("visualInstruction"),
+                "eligibleForReferenceEdit": str(scene.get("visualKind") or "") in EDITABLE_SCENE_KINDS and scene.get("movePly") is None,
             }
             for index, scene in enumerate(job.get("visualStoryboard", []), start=1)
             if isinstance(scene, dict)
@@ -172,19 +197,26 @@ def _normalise_asset_plan(raw_assets: list[dict[str, Any]], job: dict[str, Any],
         if scene_index not in eligible or scene_index in used_scenes:
             continue
         role = str(raw.get("assetRole") or "").strip()
-        prompt = str(raw.get("prompt") or "").strip()
-        if role not in ALLOWED_ROLES or not _asset_prompt_is_safe(prompt):
+        edit_prompt = str(raw.get("editPrompt") or raw.get("prompt") or "").strip()
+        if role not in ALLOWED_ROLES or not _asset_prompt_is_safe(edit_prompt):
             continue
         normalized.append({
             "sceneIndex": scene_index,
             "assetRole": role,
-            "prompt": prompt,
+            "editPrompt": edit_prompt,
             "reason": str(raw.get("reason") or "").strip()[:240],
         })
         used_scenes.add(scene_index)
         if len(normalized) >= maximum:
             break
     return normalized
+
+
+def _safe_reference_label(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return path.name
 
 
 def _validate_and_write_image(content: bytes, preferred_extension: str, destination_stem: Path) -> tuple[Path, dict[str, Any]]:
@@ -221,7 +253,7 @@ def add_generated_visual_assets(job: dict[str, Any], puzzle: dict[str, Any], sta
         metadata["failures"].append({"stage": "planning", "error": str(exc)[:500]})
         return job
     plans = _normalise_asset_plan(raw_assets, job, maximum)
-    metadata["plans"] = [{key: value for key, value in plan.items() if key != "prompt"} for plan in plans]
+    metadata["plans"] = [{key: value for key, value in plan.items() if key != "editPrompt"} for plan in plans]
     if not plans:
         metadata["reason"] = "ai_planner_selected_no_asset"
         return job
@@ -235,7 +267,9 @@ def add_generated_visual_assets(job: dict[str, Any], puzzle: dict[str, Any], sta
     for ordinal, plan in enumerate(plans, start=1):
         scene_index = plan["sceneIndex"]
         try:
-            content, extension, service_meta = client.generate(plan["prompt"])
+            scene = scenes[scene_index]
+            reference_path, mask_path = render_reference_scene(job, scene, stage_dir)
+            content, extension, service_meta = client.reference_edit(reference_path, mask_path, plan["editPrompt"])
             stem = public_asset_dir / f"scene-{scene_index:02d}-{ordinal:02d}"
             public_path, image_meta = _validate_and_write_image(content, extension, stem)
             stage_path = stage_asset_dir / public_path.name
@@ -245,9 +279,11 @@ def add_generated_visual_assets(job: dict[str, Any], puzzle: dict[str, Any], sta
                 "sceneIndex": scene_index,
                 "assetRole": plan["assetRole"],
                 "src": public_src,
-                "prompt": plan["prompt"],
+                "editPrompt": plan["editPrompt"],
                 "reason": plan["reason"],
-                "service": {key: service_meta.get(key) for key in ("service_job_id", "extension", "mime_type", "bytes")},
+                "reference": _safe_reference_label(reference_path),
+                "mask": _safe_reference_label(mask_path),
+                "service": {key: service_meta.get(key) for key in ("service_job_id", "extension", "mime_type", "bytes", "mode")},
                 **image_meta,
             }
             metadata["assets"].append(asset)

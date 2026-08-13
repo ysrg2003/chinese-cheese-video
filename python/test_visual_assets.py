@@ -16,18 +16,18 @@ class VisualAssetPipelineTests(unittest.TestCase):
             "id": "visual-asset-test",
             "language": "en",
             "visualStoryboard": [
-                {"index": 1, "visualKind": "history_timeline", "movePly": None, "narration": "History"},
+                {"index": 1, "visualKind": "river_palaces", "movePly": None, "narration": "River"},
                 {"index": 2, "visualKind": "move_path", "movePly": 1, "narration": "Move"},
-                {"index": 3, "visualKind": "cultural_heritage", "movePly": None, "narration": "Culture"},
+                {"index": 3, "visualKind": "rule_focus", "movePly": None, "narration": "Palace rule"},
             ],
         }
 
     def test_plan_rejects_move_scene_and_caps_count(self):
-        prompt = "Create a vertical cinematic Chinese heritage editorial image, no written words, no logos, no board grid, warm lacquer red and antique gold."
+        prompt = "Edit only the transparent masked region; preserve everything outside it exactly; add a flat cool-blue flowing-water texture inside the existing river band; no text or changed pieces."
         raw = [
-            {"sceneIndex": 2, "useGeneratedAsset": True, "assetRole": "editorial_backdrop", "prompt": prompt},
-            {"sceneIndex": 1, "useGeneratedAsset": True, "assetRole": "historical_inset", "prompt": prompt},
-            {"sceneIndex": 3, "useGeneratedAsset": True, "assetRole": "cultural_inset", "prompt": prompt},
+            {"sceneIndex": 2, "useGeneratedAsset": True, "assetRole": "editorial_backdrop", "editPrompt": prompt},
+            {"sceneIndex": 1, "useGeneratedAsset": True, "assetRole": "historical_inset", "editPrompt": prompt},
+            {"sceneIndex": 3, "useGeneratedAsset": True, "assetRole": "cultural_inset", "editPrompt": prompt},
         ]
         plans = _normalise_asset_plan(raw, self.job, maximum=1)
         self.assertEqual([plan["sceneIndex"] for plan in plans], [1])
@@ -55,12 +55,20 @@ class VisualAssetPipelineTests(unittest.TestCase):
         image.save(buffer, format="PNG")
 
         class FakeClient:
-            def generate(self, prompt):
-                return buffer.getvalue(), "png", {"service_job_id": "fake-job", "mime_type": "image/png", "bytes": len(buffer.getvalue())}
+            def reference_edit(self, reference_path, mask_path, edit_prompt):
+                return buffer.getvalue(), "png", {"service_job_id": "fake-job", "mime_type": "image/png", "bytes": len(buffer.getvalue()), "mode": "reference_edit"}
 
-        prompt = "Create a portrait Chinese heritage editorial establishing image with paper, warm lacquer red, no text, no board, and a quiet edge for overlay."
-        plan = [{"sceneIndex": 1, "useGeneratedAsset": True, "assetRole": "historical_inset", "prompt": prompt, "reason": "History context"}]
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"VISUAL_ASSET_MAX_PER_VIDEO": "2"}, clear=False), patch("visual_assets.VisualAssetClient.from_environment", return_value=FakeClient()), patch("visual_assets._plan_assets_with_ai", return_value=plan):
+        prompt = "Edit only the transparent masked region; preserve everything outside it exactly; add a flat cool-blue flowing-water texture inside the existing river band; no text or changed pieces."
+        plan = [{"sceneIndex": 1, "useGeneratedAsset": True, "assetRole": "historical_inset", "editPrompt": prompt, "reason": "River context"}]
+        def fake_reference_render(job, scene, stage_dir):
+            reference_dir = stage_dir / "references"
+            reference_dir.mkdir(parents=True, exist_ok=True)
+            reference = reference_dir / "scene-01.png"
+            mask = reference_dir / "scene-01.mask.png"
+            Image.new("RGB", (1080, 1920), (190, 150, 80)).save(reference)
+            Image.new("RGBA", (1080, 1920), (0, 0, 0, 0)).save(mask)
+            return reference, mask
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"VISUAL_ASSET_MAX_PER_VIDEO": "2"}, clear=False), patch("visual_assets.VisualAssetClient.from_environment", return_value=FakeClient()), patch("visual_assets._plan_assets_with_ai", return_value=plan), patch("visual_assets.render_reference_scene", side_effect=fake_reference_render):
             result = add_generated_visual_assets(self.job.copy(), {}, Path(directory) / "stage", Path(directory) / "public")
             asset = result["visualAssets"]["assets"][0]
             self.assertTrue((Path(directory) / "public" / "assets").exists())

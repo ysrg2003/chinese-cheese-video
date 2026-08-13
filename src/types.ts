@@ -131,6 +131,7 @@ export type VideoJob = {
   playlist_key?: string;
   visual_mode?: "static_board" | "foundation_storyboard" | "board_introduction" | "setup_overview" | "storyboard";
   visual_focus?: string;
+  referenceMode?: boolean;
   visualStoryboard?: VisualStoryboardScene[];
   visualStoryboardSource?: "ai_router" | "provided_ai" | "fallback";
 };

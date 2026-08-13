@@ -96,9 +96,9 @@ function FoundationVisuals({ job, second }: { job: VideoJob; second: number }) {
 
   return (
     <>
-      <div style={{ position: "absolute", top: 268, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
+      {!job.referenceMode && <div style={{ position: "absolute", top: 268, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
         <div style={{ padding: "10px 24px", borderRadius: 18, background: "rgba(33, 26, 22, .88)", color: "#fff8e9", fontSize: 27, fontWeight: 900, letterSpacing: 1.1, boxShadow: "0 10px 24px rgba(64, 35, 12, .24)" }}>{headline}</div>
-      </div>
+      </div>}
 
       {kind === "battlefield" && <>
         <div style={{ position: "absolute", left: board.x + 26, top: board.y - 18, width: grid.width, display: "flex", justifyContent: "space-between", opacity, zIndex: 5 }}>
@@ -132,9 +132,11 @@ function FoundationVisuals({ job, second }: { job: VideoJob; second: number }) {
         <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28 + 4 * cell, width: grid.width, height: cell, background: "rgba(60, 145, 194, .54)", borderTop: "4px solid #b9eaff", borderBottom: "4px solid #b9eaff", opacity, zIndex: 3 }} />
         <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28, width: 2 * cell, height: 2 * cell, border: "7px solid #f5ce74", borderRadius: 12, opacity, zIndex: 4 }} />
         <div style={{ position: "absolute", left: board.x + 28, top: board.y + 28 + 7 * cell, width: 2 * cell, height: 2 * cell, border: "7px solid #f5ce74", borderRadius: 12, opacity, zIndex: 4 }} />
-        <Marker left={board.x + board.width / 2} top={board.y + 28 + 4.5 * cell} opacity={opacity} tone="blue">THE RIVER</Marker>
-        <Marker left={board.x + 28 + cell} top={board.y + 28 + 2.25 * cell} opacity={opacity}>BLACK PALACE</Marker>
-        <Marker left={board.x + 28 + cell} top={board.y + 28 + 6.75 * cell} opacity={opacity}>RED PALACE</Marker>
+        {!job.referenceMode && <>
+          <Marker left={board.x + board.width / 2} top={board.y + 28 + 4.5 * cell} opacity={opacity} tone="blue">THE RIVER</Marker>
+          <Marker left={board.x + 28 + cell} top={board.y + 28 + 2.25 * cell} opacity={opacity}>BLACK PALACE</Marker>
+          <Marker left={board.x + 28 + cell} top={board.y + 28 + 6.75 * cell} opacity={opacity}>RED PALACE</Marker>
+        </>}
       </>}
 
       {kind === "cannon_geometry" && <>
@@ -300,20 +302,20 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   const titleScale = interpolate(frame, [0, 36], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : job.visual_mode === "storyboard" ? "" : copy.subtitle;
 
-  return <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
+  return     <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
     <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
-    <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
+    {!job.referenceMode && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
       <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
       <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
       {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
-    </div>
+    </div>}
     <Board job={job} second={second} />
     <GeneratedVisualAsset job={job} second={second} />
     <FoundationVisuals job={job} second={second} />
     <StoryboardVisuals job={job} second={second} />
     <MoveCard move={active} second={second} language={job.language} />
-    <Caption job={job} second={second} />
-    {job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
-    <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>
+    {!job.referenceMode && <Caption job={job} second={second} />}
+    {!job.referenceMode && job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
+    {!job.referenceMode && <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>}
   </AbsoluteFill>;
 };
