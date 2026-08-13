@@ -57,6 +57,8 @@ jobs:
       TTS_VOICE_EN: en-US-GuyNeural
       TTS_VOICE_ZH: zh-CN-YunjianNeural
       USE_WORD_CAPTIONS: "1"
+      VISUAL_STORYBOARD_ENABLED: "1"
+
     steps:
       - name: Checkout repository and persistent SQLite catalog
         uses: actions/checkout@v4
@@ -107,6 +109,7 @@ jobs:
         run: python python/reconcile_youtube.py | tee youtube-reconcile.json
 
       - name: Run autonomous discovery and production
+        id: autonomous_run
         continue-on-error: true
         env:
           RUN_DAILY_COUNT: ${{ inputs.daily_count }}
