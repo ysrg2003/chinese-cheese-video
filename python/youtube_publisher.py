@@ -118,8 +118,10 @@ def build_metadata(
     config = _content_config(policy, content_type, language)
     language_policy = policy["languages"][language]
     localized = config["localized"]
-    playlist_key = config["playlist_key"] or language_policy["default_playlist_key"]
-    playlist_info = playlists.get("playlists", {}).get(playlist_key, {})
+    requested_playlist_key = str(job.get("playlist_key") or "").strip()
+    configured_playlists = playlists.get("playlists", {})
+    playlist_key = requested_playlist_key if requested_playlist_key in configured_playlists else (config["playlist_key"] or language_policy["default_playlist_key"])
+    playlist_info = configured_playlists.get(playlist_key, {})
 
     raw_title = str(job.get("title") or localized.get("title_prefix") or "Xiangqi Lesson").strip()
     title_prefix = str(localized.get("title_prefix") or "Xiangqi").strip()

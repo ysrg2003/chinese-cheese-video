@@ -19,27 +19,27 @@ DIRECTOR_INSTRUCTIONS = {
 You are the director of short Xiangqi Chinese-chess videos. Return valid JSON only with this schema:
 {
   "title": "short, compelling title",
-  "narration": "energetic English narration of 35 to 80 words",
+  "narration": "natural English introduction and bridge only; per-move explanations belong in the move purpose/opponentReply/effect fields",
   "moves": [
-    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 2.0, "endSec": 3.0, "label": "move description"}
+    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 2.0, "endSec": 3.0, "label": "move description", "purpose": "why this move is played", "opponentReply": "the likely reply", "effect": "what changed after the reply"}
   ],
   "captions": [{"startSec": 0.0, "endSec": 2.0, "text": "short English caption"}],
   "durationInSeconds": 0
 }
-Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only king, advisor, bishop, knight, rook, cannon, pawn and red or black. Do not force a fixed short duration; the rendering pipeline calculates the final duration from narration, audio, captions, and move count. Do not output Markdown or any text outside JSON. Never output Arabic.
+Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only king, advisor, bishop, knight, rook, cannon, pawn and red or black. For every move, write a natural spoken explanation that includes what the move tries to do, the opponent's likely reply, what changed after that reply, and the next plan. Do not merely list coordinates. Keep each move explanation concise enough for one or two caption lines. Do not force a fixed short duration; the rendering pipeline calculates the final duration from narration, audio, captions, and move count. Do not output Markdown or any text outside JSON. Never output Arabic.
 """.strip(),
     "zh": """
 你是中国象棋短视频导演。只能返回有效 JSON，格式如下：
 {
   "title": "简短、有吸引力的标题",
-  "narration": "35 到 80 字的中文激情解说",
+  "narration": "自然、连贯的中文开场和过渡；每一步的解释写入该步的目的、回应和效果字段",
   "moves": [
-    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 2.0, "endSec": 3.0, "label": "走法说明"}
+    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 2.0, "endSec": 3.0, "label": "走法说明", "purpose": "这步棋的目的", "opponentReply": "对手的可能回应", "effect": "回应后的局面变化"}
   ],
   "captions": [{"startSec": 0.0, "endSec": 2.0, "text": "简短中文字幕"}],
   "durationInSeconds": 0
 }
-规则：列坐标为 0..8，行坐标为 0..9，从棋盘顶部开始计算。棋子类型只能使用 king、advisor、bishop、knight、rook、cannon、pawn，阵营只能使用 red 或 black。不要强制使用固定的短时长，最终时长将由渲染系统根据解说、音频、字幕和步数计算。不要输出 Markdown 或 JSON 之外的任何内容。绝不输出阿拉伯语。
+规则：列坐标为 0..8，行坐标为 0..9，从棋盘顶部开始计算。棋子类型只能使用 king、advisor、bishop、knight、rook、cannon、pawn，阵营只能使用 red 或 black。每一步都要自然说明走法目的、对手可能的回应、回应后的变化和下一步计划，不要只报坐标。每个走法说明应足够简短，适合一到两行字幕。不要强制使用固定的短时长，最终时长将由渲染系统根据解说、音频、字幕和步数计算。不要输出 Markdown 或 JSON 之外的任何内容。绝不输出阿拉伯语。
 """.strip(),
 }
 
@@ -130,38 +130,121 @@ def _coordinate_label(point: Any, language: str) -> str:
     return f"file {column + 1}, rank {row + 1}"
 
 
-def _move_spoken_text(move: dict[str, Any], language: str, content_type: str) -> str:
+def _move_spoken_text(
+    move: dict[str, Any],
+    language: str,
+    content_type: str,
+    analysis_focus: str = "",
+) -> tuple[str, str]:
     ply = int(move.get("ply", 1))
     piece = PIECE_NAMES.get(str(move.get("piece", "pawn")), PIECE_NAMES["pawn"])[language]
     side = "red" if str(move.get("side", "red")) == "red" else "black"
-    if language == "zh":
-        return f"第{ply}步，{side}方{piece}从{_coordinate_label(move.get('from'), language)}到{_coordinate_label(move.get('to'), language)}，观察关键压力。"
-    purpose = {
-        "opening": "opening pressure",
-        "tactics": "the forcing threat",
-        "endgame": "the conversion",
-        "advanced_puzzle": "the forcing idea",
-        "full_game": "the game plan",
-        "comparison": "the different geometry",
-        "skill_match": "the skill test",
-        "viewer_challenge": "your best reply",
-        "definition": "the board rule",
-        "rules": "the legal rule",
+    purpose_defaults = {
+        "opening": "open a useful line",
+        "tactics": "create a forcing threat",
+        "endgame": "improve the winning plan",
+        "advanced_puzzle": "start the forcing sequence",
+        "full_game": "carry out the game plan",
+        "comparison": "show the different board geometry",
+        "skill_match": "test the opponent's plan",
+        "viewer_challenge": "find the best reply",
+        "definition": "make the board rule visible",
+        "rules": "demonstrate the legal rule",
+        "trend_breakdown": "turn the position into a practical lesson",
+    }
+    purpose = str(move.get("purpose") or move.get("label") or purpose_defaults.get(content_type, "improve the position")).strip().rstrip(".").lower()
+    opponent_reply = str(move.get("opponentReply") or ("contest the new line" if side == "red" else "answer the pressure")).strip().rstrip(".").lower()
+    effect_defaults = {
+        "opening": "the next piece can join the attack",
+        "tactics": "the opponent has fewer safe replies",
+        "endgame": "the advantage becomes easier to convert",
+        "advanced_puzzle": "the forcing sequence becomes visible",
+        "full_game": "the game enters its next phase",
+        "comparison": "the different board geometry becomes concrete",
+        "skill_match": "the stronger plan gains a tempo",
+        "viewer_challenge": "the reply becomes the key decision",
+        "definition": "the board rule changes the available plans",
+        "rules": "the legal rule removes a tempting reply",
+        "trend_breakdown": "the practical lesson becomes clear",
+    }
+    effect = str(move.get("effect") or effect_defaults.get(content_type, "the opponent's choices change")).strip().rstrip(".").lower()
+    focus_defaults = {
+        "opening": "the plan behind development",
+        "tactics": "the forcing replies",
+        "endgame": "the conversion technique",
+        "advanced_puzzle": "the complete calculation",
+        "full_game": "the next phase of the game",
+        "comparison": "the difference in board geometry",
+        "skill_match": "the quality of the plan",
+        "viewer_challenge": "the best reply",
+        "definition": "the board rule in action",
+        "rules": "the legal consequence",
         "trend_breakdown": "the practical idea",
-    }.get(content_type, "the practical idea")
-    return f"Move {ply}: {side} {piece}, from {_coordinate_label(move.get('from'), language)} to {_coordinate_label(move.get('to'), language)}. Focus: {purpose}."
+    }
+    focus = focus_defaults.get(content_type, "the next plan")
+    source = _coordinate_label(move.get("from"), language)
+    target = _coordinate_label(move.get("to"), language)
+    if language == "zh":
+        spoken = f"第{ply}步，{side}方{piece}从{source}走到{target}，目的是{purpose}。对手很可能{opponent_reply}，这样局面就会{effect}。接下来我们继续关注{focus}。"
+        caption = f"第{ply}步：{piece}{source}到{target}——{purpose}。"
+    else:
+        reply_sentence = f"The likely reply is to {opponent_reply}." if not opponent_reply.startswith(("the ", "a ", "an ", "black ", "red ", "they ", "it ")) else f"The likely reply is {opponent_reply}."
+        spoken = (
+            f"Move {ply}. {side.title()} {piece} moves from {source} to {target} to {purpose}. "
+            f"{reply_sentence} That changes the position: {effect}. "
+            f"Next, watch {focus}."
+        )
+        caption = f"Move {ply}: {piece.title()} {source} → {target}. {purpose.capitalize()}."
+    return spoken, caption
 
 
-def build_narration_segments(base_narration: str, moves: list[dict[str, Any]], language: str, content_type: str) -> tuple[str, list[dict[str, Any]]]:
+def build_narration_segments(
+    base_narration: str,
+    moves: list[dict[str, Any]],
+    language: str,
+    content_type: str,
+    analysis_focus: str = "",
+) -> tuple[str, list[dict[str, Any]]]:
     segments: list[dict[str, Any]] = []
     intro = str(base_narration or "").strip()
     if intro:
-        segments.append({"kind": "intro", "text": intro})
+        segments.append({"kind": "intro", "text": intro, "captionText": intro, "captionPosition": "bottom"})
     for move in moves:
-        spoken_text = _move_spoken_text(move, language, content_type)
+        spoken_text, caption_text = _move_spoken_text(move, language, content_type, analysis_focus)
         move["spokenText"] = spoken_text
-        segments.append({"kind": "move", "movePly": int(move.get("ply", len(segments))), "text": spoken_text})
+        move["captionText"] = caption_text
+        segments.append({
+            "kind": "move",
+            "movePly": int(move.get("ply", len(segments))),
+            "text": spoken_text,
+            "captionText": caption_text,
+            "captionPosition": "board",
+        })
     return " ".join(segment["text"] for segment in segments).strip(), segments
+
+
+def _segment_captions_without_audio(segments: list[dict[str, Any]], duration: float) -> list[dict[str, Any]]:
+    if not segments or duration <= 0:
+        return []
+    weights = [max(1, len(str(segment.get("captionText") or segment.get("text") or "").split())) for segment in segments]
+    total = float(sum(weights)) or 1.0
+    cursor = 0.0
+    captions: list[dict[str, Any]] = []
+    for index, (segment, weight) in enumerate(zip(segments, weights)):
+        end = duration if index == len(segments) - 1 else cursor + duration * weight / total
+        text = str(segment.get("captionText") or segment.get("text") or "").strip()
+        if text:
+            captions.append({
+                "startSec": round(cursor, 3),
+                "endSec": round(max(cursor + 0.05, end), 3),
+                "text": text,
+                "kind": segment.get("kind", "speech"),
+                "movePly": segment.get("movePly"),
+                "captionPosition": segment.get("captionPosition", "board" if segment.get("kind") == "move" else "bottom"),
+                "source": "narration_segments_fallback",
+            })
+        cursor = end
+    return captions
 
 
 def normalize_language(value: Any) -> str:
@@ -279,7 +362,13 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     fallback = FALLBACKS[language]
     title = _safe_text(puzzle.get("title"), fallback["title"], language)
     content_type = str(puzzle.get("content_type") or "definition")
-    supplied_narration = puzzle.get("narration")
+    curriculum_hook = _safe_text(puzzle.get("hook"), "", language)
+    analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
+    supplied_segments = puzzle.get("narrationSegments") if isinstance(puzzle.get("narrationSegments"), list) else []
+    supplied_narration = next(
+        (str(segment.get("text", "")).strip() for segment in supplied_segments if isinstance(segment, dict) and segment.get("kind") == "intro" and str(segment.get("text", "")).strip()),
+        puzzle.get("narration"),
+    )
     if source_kind in {"rss", "youtube_search"} and topic and topic != fallback["title"]:
         if language == "zh":
             narration = f"今天的中国象棋话题是：{topic}。{FALLBACK_NARRATION_BY_TYPE['zh'].get('trend_breakdown', '')}"
@@ -289,21 +378,17 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
         narration = _safe_text(supplied_narration, FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"]), language)
     else:
         narration = FALLBACK_NARRATION_BY_TYPE.get(language, {}).get(content_type, fallback["narration"])
-    narration, narration_segments = build_narration_segments(narration, moves, language, content_type)
+    if curriculum_hook and curriculum_hook.lower() not in narration.lower():
+        narration = f"{curriculum_hook} {narration}"
+    narration, narration_segments = build_narration_segments(narration, moves, language, content_type, analysis_focus)
     duration = estimate_content_duration(
         narration,
         moves,
         language,
         requested_duration=float(puzzle["durationInSeconds"]) if puzzle.get("durationInSeconds") else None,
     )
-    supplied_captions = puzzle.get("captions")
-    captions = supplied_captions if isinstance(supplied_captions, list) and all(not _text_is_invalid(c.get("text", ""), language) for c in supplied_captions if isinstance(c, dict)) else [
-        {"startSec": 0.2, "endSec": 2.0, "text": fallback["captions"][0]},
-        {"startSec": 2.0, "endSec": duration - 1.0, "text": fallback["captions"][1]},
-        {"startSec": duration - 1.0, "endSec": duration, "text": fallback["captions"][3]},
-    ]
     moves = retime_moves(moves, duration)
-    captions = clamp_captions(captions, duration)
+    captions = _segment_captions_without_audio(narration_segments, duration)
     return {"title": title, "narration": narration, "moves": moves, "captions": captions, "narrationSegments": narration_segments, "durationInSeconds": duration}
 
 
@@ -323,10 +408,21 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     if not isinstance(raw_captions, list) or any(_text_is_invalid(cue.get("text", ""), language) for cue in raw_captions if isinstance(cue, dict)):
         result["captions"] = fallback["captions"]
     result["moves"] = result.get("moves") if isinstance(result.get("moves"), list) else fallback["moves"]
-    if not isinstance(result.get("narrationSegments"), list) or not result.get("narrationSegments"):
-        result["narration"], result["narrationSegments"] = build_narration_segments(
-            result["narration"], result["moves"], language, str(puzzle.get("content_type") or "definition")
-        )
+    for move in result["moves"]:
+        if not isinstance(move, dict):
+            continue
+        for field in ("purpose", "opponentReply", "effect", "label"):
+            if contains_arabic(move.get(field, "")) or (language == "en" and CJK_RE.search(str(move.get(field, "")))):
+                move.pop(field, None)
+    analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
+    existing_segments = result.get("narrationSegments") if isinstance(result.get("narrationSegments"), list) else []
+    intro_source = next(
+        (str(segment.get("text", "")).strip() for segment in existing_segments if isinstance(segment, dict) and segment.get("kind") == "intro" and str(segment.get("text", "")).strip()),
+        str(result.get("narration", "")).strip(),
+    )
+    result["narration"], result["narrationSegments"] = build_narration_segments(
+        intro_source, result["moves"], language, str(puzzle.get("content_type") or "definition"), analysis_focus
+    )
     result["durationInSeconds"] = estimate_content_duration(
         result["narration"],
         result["moves"],
@@ -337,7 +433,7 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     for index, move in enumerate(result["moves"], start=1):
         if isinstance(move, dict) and contains_arabic(move.get("label", "")):
             move["label"] = fallback["labels"][min(index - 1, 2)]
-    result["captions"] = clamp_captions(result.get("captions", []), result["durationInSeconds"])
+    result["captions"] = _segment_captions_without_audio(result["narrationSegments"], result["durationInSeconds"])
     return result
 
 
@@ -389,5 +485,13 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
         "source_kind": puzzle.get("source_kind", "generated"),
         "topic_key": puzzle.get("topic_key"),
         "hook": puzzle.get("hook"),
+        "objective": puzzle.get("objective"),
+        "analysis_focus": puzzle.get("analysis_focus"),
+        "curriculum_lesson_key": puzzle.get("curriculum_lesson_key"),
+        "curriculum_sequence": puzzle.get("curriculum_sequence"),
+        "curriculum_stage": puzzle.get("curriculum_stage"),
+        "difficulty": puzzle.get("difficulty"),
+        "format": puzzle.get("format"),
+        "playlist_key": puzzle.get("playlist_key"),
         "pairing": puzzle.get("pairing", {}),
     }

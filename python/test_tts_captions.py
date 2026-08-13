@@ -49,6 +49,12 @@ class CaptionTranscriptTests(unittest.TestCase):
         self.assertEqual(captions[2]["movePly"], 2)
         self.assertLessEqual(captions[1]["endSec"], captions[2]["startSec"])
         self.assertLess(len(captions[1]["text"].split()), 24)
+        self.assertEqual(captions[0]["captionPosition"], "bottom")
+        self.assertEqual(captions[1]["captionPosition"], "board")
+        self.assertIn("likely reply", narration)
+        self.assertIn("changes the position", narration)
+        self.assertIn("Move 1", segments[1]["text"])
+        self.assertLess(len(segments[1]["captionText"].split()), len(segments[1]["text"].split()))
 
     def test_chinese_captions_preserve_spoken_units_without_invented_summary(self) -> None:
         cues = [

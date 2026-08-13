@@ -140,25 +140,27 @@ function Board({ job, second }: { job: VideoJob; second: number }) {
 function Caption({ job, second }: { job: VideoJob; second: number }) {
   const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
   if (!cue) return null;
+  const isIntro = cue.captionPosition === "bottom" || cue.kind === "intro";
   return (
     <div
       style={{
         position: "absolute",
-        top: 342,
-        left: 104,
-        right: 104,
-        minHeight: 42,
-        maxHeight: 64,
+        top: isIntro ? undefined : 342,
+        bottom: isIntro ? 112 : undefined,
+        left: isIntro ? 82 : 104,
+        right: isIntro ? 82 : 104,
+        minHeight: isIntro ? 54 : 42,
+        maxHeight: isIntro ? 170 : 72,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         textAlign: "center",
-        padding: "8px 18px",
+        padding: isIntro ? "12px 22px" : "8px 18px",
         borderRadius: 16,
-        background: "rgba(31, 22, 17, .82)",
+        background: isIntro ? "rgba(31, 22, 17, .78)" : "rgba(31, 22, 17, .82)",
         color: "#fff8e9",
         fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif",
-        fontSize: 22,
+        fontSize: isIntro ? 24 : 22,
         lineHeight: 1.18,
         fontWeight: 700,
         direction: "ltr",

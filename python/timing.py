@@ -103,6 +103,43 @@ def fit_captions(captions: list[dict[str, Any]], duration: float) -> list[dict[s
     return clean
 
 
+def _time_narration_segments_without_audio(segments: list[dict[str, Any]], duration: float) -> list[dict[str, Any]]:
+    if not segments or duration <= 0:
+        return []
+    weights = [max(1, len(str(segment.get("text") or "").split())) for segment in segments]
+    total = float(sum(weights)) or 1.0
+    cursor = 0.0
+    timed: list[dict[str, Any]] = []
+    for index, (segment, weight) in enumerate(zip(segments, weights)):
+        end = duration if index == len(segments) - 1 else cursor + duration * weight / total
+        timed.append({
+            **segment,
+            "startSec": round(cursor, 3),
+            "endSec": round(max(cursor + 0.05, end), 3),
+            "source": "narration_segments_fallback",
+        })
+        cursor = end
+    return timed
+
+
+def _captions_from_timed_segments(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    captions: list[dict[str, Any]] = []
+    for segment in segments:
+        text = str(segment.get("captionText") or segment.get("text") or "").strip()
+        if not text:
+            continue
+        captions.append({
+            "startSec": float(segment.get("startSec", 0.0)),
+            "endSec": float(segment.get("endSec", 0.05)),
+            "text": text,
+            "kind": segment.get("kind", "speech"),
+            "movePly": segment.get("movePly"),
+            "captionPosition": segment.get("captionPosition", "board" if segment.get("kind") == "move" else "bottom"),
+            "source": segment.get("source", "narration_segments_fallback"),
+        })
+    return captions
+
+
 def finalize_timing(
     job: dict[str, Any],
     audio_duration: float | None = None,
@@ -117,7 +154,12 @@ def finalize_timing(
     )
     job["durationInSeconds"] = duration
     job["moves"] = retime_moves(job.get("moves", []), duration)
-    timed_segments = [segment for segment in job.get("narrationSegments", []) if segment.get("startSec") is not None and segment.get("endSec") is not None]
+    narration_segments = [dict(segment) for segment in job.get("narrationSegments", []) if isinstance(segment, dict)]
+    timed_segments = [segment for segment in narration_segments if segment.get("startSec") is not None and segment.get("endSec") is not None]
+    if narration_segments and not timed_segments:
+        narration_segments = _time_narration_segments_without_audio(narration_segments, duration)
+        job["narrationSegments"] = narration_segments
+        timed_segments = narration_segments
     job["moves"] = sync_moves_to_narration_segments(job["moves"], timed_segments, duration)
-    job["captions"] = clamp_captions(job.get("captions", []), duration) if timed_segments else fit_captions(job.get("captions", []), duration)
+    job["captions"] = _captions_from_timed_segments(timed_segments) if timed_segments else fit_captions(job.get("captions", []), duration)
     return job

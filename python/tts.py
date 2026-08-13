@@ -99,7 +99,7 @@ def captions_from_narration_segments(segments: list[dict[str, Any]], language: A
     """Use one short spoken segment per cue; no caption persists across moves."""
     captions = []
     for segment in segments:
-        text = str(segment.get("text", "")).strip()
+        text = str(segment.get("captionText") or segment.get("text", "")).strip()
         if not text:
             continue
         captions.append({
@@ -108,6 +108,7 @@ def captions_from_narration_segments(segments: list[dict[str, Any]], language: A
             "text": text,
             "kind": segment.get("kind", "speech"),
             "movePly": segment.get("movePly"),
+            "captionPosition": segment.get("captionPosition", "board" if segment.get("kind") == "move" else "bottom"),
             "source": segment.get("source", "move_narration_audio"),
         })
     return captions

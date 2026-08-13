@@ -212,6 +212,45 @@ class LocalStore:
                     FOREIGN KEY (job_id) REFERENCES youtube_videos(job_id) ON DELETE CASCADE,
                     FOREIGN KEY (playlist_key) REFERENCES youtube_playlists(playlist_key)
                 );
+                CREATE TABLE IF NOT EXISTS curriculum_lessons (
+                    lesson_key TEXT PRIMARY KEY,
+                    sequence_no INTEGER NOT NULL UNIQUE,
+                    stage TEXT NOT NULL,
+                    playlist_key TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    difficulty TEXT NOT NULL,
+                    format TEXT NOT NULL,
+                    target_seconds REAL,
+                    title TEXT NOT NULL,
+                    objective TEXT NOT NULL,
+                    hook TEXT NOT NULL,
+                    analysis_focus TEXT NOT NULL,
+                    position_template TEXT NOT NULL,
+                    prerequisites_json TEXT NOT NULL DEFAULT '[]',
+                    lesson_json TEXT NOT NULL DEFAULT '{}',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (playlist_key) REFERENCES youtube_playlists(playlist_key)
+                );
+                CREATE TABLE IF NOT EXISTS curriculum_episode_plans (
+                    lesson_key TEXT NOT NULL,
+                    language TEXT NOT NULL CHECK (language IN ('en', 'zh')),
+                    status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'queued', 'processing', 'published', 'retry', 'failed', 'blocked')),
+                    candidate_id TEXT,
+                    job_id TEXT,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    published_at TEXT,
+                    error_message TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (lesson_key, language),
+                    FOREIGN KEY (lesson_key) REFERENCES curriculum_lessons(lesson_key) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS curriculum_lessons_sequence_idx
+                    ON curriculum_lessons (is_active, sequence_no);
+                CREATE INDEX IF NOT EXISTS curriculum_episode_plans_status_idx
+                    ON curriculum_episode_plans (language, status, updated_at);
                 CREATE INDEX IF NOT EXISTS youtube_playlists_youtube_id_idx
                     ON youtube_playlists (youtube_playlist_id);
                 CREATE INDEX IF NOT EXISTS youtube_videos_status_updated_idx
@@ -223,6 +262,7 @@ class LocalStore:
                 """
             )
         self._seed_youtube_catalog()
+        self._seed_curriculum()
         self._backfill_youtube_catalog_from_publications()
 
     def _seed_youtube_catalog(self) -> None:
@@ -269,6 +309,178 @@ class LocalStore:
                         now,
                     ),
                 )
+
+    def _seed_curriculum(self) -> None:
+        """Load the English-first teaching path into SQLite without changing completed rows."""
+        try:
+            from curriculum import load_curriculum
+            curriculum = load_curriculum()
+        except (ImportError, OSError, json.JSONDecodeError):
+            return
+        lessons = curriculum.get("lessons") or []
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            for lesson in lessons:
+                lesson_key = str(lesson.get("lesson_key") or "").strip()
+                if not lesson_key:
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO curriculum_lessons
+                        (lesson_key, sequence_no, stage, playlist_key, content_type, difficulty, format,
+                         target_seconds, title, objective, hook, analysis_focus, position_template,
+                         prerequisites_json, lesson_json, is_active, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    ON CONFLICT(lesson_key) DO UPDATE SET
+                        sequence_no=excluded.sequence_no, stage=excluded.stage, playlist_key=excluded.playlist_key,
+                        content_type=excluded.content_type, difficulty=excluded.difficulty, format=excluded.format,
+                        target_seconds=excluded.target_seconds, title=excluded.title, objective=excluded.objective,
+                        hook=excluded.hook, analysis_focus=excluded.analysis_focus,
+                        position_template=excluded.position_template, prerequisites_json=excluded.prerequisites_json,
+                        lesson_json=excluded.lesson_json, is_active=1, updated_at=excluded.updated_at
+                    """,
+                    (
+                        lesson_key, int(lesson.get("sequence_no") or 0), str(lesson.get("stage") or "foundations"),
+                        str(lesson.get("playlist_key") or "en-start-here"), str(lesson.get("content_type") or "definition"),
+                        str(lesson.get("difficulty") or "beginner"), str(lesson.get("format") or "lesson"),
+                        float(lesson.get("target_seconds") or 0), str(lesson.get("title") or lesson_key),
+                        str(lesson.get("objective") or ""), str(lesson.get("hook") or ""),
+                        str(lesson.get("analysis_focus") or ""), str(lesson.get("position_template") or "starting-pawn-cannon"),
+                        json.dumps(lesson.get("prerequisites") or [], ensure_ascii=False),
+                        json.dumps(lesson, ensure_ascii=False), now, now,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO curriculum_episode_plans
+                        (lesson_key, language, status, created_at, updated_at)
+                    VALUES (?, 'en', 'planned', ?, ?)
+                    """,
+                    (lesson_key, now, now),
+                )
+
+    def curriculum_summary(self, language: str = "en") -> dict[str, Any]:
+        with self._connect() as connection:
+            total = connection.execute("SELECT COUNT(*) FROM curriculum_lessons WHERE is_active = 1").fetchone()[0]
+            rows = connection.execute(
+                "SELECT status, COUNT(*) AS count FROM curriculum_episode_plans WHERE language = ? GROUP BY status",
+                (language,),
+            ).fetchall()
+            next_row = connection.execute(
+                """
+                SELECT lesson_key, sequence_no, stage, title, playlist_key, content_type, difficulty
+                FROM curriculum_lessons
+                WHERE is_active = 1
+                ORDER BY sequence_no ASC
+                LIMIT 1
+                """
+            ).fetchone()
+        return {
+            "language": language,
+            "total_lessons": int(total),
+            "status_counts": {row["status"]: int(row["count"]) for row in rows},
+            "first_lesson": dict(next_row) if next_row else None,
+        }
+
+    def get_curriculum_catalog(self, language: str = "en") -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT l.lesson_key, l.sequence_no, l.stage, l.playlist_key, l.content_type, l.difficulty,
+                       l.format, l.target_seconds, l.title, l.objective, l.hook, l.analysis_focus,
+                       l.position_template, l.prerequisites_json, p.status, p.candidate_id, p.job_id,
+                       p.attempts, p.published_at, p.error_message
+                FROM curriculum_lessons l
+                LEFT JOIN curriculum_episode_plans p ON p.lesson_key = l.lesson_key AND p.language = ?
+                WHERE l.is_active = 1
+                ORDER BY l.sequence_no ASC
+                """,
+                (language,),
+            ).fetchall()
+        catalog: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            item["prerequisites"] = json.loads(item.pop("prerequisites_json") or "[]")
+            catalog.append(item)
+        return catalog
+
+    def get_next_curriculum_candidate(self, language: str = "en") -> dict[str, Any] | None:
+        """Return the earliest planned/retry lesson whose prerequisite lessons are published."""
+        if language != "en":
+            return None
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT l.lesson_json, l.lesson_key, l.sequence_no
+                FROM curriculum_lessons l
+                JOIN curriculum_episode_plans p ON p.lesson_key = l.lesson_key AND p.language = ?
+                WHERE l.is_active = 1 AND p.status IN ('planned', 'retry')
+                ORDER BY l.sequence_no ASC
+                """,
+                (language,),
+            ).fetchall()
+            published_rows = connection.execute(
+                "SELECT lesson_key FROM curriculum_episode_plans WHERE language = ? AND status = 'published'",
+                (language,),
+            ).fetchall()
+        published = {str(row["lesson_key"]) for row in published_rows}
+        for row in rows:
+            try:
+                lesson = json.loads(row["lesson_json"] or "{}")
+            except json.JSONDecodeError:
+                continue
+            prerequisites = {str(value) for value in lesson.get("prerequisites") or []}
+            if not prerequisites.issubset(published):
+                continue
+            try:
+                from curriculum import candidate_from_lesson
+                return candidate_from_lesson(lesson)
+            except ImportError:
+                return None
+        return None
+
+    def update_curriculum_episode(
+        self,
+        lesson_key: str,
+        language: str,
+        status: str,
+        *,
+        candidate_id: str | None = None,
+        job_id: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        published_at = now if status == "published" else None
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE curriculum_episode_plans
+                SET status = ?, candidate_id = COALESCE(?, candidate_id), job_id = COALESCE(?, job_id),
+                    attempts = attempts + CASE WHEN ? IN ('processing', 'retry') THEN 1 ELSE 0 END,
+                    published_at = COALESCE(?, published_at), error_message = ?, updated_at = ?
+                WHERE lesson_key = ? AND language = ?
+                """,
+                (status, candidate_id, job_id, status, published_at, error_message, now, lesson_key, language),
+            )
+
+    def curriculum_lesson_status(self, lesson_key: str, language: str = "en") -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT l.lesson_key, l.sequence_no, l.stage, l.playlist_key, l.title, l.objective,
+                       l.analysis_focus, l.prerequisites_json, p.status, p.candidate_id, p.job_id,
+                       p.attempts, p.published_at, p.error_message
+                FROM curriculum_lessons l
+                JOIN curriculum_episode_plans p ON p.lesson_key = l.lesson_key AND p.language = ?
+                WHERE l.lesson_key = ?
+                """,
+                (language, lesson_key),
+            ).fetchone()
+        if row is None:
+            return None
+        value = dict(row)
+        value["prerequisites"] = json.loads(value.pop("prerequisites_json") or "[]")
+        return value
 
     def _backfill_youtube_catalog_from_publications(self) -> None:
         """Materialize old publication rows into the normalized YouTube catalog."""

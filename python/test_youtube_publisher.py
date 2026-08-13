@@ -32,6 +32,21 @@ class YouTubePublisherLocalTests(unittest.TestCase):
         self.assertIn("#Xiangqi", metadata["hashtags"])
         self.assertNotIn("Arabic", metadata["description"])
 
+    def test_curriculum_playlist_override_wins_over_content_type_mapping(self) -> None:
+        metadata = build_metadata(
+            {
+                "title": "The 9x10 Point Board",
+                "language": "en",
+                "content_type": "definition",
+                "playlist_key": "en-board-setup",
+                "narration": "Learn the intersections before you learn the tactics.",
+            },
+            policy=load_policy(POLICY),
+            playlists=load_playlists(PLAYLISTS),
+        )
+        self.assertEqual(metadata["playlist_key"], "en-board-setup")
+        self.assertEqual(metadata["playlist_title"], "EN — Board, Setup, and Notation")
+
     def test_chinese_metadata_maps_to_endgame_playlist(self) -> None:
         metadata = build_metadata(
             {

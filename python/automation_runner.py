@@ -27,6 +27,12 @@ def _candidate_topic_key(candidate: dict[str, Any]) -> str:
     return normalize_topic_key(payload.get("topic_key") or candidate.get("topic_key") or candidate.get("title"))
 
 
+def _curriculum_lesson_key(candidate: dict[str, Any]) -> str | None:
+    payload = candidate.get("payload") or {}
+    lesson_key = payload.get("curriculum_lesson_key")
+    return str(lesson_key) if lesson_key else None
+
+
 def select_diverse_candidates(store: LocalStore, *, language: str, limit: int) -> list[dict[str, Any]]:
     """Choose fresh topics while rotating the channel's content program."""
     pool = [candidate for candidate in store.list_candidates(status="discovered", limit=500) if candidate.get("language") == language]
@@ -184,20 +190,46 @@ def main() -> int:
         metrics["discovery"] = discovery_metrics
         languages = parse_csv(args.languages, ["en"])
         selection_language = "en" if "en" in languages else languages[0]
-        candidates = select_diverse_candidates(store, language=selection_language, limit=max(1, args.daily_count))
+        curriculum_candidate = store.get_next_curriculum_candidate(selection_language)
+        if curriculum_candidate is not None:
+            if not args.dry_run:
+                store.add_candidate(curriculum_candidate)
+            lesson_key = _curriculum_lesson_key(curriculum_candidate)
+            if lesson_key and not args.dry_run:
+                store.update_curriculum_episode(lesson_key, selection_language, "queued", candidate_id=curriculum_candidate["id"])
+            candidates = [curriculum_candidate]
+            metrics["selection_mode"] = "curriculum"
+            metrics["curriculum_lesson_key"] = lesson_key
+        else:
+            candidates = select_diverse_candidates(store, language=selection_language, limit=max(1, args.daily_count))
+            metrics["selection_mode"] = "supplementary_discovery"
         metrics["selected"] = len(candidates)
         for candidate in candidates:
-            store.update_candidate(candidate["id"], "processing")
+            if not args.dry_run:
+                store.update_candidate(candidate["id"], "processing")
+            lesson_key = _curriculum_lesson_key(candidate)
+            if lesson_key and not args.dry_run:
+                store.update_curriculum_episode(lesson_key, selection_language, "processing", candidate_id=candidate["id"])
             completed_jobs: list[str] = []
             try:
                 if args.dry_run:
                     completed_jobs = [f"dry-run-{candidate['id']}-{language}" for language in languages]
-                else:
-                    completed_jobs = [run_one(candidate, language, store, run_id) for language in languages]
+                    metrics.setdefault("dry_run_jobs", []).extend(completed_jobs)
+                    metrics["completed"] += 1
+                    continue
+                completed_jobs = [run_one(candidate, language, store, run_id) for language in languages]
                 store.update_candidate(candidate["id"], "published", ",".join(completed_jobs))
+                if lesson_key:
+                    store.update_curriculum_episode(
+                        lesson_key, selection_language, "published", candidate_id=candidate["id"], job_id=completed_jobs[0] if completed_jobs else None
+                    )
                 metrics["completed"] += 1
             except Exception as exc:
                 store.update_candidate(candidate["id"], "discovered")
+                if lesson_key:
+                    store.update_curriculum_episode(
+                        lesson_key, selection_language, "retry", candidate_id=candidate["id"], error_message=str(exc)
+                    )
                 metrics["failed"] += 1
                 print(f"Candidate failed and will be retried: {candidate['id']}: {exc}", file=sys.stderr)
         store.finish_run(run_id, "completed" if metrics["failed"] == 0 else "partial", metrics)
