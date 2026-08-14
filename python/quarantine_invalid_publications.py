@@ -106,7 +106,7 @@ def main() -> int:
             conn.execute(
                 """
                 UPDATE youtube_publications
-                SET status = ?, playlist_id = NULL, playlist_url = NULL,
+                SET status = ?, video_id = NULL, video_url = NULL, playlist_id = NULL, playlist_url = NULL,
                     metadata_json = ?, error_message = ?, updated_at = ?
                 WHERE job_id = ?
                 """,
@@ -130,7 +130,7 @@ def main() -> int:
                 conn.execute(
                     """
                     UPDATE youtube_videos
-                    SET status = ?, privacy_status = ?, metadata_json = ?, error_message = ?, updated_at = ?
+                    SET status = ?, video_id = NULL, video_url = NULL, privacy_status = ?, metadata_json = ?, error_message = ?, updated_at = ?
                     WHERE job_id = ?
                     """,
                     (
@@ -147,7 +147,7 @@ def main() -> int:
             conn.execute(
                 """
                 UPDATE youtube_video_playlists
-                SET status = ?, error_message = ?, updated_at = ?
+                SET youtube_playlist_id = NULL, playlist_item_id = NULL, status = ?, error_message = ?, updated_at = ?
                 WHERE job_id = ?
                 """,
                 ("deleted_invalid_content", target["reason"], now, job_id),
