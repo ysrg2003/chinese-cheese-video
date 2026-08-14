@@ -524,10 +524,32 @@ def generate_director_data(puzzle: dict[str, Any], store: Any | None = None, ope
     return _fallback(puzzle, language)
 
 
+def _recoverable_dynamic_puzzle(puzzle: dict[str, Any]) -> bool:
+    return not str(puzzle.get("curriculum_lesson_key") or "").strip() and str(puzzle.get("visual_mode") or "") not in {
+        "static_board",
+        "foundation_storyboard",
+        "board_introduction",
+        "setup_overview",
+    }
+
+
+def _deterministic_legal_fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
+    recovered = dict(puzzle)
+    topic_key = str(recovered.get("topic_key") or recovered.get("title") or "dynamic-xiangqi").strip().lower()
+    variant_index = int(hashlib.sha256(topic_key.encode("utf-8")).hexdigest()[:8], 16) % len(DEFAULT_MOVE_VARIANTS)
+    recovered["moves"] = list(DEFAULT_MOVE_VARIANTS[variant_index])
+    recovered["source_kind"] = recovered.get("source_kind") or "generated"
+    fallback_data = _fallback(recovered, language)
+    return _sanitize_director_data(fallback_data, language, recovered)
+
+
 def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any]) -> dict[str, Any]:
     language = normalize_language(puzzle.get("language"))
     clean_data = _sanitize_director_data(director_data, language, puzzle)
     move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
+    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle):
+        clean_data = _deterministic_legal_fallback(puzzle, language)
+        move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
     if not move_validation["ok"]:
         raise ValueError("Xiangqi legal-move validation failed: " + "; ".join(move_validation["errors"]))
     canonical_moves = move_validation["moves"]

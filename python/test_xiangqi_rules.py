@@ -113,6 +113,50 @@ class XiangqiRulesTests(unittest.TestCase):
             job = make_job(f"fallback-{index}", puzzle, director_data)
             self.assertEqual(len(job["moves"]), 3)
 
+    def test_dynamic_invalid_director_output_recovers_to_legal_variant(self):
+        puzzle = {
+            "fen": START_FEN,
+            "language": "en",
+            "content_type": "trend_breakdown",
+            "source_kind": "rss",
+            "topic_key": "dynamic-invalid-test",
+            "title": "Dynamic invalid test",
+        }
+        director_data = {
+            "title": "Dynamic invalid test",
+            "narration": "A dynamic Xiangqi lesson.",
+            "moves": [
+                {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red"},
+                {"ply": 2, "from": [0, 3], "to": [0, 4], "piece": "pawn", "side": "black"},
+                {"ply": 3, "from": [1, 7], "to": [1, 4], "piece": "pawn", "side": "red"},
+            ],
+        }
+        job = make_job("dynamic-invalid-recovery", puzzle, director_data)
+        result = validate_move_sequence(START_FEN, job["moves"])
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(result["plies_checked"], len(job["moves"]))
+
+    def test_invalid_curriculum_payload_remains_a_hard_failure(self):
+        puzzle = {
+            "fen": START_FEN,
+            "language": "en",
+            "content_type": "rules",
+            "source_kind": "generated",
+            "curriculum_lesson_key": "en-010-the-general",
+            "title": "The General",
+        }
+        director_data = {
+            "title": "The General",
+            "narration": "A curriculum lesson.",
+            "moves": [
+                {"ply": 1, "from": [4, 9], "to": [4, 8], "piece": "king", "side": "red"},
+                {"ply": 2, "from": [4, 0], "to": [4, 1], "piece": "king", "side": "black"},
+                {"ply": 3, "from": [3, 9], "to": [4, 8], "piece": "advisor", "side": "red"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "legal-move validation failed"):
+            make_job("curriculum-invalid-hard-failure", puzzle, director_data)
+
     def test_declared_piece_and_side_must_match_board(self):
         result = validate_move_sequence(
             START_FEN,
