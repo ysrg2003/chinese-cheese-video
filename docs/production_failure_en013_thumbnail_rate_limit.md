@@ -19,3 +19,9 @@ The catalog row for en-013 was migrated to `published_thumbnail_pending` with vi
 ## Regression coverage
 
 The fake YouTube API test simulates a successful upload followed by a thumbnail 429, asserts the returned pending status and video ID, then retries with the existing publication and asserts that `upload_video()` is never called. SQLite tests assert that the pending status preserves the public video and playlist identity.
+
+## Reconciliation-only orchestration
+
+The first attempt to repair the orphan used `daily_count=0`, but the old runner still selected the next curriculum lesson because its curriculum branch bypassed the daily-count limit. It therefore rendered en-013 again before reusing the existing video ID; it did not create a duplicate, but it wasted a full render and was not the intended repair mode.
+
+The source-controlled orchestration fix adds a `reconcile_only` workflow input and an `is_reconciliation_only()` guard. When enabled, the production step is skipped. A non-positive daily count also stops discovery and curriculum selection. Reconciliation can now repair pending public states without generating a new lesson, rendering an old job, or calling `videos.insert`.

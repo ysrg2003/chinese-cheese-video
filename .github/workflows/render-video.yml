@@ -25,6 +25,11 @@ on:
         required: true
         default: "20"
         type: string
+      reconcile_only:
+        description: "Only reconcile existing public publication states; do not discover or produce new content"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: chinese-cheese-video-production
@@ -140,7 +145,7 @@ jobs:
         run: python python/reconcile_youtube.py | tee youtube-reconcile.json
 
       - name: Run autonomous discovery and production
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1'
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true
         id: autonomous_run
         continue-on-error: true
         env:

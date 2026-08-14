@@ -191,7 +191,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--languages", default=os.getenv("AUTOMATION_LANGUAGES", "en,zh"))
     parser.add_argument("--discover-limit", type=int, default=int(os.getenv("DISCOVERY_LIMIT", "20")))
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--reconcile-only", action="store_true", help="Do not discover or produce new content; reconciliation runs separately in the workflow.")
     return parser.parse_args()
+
+
+def is_reconciliation_only(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "reconcile_only", False) or int(getattr(args, "daily_count", 0)) <= 0)
 
 
 def main() -> int:
@@ -201,6 +206,12 @@ def main() -> int:
     store.start_run(run_id, "github-actions-daily")
     metrics: dict[str, Any] = {"run_id": run_id, "selected": 0, "completed": 0, "failed": 0}
     try:
+        if is_reconciliation_only(args):
+            metrics["selection_mode"] = "reconciliation_only"
+            store.finish_run(run_id, "completed", metrics)
+            store.checkpoint()
+            print(json.dumps(metrics, ensure_ascii=False, indent=2))
+            return 0
         discovery_metrics = discover_all(store, args.discover_limit)
         metrics["discovery"] = discovery_metrics
         languages = parse_csv(args.languages, ["en"])
