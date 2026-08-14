@@ -46,7 +46,7 @@ def _channel_id(service: Any) -> str:
     return ids[0]
 
 
-def _preflight_videos(service: Any) -> list[dict[str, Any]]:
+def _preflight_videos(service: Any) -> tuple[list[dict[str, Any]], list[str]]:
     response = youtube_publisher._execute_with_backoff(
         lambda: service.videos().list(
             part="id,snippet,status",
@@ -57,11 +57,7 @@ def _preflight_videos(service: Any) -> list[dict[str, Any]]:
     items = response.get("items") or []
     found = {str(item.get("id")): item for item in items if item.get("id")}
     missing = [video_id for video_id in TARGET_VIDEO_IDS if video_id not in found]
-    if missing:
-        raise PermanentDeletionError(
-            "Preflight found missing target IDs; no deletion was attempted: " + ", ".join(missing)
-        )
-    return [found[video_id] for video_id in TARGET_VIDEO_IDS]
+    return [found[video_id] for video_id in TARGET_VIDEO_IDS if video_id in found], missing
 
 
 def main() -> int:
@@ -73,10 +69,13 @@ def main() -> int:
 
     service = youtube_publisher.build_service()
     channel_id = _channel_id(service)
-    items = _preflight_videos(service)
+    items, already_absent = _preflight_videos(service)
+    if not items:
+        raise PermanentDeletionError("Preflight found no remaining target videos to delete")
     print(json.dumps({
         "phase": "preflight_passed",
         "channel_id": channel_id,
+        "already_absent_video_ids": already_absent,
         "targets": [
             {
                 "video_id": str(item.get("id")),
@@ -98,8 +97,11 @@ def main() -> int:
     print(json.dumps({
         "phase": "completed",
         "channel_id": channel_id,
+        "requested_video_ids": list(TARGET_VIDEO_IDS),
+        "already_absent_video_ids": already_absent,
         "deleted_video_ids": deleted,
-        "count": len(deleted),
+        "count_deleted_now": len(deleted),
+        "count_already_absent": len(already_absent),
     }, indent=2))
     return 0
 
