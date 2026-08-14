@@ -22,6 +22,10 @@ The pipeline renders a clean board frame, builds `thumbnail_en.jpg` at 1280×720
 
 No Chinese thumbnail is generated, validated, stored, or uploaded. The English thumbnail is the sole thumbnail policy for this channel. This avoids an unnecessary Studio-only localization step and keeps every future production run fully unattended.
 
+## Shorts cover strategy
+
+The channel publishes vertical videos that YouTube classifies as Shorts. The uploaded 16:9 `thumbnail_en.jpg` remains useful for watch-page, search, desktop, and other non-Short surfaces, but YouTube Help documents that Shorts thumbnails are selected from a frame through the YouTube app rather than edited in Studio.[4] To make the visible Shorts card attractive without manual intervention, every new MP4 now opens with a clean English vertical cover state for 2.6 seconds: the channel badge, title, lesson category, and corrected board are visible while captions and move overlays are temporarily hidden. The normal educational board and synchronized teaching cues resume automatically after that opening state.
+
 ## Why the automation is split this way
 
 YouTube's official Data API exposes `captions.insert` for uploading caption tracks and `videos.update` for localized title and description data.[2] [3] It also exposes `thumbnails.set` for the default custom thumbnail.[1] The current API reference does not provide a normal `videos` or `audioTracks` endpoint for attaching an alternate spoken-audio file to an existing video, so Chinese audio remains generated and durable but is marked `generated_studio_upload_required` rather than being falsely reported as attached. The same distinction is used for any future platform-only feature.
@@ -35,6 +39,7 @@ Before `upload_video()` is called, the workflow must have valid English teaching
 [1]: https://developers.google.com/youtube/v3/docs/thumbnails/set "YouTube Data API — Thumbnails: set"
 [2]: https://developers.google.com/youtube/v3/docs/captions/insert "YouTube Data API — Captions: insert"
 [3]: https://developers.google.com/youtube/v3/docs/videos/update "YouTube Data API — Videos: update"
+[4]: https://support.google.com/youtube/answer/10343433?hl=en-GB "YouTube Help — Create YouTube Shorts"
 
 ## Verification of the change
 

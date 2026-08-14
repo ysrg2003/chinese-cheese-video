@@ -316,6 +316,25 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   </>;
 }
 
+const SHORTS_COVER_SECONDS = 2.6;
+
+function VerticalShortCover({ job, second }: { job: VideoJob; second: number }) {
+  if (job.referenceMode || second >= SHORTS_COVER_SECONDS) return null;
+  const opacity = interpolate(second, [0, 0.16, SHORTS_COVER_SECONDS - 0.24, SHORTS_COVER_SECONDS], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const title = String(job.title || "Xiangqi Lesson").trim();
+  const titleSize = title.length > 38 ? 44 : title.length > 28 ? 50 : 58;
+  const lessonType = job.moves?.length ? "LEGAL MOVES • CLEAR IDEAS" : "BOARD • HISTORY • STRATEGY";
+  return <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none", opacity }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 372, background: "linear-gradient(145deg, rgba(18, 28, 48, .98) 0%, rgba(37, 48, 72, .96) 58%, rgba(182, 60, 47, .94) 100%)", borderBottom: "8px solid #f5ce74", boxShadow: "0 18px 34px rgba(22, 18, 15, .28)" }} />
+    <div style={{ position: "absolute", top: 58, left: 76, right: 76, direction: "ltr", color: "#fff9ed" }}>
+      <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: "#f5ce74", color: "#211a16", fontSize: 18, fontWeight: 900, letterSpacing: 1.4 }}>XIANGQI LAB</div>
+      <div style={{ marginTop: 25, fontSize: titleSize, lineHeight: 1.08, fontWeight: 900, letterSpacing: 0.2, textShadow: "0 4px 12px rgba(0,0,0,.32)" }}>{title}</div>
+      <div style={{ marginTop: 22, fontSize: 21, lineHeight: 1.15, fontWeight: 800, letterSpacing: 1.1, color: "#f5ce74" }}>CHINESE CHESS • {lessonType}</div>
+    </div>
+    <div style={{ position: "absolute", left: 76, right: 76, top: 324, display: "flex", justifyContent: "space-between", direction: "ltr", color: "#fff9ed", fontSize: 18, fontWeight: 800, letterSpacing: 0.8 }}><span>ENGLISH PRIMARY</span><span>SHORT LESSON</span></div>
+  </AbsoluteFill>;
+}
+
 function Caption({ job, second }: { job: VideoJob; second: number }) {
   if (job.language === "en" && job.captions_source === "english_captions_disabled_in_video") return null;
   const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
@@ -344,21 +363,23 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   const introOpacity = interpolate(frame, [0, 18, 42], [0, 1, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleScale = interpolate(frame, [0, 36], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : job.visual_mode === "storyboard" ? "" : copy.subtitle;
+  const showVerticalCover = !job.referenceMode && second < SHORTS_COVER_SECONDS;
 
   return     <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
     <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
-    {!job.referenceMode && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
+    {!job.referenceMode && !showVerticalCover && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
       <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
       <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
       {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
     </div>}
-    <Board job={job} second={second} />
-    <GeneratedVisualAsset job={job} second={second} />
-    <FoundationVisuals job={job} second={second} />
-    <StoryboardVisuals job={job} second={second} />
-    <MoveCard move={active} second={second} language={job.language} />
-    {!job.referenceMode && <Caption job={job} second={second} />}
+    <Board job={job} second={showVerticalCover ? 0 : second} />
+    {!showVerticalCover && <GeneratedVisualAsset job={job} second={second} />}
+    {!showVerticalCover && <FoundationVisuals job={job} second={second} />}
+    {!showVerticalCover && <StoryboardVisuals job={job} second={second} />}
+    {!showVerticalCover && <MoveCard move={active} second={second} language={job.language} />}
+    {!showVerticalCover && !job.referenceMode && <Caption job={job} second={second} />}
+    <VerticalShortCover job={job} second={second} />
     {!job.referenceMode && job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
-    {!job.referenceMode && <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>}
+    {!job.referenceMode && !showVerticalCover && <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>}
   </AbsoluteFill>;
 };
