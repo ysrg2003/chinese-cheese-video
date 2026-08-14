@@ -42,3 +42,11 @@ The first deployment of this loop exposed and fixed a CLI wiring defect: the wor
 
 [1]: https://docs.github.com/actions/using-workflows/triggering-a-workflow "GitHub Docs: Triggering a workflow"
 [2]: https://github.blog/changelog/2022-09-08-github-actions-use-github_token-with-workflow_dispatch-and-repository_dispatch/ "GitHub Changelog: Use GITHUB_TOKEN with workflow_dispatch and repository_dispatch"
+
+## Daily quota cooldown
+
+A `403 quotaExceeded` response from the YouTube Data API is different from a transient `429` rate limit. The former means the project's daily quota is exhausted; repeated API calls cannot complete the localization operation and only consume further quota. The reconciler records this state as `quota_cooldown`, exits without additional retries, and blocks the prerequisite-dependent next lesson until the existing public video reaches the complete publication contract.
+
+This behavior was verified in the en-013 recovery sequence. Its thumbnail eventually completed on public video `dw6V8q69hY8`, but the Chinese localization caption operation then received `403 quotaExceeded`. en-014 was intentionally not rendered or uploaded in this state. YouTube's documentation states that all API requests consume quota and that daily quota resets at midnight Pacific Time [3].
+
+[3]: https://developers.google.com/youtube/v3/determine_quota_cost "YouTube Data API Quota Calculator"

@@ -48,6 +48,32 @@ class ContinuousReconcileTests(unittest.TestCase):
             self.assertEqual(saved["status"], "complete")
             self.assertEqual(saved["attempt_count"], 2)
 
+    def test_daily_youtube_quota_enters_cooldown_without_waiting(self) -> None:
+        waits: list[int] = []
+        report = lambda: {
+            "enabled": True,
+            "selected": 1,
+            "published": 0,
+            "failed": 1,
+            "items": [{"error": "HttpError 403: reason quotaExceeded, domain youtube.quota"}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "reconcile.json"
+            status = reconcile_until_complete(
+                max_attempts=5,
+                initial_delay_seconds=1,
+                max_delay_seconds=4,
+                max_runtime_minutes=5,
+                output_path=output,
+                runner=report,
+                sleeper=waits.append,
+            )
+            self.assertEqual(status, 1)
+            self.assertEqual(waits, [])
+            saved = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(saved["status"], "quota_cooldown")
+            self.assertEqual(saved["attempt_count"], 1)
+
     def test_non_retryable_publication_error_stops_without_waiting(self) -> None:
         waits: list[int] = []
         report = lambda: {

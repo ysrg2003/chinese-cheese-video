@@ -50,8 +50,22 @@ def _is_complete(report: dict[str, Any]) -> bool:
     return selected == 0 or (failed == 0 and published >= selected)
 
 
+def _report_errors(report: dict[str, Any]) -> list[str]:
+    items = report.get("items") or []
+    errors = [str((item or {}).get("error") or "").lower() for item in items]
+    if not errors:
+        errors = [str(report.get("error") or report.get("stderr") or "").lower()]
+    return [error for error in errors if error]
+
+
+def _is_daily_quota_exhausted(report: dict[str, Any]) -> bool:
+    return any("quotaexceeded" in error or "domain': 'youtube.quota" in error or 'domain": "youtube.quota' in error for error in _report_errors(report))
+
+
 def _is_retryable(report: dict[str, Any]) -> bool:
     """Allow continuation only for errors likely to clear without configuration changes."""
+    if _is_daily_quota_exhausted(report):
+        return False
     retry_markers = (
         "429",
         "500",
@@ -60,7 +74,6 @@ def _is_retryable(report: dict[str, Any]) -> bool:
         "504",
         "rate limit",
         "ratelimit",
-        "quota",
         "try the request again",
         "temporarily",
         "timeout",
@@ -69,15 +82,8 @@ def _is_retryable(report: dict[str, Any]) -> bool:
         "backenderror",
         "internalerror",
     )
-    items = report.get("items") or []
-    if not items:
-        error = str(report.get("error") or report.get("stderr") or "").lower()
-        return any(marker in error for marker in retry_markers)
-    for item in items:
-        error = str((item or {}).get("error") or "").lower()
-        if error and not any(marker in error for marker in retry_markers):
-            return False
-    return True
+    errors = _report_errors(report)
+    return bool(errors) and all(any(marker in error for marker in retry_markers) for error in errors)
 
 
 def reconcile_until_complete(
@@ -121,6 +127,8 @@ def reconcile_until_complete(
         if not _is_retryable(report):
             final_report = dict(report)
             final_report["retryable"] = False
+            if _is_daily_quota_exhausted(report):
+                final_report["cooldown_reason"] = "youtube_daily_quota_exhausted"
             break
         if attempt < max_attempts:
             remaining = max_runtime_minutes * 60 - (clock() - started)
@@ -130,7 +138,7 @@ def reconcile_until_complete(
             delay = min(max_delay_seconds, max(delay * 2, 1))
 
     result = {
-        "status": "complete" if exit_code == 0 else ("non_retryable_failure" if final_report.get("retryable") is False else "retry_window_exhausted"),
+        "status": "complete" if exit_code == 0 else ("quota_cooldown" if final_report.get("cooldown_reason") else ("non_retryable_failure" if final_report.get("retryable") is False else "retry_window_exhausted")),
         "attempts": attempts,
         "attempt_count": len(attempts),
         "final_report": final_report,

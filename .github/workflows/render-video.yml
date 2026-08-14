@@ -160,8 +160,24 @@ jobs:
           RECONCILIATION_MAX_RUNTIME_MINUTES: "15"
         run: python python/continuous_reconcile.py --output continuous-reconcile.json | tee continuous-reconcile.log
 
-      - name: Queue another completion run when YouTube remains pending
-        if: steps.continuous_reconcile.outcome == 'failure' && env.XIANGQI_PRODUCTION_FREEZE != '1'
+      - name: Classify reconciliation completion state
+        if: always()
+        id: reconciliation_state
+        run: |
+          if [ ! -f continuous-reconcile.json ]; then
+            echo "state=unexpected_failure" >> "$GITHUB_OUTPUT"
+          elif grep -q '"status": "complete"' continuous-reconcile.json; then
+            echo "state=complete" >> "$GITHUB_OUTPUT"
+          elif grep -q '"status": "retry_window_exhausted"' continuous-reconcile.json; then
+            echo "state=retry_window_exhausted" >> "$GITHUB_OUTPUT"
+          elif grep -q '"status": "quota_cooldown"' continuous-reconcile.json; then
+            echo "state=quota_cooldown" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=non_retryable_failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Queue another completion run when a transient retry window expires
+        if: steps.reconciliation_state.outputs.state == 'retry_window_exhausted' && env.XIANGQI_PRODUCTION_FREEZE != '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONTINUATION_DELAY_SECONDS: "180"
@@ -183,10 +199,6 @@ jobs:
           NEXT_DEPTH=$((DEPTH + 1))
           echo "Waiting ${CONTINUATION_DELAY_SECONDS}s before queueing continuation ${NEXT_DEPTH}."
           sleep "$CONTINUATION_DELAY_SECONDS"
-          if ! grep -q '"status": "retry_window_exhausted"' continuous-reconcile.json; then
-            echo "Reconciliation ended with a non-retryable failure; preserving the state without self-dispatch."
-            exit 0
-          fi
           gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/render-video.yml/dispatches" \
             -f ref=master \
             -f "inputs[daily_count]=${CONTINUATION_DAILY_COUNT}" \
@@ -196,7 +208,7 @@ jobs:
             -f "inputs[continuation_depth]=${NEXT_DEPTH}"
 
       - name: Run autonomous discovery and production until the current item completes
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && steps.continuous_reconcile.outcome == 'success'
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && steps.reconciliation_state.outputs.state == 'complete'
         id: autonomous_run
         continue-on-error: true
         env:
@@ -272,6 +284,6 @@ jobs:
             git push
           fi
 
-      - name: Mark workflow failed when completion could not be achieved
-        if: steps.continuous_reconcile.outcome == 'failure' || steps.autonomous_run.outcome == 'failure'
+      - name: Mark workflow failed only for hard completion errors
+        if: steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure'
         run: exit 1
