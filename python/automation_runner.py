@@ -261,6 +261,18 @@ def main() -> int:
                         lesson_key, selection_language, "published", candidate_id=candidate["id"], job_id=completed_jobs[0] if completed_jobs else None
                     )
                 metrics["completed"] += 1
+            except PublicationPendingError as exc:
+                # A public video already exists. Leave its curriculum entry retryable
+                # for the next reconciliation pass, but do not fail the content run
+                # or invoke the rendering pipeline again.
+                store.update_candidate(candidate["id"], "discovered")
+                if lesson_key:
+                    store.update_curriculum_episode(
+                        lesson_key, selection_language, "retry", candidate_id=candidate["id"], error_message=str(exc)
+                    )
+                metrics["deferred"] = int(metrics.get("deferred", 0)) + 1
+                metrics.setdefault("pending_publications", []).append({"candidate_id": candidate["id"], "reason": str(exc)})
+                print(f"Candidate deferred pending YouTube reconciliation: {candidate['id']}: {exc}", file=sys.stderr)
             except Exception as exc:
                 if isinstance(exc, PermanentContentError):
                     store.update_candidate(candidate["id"], "blocked")
