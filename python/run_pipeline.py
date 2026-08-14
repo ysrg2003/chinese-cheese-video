@@ -141,6 +141,10 @@ def main() -> int:
     try:
         director_data = generate_director_data(puzzle, store=store, operation=f"director:{job_id}")
         job = make_job(job_id, puzzle, director_data)
+        if os.getenv("XIANGQI_PRODUCTION_FREEZE", "0").lower() in {"1", "true", "yes"}:
+            raise RuntimeError(
+                "Production is temporarily frozen until deterministic Xiangqi legal-move validation is enabled."
+            )
         job = add_visual_storyboard(job, puzzle, store=store)
         # Generated images are optional editorial establishing shots. The
         # deterministic Xiangqi board remains available if planning, service
