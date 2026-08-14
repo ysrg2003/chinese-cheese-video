@@ -87,7 +87,8 @@ def main() -> int:
     }, ensure_ascii=False, indent=2))
 
     deleted: list[str] = []
-    for video_id in TARGET_VIDEO_IDS:
+    present_ids = [str(item.get("id")) for item in items]
+    for video_id in present_ids:
         youtube_publisher._execute_with_backoff(
             lambda video_id=video_id: service.videos().delete(id=video_id)
         )
