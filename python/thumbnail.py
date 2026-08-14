@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,30 @@ def _font(size: int, bold: bool = True, cjk: bool = False) -> ImageFont.FreeType
             except OSError:
                 continue
     return ImageFont.load_default()
+
+
+def _render_clean_board_frame(job: dict[str, Any], frame_path: Path) -> None:
+    frame_path.parent.mkdir(parents=True, exist_ok=True)
+    clean_job = deepcopy(job)
+    clean_job.update({
+        "referenceMode": True,
+        "audioSrc": "",
+        "narration": "",
+        "moves": [],
+        "captions": [],
+        "narrationSegments": [],
+        "visualStoryboard": [],
+        "durationInSeconds": 2.0,
+    })
+    props_path = frame_path.with_suffix(".job.json")
+    props_path.write_text(json.dumps(clean_job, ensure_ascii=False), encoding="utf-8")
+    command = [
+        "npx", "remotion", "still", "src/index.tsx", "XiangqiComposition",
+        str(frame_path), f"--props={props_path}", "--frame=24", "--image-format=png", "--log=error",
+    ]
+    completed = subprocess.run(command, cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+    if completed.returncode != 0 or not frame_path.exists():
+        raise RuntimeError(f"Clean board thumbnail frame render failed: {completed.stderr[-1000:]}")
 
 
 def _extract_frame(video_path: str | Path, frame_path: Path) -> None:
@@ -72,6 +98,17 @@ def _headline(title: str, language: str = "en") -> str:
     return " ".join(words[:midpoint]).upper() + "\n" + " ".join(words[midpoint:]).upper()
 
 
+def _fit_headline_font(draw: ImageDraw.ImageDraw, text: str, base_size: int, max_width: int, cjk: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    size = base_size
+    while size >= 34:
+        candidate = _font(size, bold=True, cjk=cjk)
+        widths = [draw.textbbox((0, 0), line, font=candidate)[2] for line in text.split("\\n")]
+        if max(widths or [0]) <= max_width:
+            return candidate
+        size -= 2
+    return _font(34, bold=True, cjk=cjk)
+
+
 def _build_thumbnail(frame: Image.Image, title: str, language: str, output_path: Path) -> Path:
     # Source-controlled layout is intentional here: the board and exact headline
     # must remain reliable, while the extracted frame supplies the video-specific focal point.
@@ -90,8 +127,8 @@ def _build_thumbnail(frame: Image.Image, title: str, language: str, output_path:
     panel = panel.filter(ImageFilter.GaussianBlur(radius=0.3))
     canvas.paste(panel, (60, 150), panel)
     draw = ImageDraw.Draw(canvas)
-    headline_font = _font(68 if language == "en" else 60, bold=True, cjk=language == "zh")
     headline = _headline(title, language)
+    headline_font = _fit_headline_font(draw, headline, 68 if language == "en" else 60, 520, language == "zh")
     draw.multiline_text((92, 198), headline, font=headline_font, fill=(255, 255, 249), spacing=10, stroke_width=2, stroke_fill=(6, 12, 24))
     label_font = _font(26, bold=True, cjk=language == "zh")
     label = "CHINESE CHESS" if language == "en" else "中国象棋"
@@ -125,8 +162,8 @@ def _build_thumbnail(frame: Image.Image, title: str, language: str, output_path:
 def generate_thumbnail_assets(video_path: str | Path, job: dict[str, Any], output_dir: str | Path, zh_title: str | None = None) -> dict[str, Any]:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
-    frame_path = output / "source_frame.jpg"
-    _extract_frame(video_path, frame_path)
+    frame_path = output / "clean_board.png"
+    _render_clean_board_frame(job, frame_path)
     frame = Image.open(frame_path).convert("RGB")
     en_path = _build_thumbnail(frame, str(job.get("title") or "Xiangqi Lesson"), "en", output / "thumbnail_en.jpg")
     zh_path = _build_thumbnail(frame, str(zh_title or job.get("title") or "中国象棋课程"), "zh", output / "thumbnail_zh.jpg")
