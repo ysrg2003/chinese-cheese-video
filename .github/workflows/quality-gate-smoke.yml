@@ -46,7 +46,7 @@ jobs:
       - name: Run deterministic rules and publishing contract tests
         run: |
           mkdir -p smoke-output
-          PYTHONPATH=python python -m unittest test_xiangqi_rules test_content_selection test_localization_thumbnail test_youtube_publisher_fake_api
+          PYTHONPATH=python python -m unittest test_xiangqi_rules test_content_selection test_localization_thumbnail test_youtube_publisher_fake_api test_youtube_localization_contract
 
       - name: Generate and verify controlled thumbnails
         run: |
