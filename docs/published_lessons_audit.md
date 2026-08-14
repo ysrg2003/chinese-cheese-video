@@ -116,7 +116,11 @@ The eight affected videos are already public, so local quarantine alone is insuf
 | Make affected videos private | Removes them from public viewing while preserving the uploaded artifact and its URL for audit or later replacement. | Reversible | **Recommended default** for evidence preservation and controlled replacement. |
 | Delete affected videos | Permanently removes the uploaded artifact and its public URL. | Not reversible | Use only if the channel owner explicitly prefers permanent removal. |
 
-No YouTube privacy or deletion action should be taken without the channel owner's explicit choice. The recommended batch is to make all eight invalid records private, then regenerate corrected English lessons and their Chinese localization artifacts. If deletion is chosen instead, delete the eight English/Chinese/news/evergreen records as a controlled batch and retain this audit plus the SQLite snapshot for evidence.
+No YouTube privacy or deletion action should be taken without the channel owner's explicit choice. The channel owner selected permanent deletion.
+
+### Executed deletion result
+
+The guarded GitHub workflow [31761045747](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31761045747) authenticated against channel `UCM7pTdgZRwDZ2gZDtC6SITg`, completed its preflight, and finished successfully. The YouTube API reported seven target IDs as already absent and permanently deleted the remaining public video `QEdAG1azW2U`. The seven already-absent IDs were `wmJ5-34N6z8`, `KkaGX4ujyfI`, `M7mQrRxIg-M`, `na82AsZBxKU`, `6uZ1lxn-oUs`, `tA3vZMgrfg8`, and `gSgVXtG9Snw`. The local quarantine then updated all eight corresponding publication rows and all eight normalized catalog rows to `deleted_invalid_content`, preserved their historical IDs in remediation metadata, removed local playlist associations from active use, reset four reusable candidates to `discovered`, and reset `en-010-the-general` to `retry`.
 
 The six static curriculum lessons should remain public. They contain no stored moves and are not implicated by this move-legality audit.
 
@@ -124,8 +128,8 @@ The six static curriculum lessons should remain public. They contain no stored m
 
 Regeneration should proceed in this order:
 
-1. Quarantine the eight invalid publication records in local state and make the corresponding YouTube videos private, or delete them if that is the explicit decision.
-2. Reset the affected candidate rows to `discovered` and the affected curriculum episode rows to `retry` only after their source payloads are ready to regenerate.
+1. Keep the eight deleted publication records quarantined in local state; their historical video IDs remain only as remediation evidence and must not be reused as active publications.
+2. Keep the affected candidate rows in `discovered` and the affected curriculum episode row in `retry` while regeneration is prepared from corrected source payloads.
 3. Regenerate the corrected en-010 lesson first using the new `palace-defense` sequence.
 4. Regenerate the six generic-variant records and `evergreen-33-1` from the corrected variant path. Do not copy their old job payloads, captions, or narration.
 5. Run the non-publishing quality gate. It must pass legality tests, thumbnail checks, localization contract tests, and fail-closed publishing checks.
@@ -143,3 +147,4 @@ Regeneration should proceed in this order:
 [7]: ./video_QEdAG1azW2U_audit.md "Original en-010 incident audit"
 [8]: ./production_31759446451_findings.md "Production run findings and localization failure record"
 [9]: https://developers.google.com/youtube/v3/docs/videos/update "YouTube Data API videos.update reference"
+[10]: https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31761045747 "Guarded permanent deletion workflow run"
