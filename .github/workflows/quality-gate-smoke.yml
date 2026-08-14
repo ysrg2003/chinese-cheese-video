@@ -54,7 +54,8 @@ jobs:
       - name: Render and verify corrected board and controlled thumbnails
         run: |
           mkdir -p smoke-output
-          npx remotion still src/index.tsx XiangqiComposition smoke-output/clean-board.png --props=python/sample_job.json --frame=20 --image-format=png --log=error
+          npx remotion still src/index.tsx XiangqiComposition smoke-output/clean-board.png --props=python/sample_job.json --frame=90 --image-format=png --log=error
+          npx remotion still src/index.tsx XiangqiComposition smoke-output/shorts-cover.png --props=python/shorts_cover_sample_job.json --frame=20 --image-format=png --log=error
           PYTHONPATH=python python - <<'PY'
           import json
           from pathlib import Path
@@ -64,7 +65,11 @@ jobs:
           root = Path('.')
           job = json.loads((root / 'python/sample_job.json').read_text(encoding='utf-8'))
           board = root / 'smoke-output/clean-board.png'
+          cover = root / 'smoke-output/shorts-cover.png'
           with Image.open(board) as image:
+              assert image.size == (1080, 1920), image.size
+              assert image.getbbox() is not None
+          with Image.open(cover) as image:
               assert image.size == (1080, 1920), image.size
               assert image.getbbox() is not None
           assets = generate_thumbnail_assets(board, job, root / 'smoke-output/thumbnails', zh_title='中国象棋：三十二个棋子的摆法')
