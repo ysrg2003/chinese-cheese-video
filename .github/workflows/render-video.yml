@@ -65,8 +65,8 @@ jobs:
       VISUAL_ASSET_ENABLED: ${{ vars.VISUAL_ASSET_ENABLED || '1' }}
       VISUAL_ASSET_MAX_PER_VIDEO: ${{ vars.VISUAL_ASSET_MAX_PER_VIDEO || '2' }}
       VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
-      # Optional emergency stop; the legal-move validator remains mandatory in production.
-      XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '0' }}
+      # Visual-remediation stop. Production stays frozen until the verified board renderer is approved.
+      XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '1' }}
 
     steps:
       - name: Checkout repository and persistent SQLite catalog
@@ -117,10 +117,11 @@ jobs:
           esac
 
       - name: Reconcile public videos with pending playlist associations
-        if: always()
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1'
         run: python python/reconcile_youtube.py | tee youtube-reconcile.json
 
       - name: Run autonomous discovery and production
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1'
         id: autonomous_run
         continue-on-error: true
         env:
