@@ -16,9 +16,9 @@ class VisualAssetPipelineTests(unittest.TestCase):
             "id": "visual-asset-test",
             "language": "en",
             "visualStoryboard": [
-                {"index": 1, "visualKind": "river_palaces", "movePly": None, "narration": "River"},
-                {"index": 2, "visualKind": "move_path", "movePly": 1, "narration": "Move"},
-                {"index": 3, "visualKind": "rule_focus", "movePly": None, "narration": "Palace rule"},
+                {"index": 1, "visualKind": "river_palaces", "movePly": None, "narration": "River", "visualPlan": {"mode": "reference_edit", "focus": "river texture", "primitives": ["river_band"]}},
+                {"index": 2, "visualKind": "move_path", "movePly": 1, "narration": "Move", "visualPlan": {"mode": "board_overlay", "focus": "legal move", "primitives": ["legal_path"]}},
+                {"index": 3, "visualKind": "rule_focus", "movePly": None, "narration": "Palace rule", "visualPlan": {"mode": "reference_edit", "focus": "palace material", "primitives": ["palace_x"]}},
             ],
         }
 
@@ -32,6 +32,12 @@ class VisualAssetPipelineTests(unittest.TestCase):
         plans = _normalise_asset_plan(raw, self.job, maximum=1)
         self.assertEqual([plan["sceneIndex"] for plan in plans], [1])
         self.assertEqual(plans[0]["assetRole"], "historical_inset")
+
+    def test_plan_ignores_board_overlay_even_when_ai_requests_an_asset(self):
+        prompt = "Edit only the transparent masked region; preserve everything outside it exactly; add a localized treatment; no text or changed pieces."
+        raw = [{"sceneIndex": 3, "useGeneratedAsset": True, "assetRole": "concept_inset", "editPrompt": prompt}]
+        board_overlay_job = {"visualStoryboard": [{"index": 3, "visualKind": "rule_focus", "movePly": None, "visualPlan": {"mode": "board_overlay", "focus": "legal rule", "primitives": ["rule_ring"]}}]}
+        self.assertEqual(_normalise_asset_plan(raw, board_overlay_job, maximum=1), [])
 
     def test_validate_and_write_png(self):
         image = Image.new("RGB", (512, 768), color=(128, 45, 33))

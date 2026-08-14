@@ -24,7 +24,11 @@ No Chinese thumbnail is generated, validated, stored, or uploaded. The English t
 
 ## Shorts cover strategy
 
-The channel publishes vertical videos that YouTube classifies as Shorts. The uploaded 16:9 `thumbnail_en.jpg` remains useful for watch-page, search, desktop, and other non-Short surfaces, but YouTube Help documents that Shorts thumbnails are selected from a frame through the YouTube app rather than edited in Studio.[4] To make the visible Shorts card attractive without manual intervention, every new MP4 now opens with a clean English vertical cover state for 2.6 seconds: the channel badge, title, lesson category, and corrected board are visible while captions and move overlays are temporarily hidden. The normal educational board and synchronized teaching cues resume automatically after that opening state.
+The channel publishes vertical videos that YouTube classifies as Shorts. The uploaded 16:9 `thumbnail_en.jpg` remains useful for watch-page, search, desktop, and other non-Short surfaces, but YouTube Help documents that Shorts thumbnails are selected from a frame through the YouTube app rather than edited in Studio.[4] A temporary vertical opening-cover experiment was tested in production and retired because the Shorts surface selected frames non-deterministically. New MP4 files no longer contain a dedicated `VerticalShortCover` state; the system does not claim control over a Shorts grid cover that the Data API cannot deterministically set.
+
+## Narration-to-visual direction
+
+The production director now treats every narration segment as a visual contract rather than a title request. It reads the segment text, assigns semantic tags, chooses a renderer-supported visual plan, and validates that the scene has actionable primitives. Board geometry remains deterministic: files, ranks, intersections, river band, palace X diagonals, central files, legal destinations, piece paths, cannon screens, and horse-leg constraints are drawn from the actual board state. The external reference-edit service is reserved for non-geometric concepts such as a localized historical or cultural inset. It receives the exact Remotion reference image and a bounded transparent mask, and is not permitted to redraw the board, pieces, moves, or coordinates.
 
 ## Why the automation is split this way
 
@@ -43,7 +47,7 @@ Before `upload_video()` is called, the workflow must have valid English teaching
 
 ## Verification of the change
 
-Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. The later legal-destination implementation and policy correction are tracked on the current `master`; the final GitHub quality-gate run is recorded below.
+Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. The later legal-destination implementation, Shorts-cover retirement, and semantic visual contract are tracked on the current `master`; the final GitHub quality-gate run will be recorded after this revision.
 
 The live production proof for video `NYhJlCD49hw` recorded a successful `youtube#thumbnailSetResponse`, including the returned `maxresdefault.jpg` URL. Therefore the scope was not merely documented: it was effective during the actual upload.
  Its artifact contains `thumbnail_en.jpg` and no `thumbnail_zh.jpg`; `thumbnail-smoke.json` reports `width=1280`, `height=720`, `default_language=en`, and `localized_thumbnail_status=disabled_by_policy`. The smoke explicitly performs no production upload or YouTube mutation.

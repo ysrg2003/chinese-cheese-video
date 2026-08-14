@@ -122,7 +122,7 @@ FOUNDATION_FALLBACK_ZH = [
 
 VISUAL_DIRECTOR_INSTRUCTIONS = """
 You are the visual director for an autonomous Xiangqi video pipeline. Return valid JSON only:
-{"scenes":[{"index":1,"segmentIndex":1,"movePly":null,"narration":"natural spoken text when requested","caption":"short cue","visualKind":"one permitted kind","headline":"2 to 6 words","visualInstruction":"one concrete renderer-supported visual action"}]}
+{"scenes":[{"index":1,"segmentIndex":1,"movePly":null,"narration":"natural spoken text when requested","caption":"short cue","visualKind":"one permitted kind","headline":"2 to 6 words","visualInstruction":"one concrete renderer-supported visual action","semanticTags":["specific concept"],"visualPlan":{"mode":"board_overlay","focus":"what the viewer must see","primitives":["renderer primitive"]}}]}
 
 Create exactly one scene for every supplied narration segment. Every scene must make the current spoken idea visible through a board change, highlight, path, arrow, before/after comparison, question, or result marker. Do not add decorative motion with no teaching purpose. Do not invent a game or move that is absent from the supplied data. Keep move scenes tied to the supplied movePly and coordinates. Keep captions short. Never write commands addressed to an animator as spoken narration. Use only the requested language and never Arabic.
 
@@ -283,6 +283,52 @@ def _static_kind_for(segment: dict[str, Any], index: int, profile: str) -> str:
     return order[(index - 1) % len(order)]
 
 
+def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, language: str) -> dict[str, Any]:
+    text = " ".join(str(segment.get(key) or "") for key in ("text", "captionText", "kind")).lower()
+    move = segment.get("move") if isinstance(segment.get("move"), dict) else {}
+    if segment.get("kind") == "move" and move:
+        piece = str(move.get("piece") or "piece").lower()
+        primitives = ["source_piece", "legal_path", "played_destination"]
+        if piece == "cannon":
+            primitives.extend(["cannon_screen", "cannon_target"])
+        if piece == "knight":
+            primitives.extend(["horse_leg", "legal_l_targets"])
+        return {
+            "visualKind": "cannon_screen" if piece == "cannon" else "move_path",
+            "headline": f"Move {segment.get('movePly') or 1} • {piece.title()}" if language == "en" else f"第{segment.get('movePly') or 1}手 • {piece}",
+            "visualInstruction": "Show the supplied legal move from its source to its destination, then expose the piece-specific constraint that makes the move meaningful.",
+            "semanticTags": ["move", piece, "legal_geometry"],
+            "visualPlan": {"mode": "board_overlay", "focus": f"legal {piece} move", "primitives": primitives, "focusPiece": piece if piece in {"king", "advisor", "bishop", "knight", "rook", "cannon", "pawn"} else None, "focusSide": move.get("side")},
+            "confident": True,
+        }
+
+    def contract(kind: str, headline: str, instruction: str, tags: list[str], primitives: list[str], focus_piece: str | None = None, mode: str = "board_overlay", focus_side: str | None = None) -> dict[str, Any]:
+        plan: dict[str, Any] = {"mode": mode, "focus": headline.lower(), "primitives": primitives}
+        if focus_piece:
+            plan["focusPiece"] = focus_piece
+        if focus_side:
+            plan["focusSide"] = focus_side
+        return {"visualKind": kind, "headline": headline, "visualInstruction": instruction, "semanticTags": tags, "visualPlan": plan, "confident": True}
+
+    if any(marker in text for marker in ("history", "historical", "origin", "origins", "centuries", "dynasty", "tradition", "culture", "heritage", "历史", "传统", "文化")):
+        return contract("history_timeline", "History In Context", "Show a restrained three-stop history timeline while keeping the canonical Xiangqi board unchanged; a masked reference edit may add only a localized historical texture or inset.", ["history", "timeline", "context"], ["timeline", "board_reference"], mode="reference_edit")
+    if ("nine" in text or "9" in text) and ("file" in text or "vertical" in text) and ("ten" in text or "10" in text or "rank" in text):
+        return contract("coordinate_map", "Nine Files, Ten Ranks", "Draw all nine vertical files and ten horizontal ranks in sequence, then pulse the 90 legal intersections.", ["files", "ranks", "intersections", "board_geometry"], ["files", "ranks", "all_intersections"])
+    if any(marker in text for marker in ("ninety intersections", "90 intersections", "pieces stand on intersections", "pieces stand on those intersections", "stand on intersections", "stand on those intersections", "move travels along the lines", "points and paths")):
+        return contract("piece_movement", "Points And Paths", "Select one real red pawn on an intersection, pulse its origin, and show its legal destination points along the board lines.", ["intersections", "piece_anchor", "paths", "legal_destinations"], ["piece_anchor", "legal_destinations", "path_lines"], "pawn", focus_side="red")
+    if "river" in text and ("palace" in text or "central files" in text or "divides" in text):
+        return contract("river_palaces", "River And Palaces", "Shade the river band, outline both central 3-by-3 palaces with their X diagonals, and brighten the three central files.", ["river", "palaces", "central_files"], ["river_band", "palace_x", "central_files"])
+    if ("route map" in text or "routes" in text) and ("square" in text or "enclosed" in text or "grid" in text):
+        return contract("board_identity", "Board As Route Map", "Dim square interiors and brighten the intersection network so the board reads as routes, not enclosed squares.", ["route_map", "intersections", "lines", "not_squares"], ["dim_square_interiors", "brighten_lines", "pulse_intersections"])
+    if "chariot" in text and "cannon" in text and ("horse" in text or "leg" in text):
+        return contract("rule_focus", "Three Movement Constraints", "Show three short legal demonstrations: a chariot ray on an open file, a cannon with exactly one screen, and a horse with its leg clear versus blocked.", ["chariot", "cannon", "screen", "horse", "leg"], ["chariot_open_file", "cannon_screen", "horse_leg"])
+    if "file" in text or "rank" in text or "coordinate" in text:
+        return contract("coordinate_map", "Read The Board Map", "Label the files and ranks around the actual board and pulse the intersections named in the narration.", ["files", "ranks", "coordinates"], ["files", "ranks", "intersection_pulse"])
+    if "intersection" in text or "point" in text or "crossing" in text:
+        return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
+    return {"visualKind": default_kind, "semanticTags": [default_kind], "visualPlan": {"mode": "board_overlay", "focus": default_kind, "primitives": [default_kind]}, "confident": False}
+
+
 def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str, Any]]:
     language = _language(puzzle, job)
     key = str(puzzle.get("curriculum_lesson_key") or "")
@@ -317,6 +363,11 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
             kind = _static_kind_for(segment, index, profile) if not intro_kind else (intro_kind if index == 1 else _static_kind_for(segment, index, profile))
             headline, instruction = STATIC_SCENE_COPY.get(kind, STATIC_SCENE_COPY["board_overview"])[language]
         caption = str(segment.get("captionText") or headline).strip()
+        semantic = _semantic_visual_contract(segment, kind, language)
+        if semantic.get("confident"):
+            kind = str(semantic.get("visualKind") or kind)
+            headline = str(semantic.get("headline") or headline)
+            instruction = str(semantic.get("visualInstruction") or instruction)
         fallback.append({
             "index": index,
             "segmentIndex": index,
@@ -326,6 +377,8 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
             "narration": str(segment.get("text") or "").strip(),
             "caption": caption[:80],
             "visualInstruction": instruction,
+            "semanticTags": semantic.get("semanticTags") or [kind],
+            "visualPlan": semantic.get("visualPlan") or {"mode": "board_overlay", "focus": kind, "primitives": [kind]},
         })
     return fallback
 
@@ -373,6 +426,7 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
         return fallback, "fallback"
     normalized: list[dict[str, Any]] = []
     foundation = str(job.get("visual_mode") or puzzle.get("visual_mode") or "") in FOUNDATION_VISUAL_MODES
+    moves_by_ply = {int(move.get("ply")): move for move in job.get("moves", []) if isinstance(move, dict) and move.get("ply") is not None}
     for index, default in enumerate(fallback, start=1):
         candidate = candidates[index - 1]
         narration = str(candidate.get("narration") or default.get("narration") or "").strip()
@@ -392,6 +446,18 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             visual_kind = default.get("visualKind", "board_overview")
         if foundation and index <= len(FOUNDATION_ORDER):
             visual_kind = FOUNDATION_ORDER[index - 1]
+        segment_for_contract = {
+            "kind": (job.get("narrationSegments") or [{}])[index - 1].get("kind", "intro") if isinstance(job.get("narrationSegments"), list) and len(job.get("narrationSegments")) >= index and isinstance((job.get("narrationSegments") or [{}])[index - 1], dict) else "intro",
+            "text": narration,
+            "captionText": caption,
+            "movePly": candidate.get("movePly", default.get("movePly")),
+            "move": moves_by_ply.get(int(candidate.get("movePly", default.get("movePly")))) if candidate.get("movePly", default.get("movePly")) is not None else {},
+        }
+        semantic = _semantic_visual_contract(segment_for_contract, visual_kind, language)
+        if semantic.get("confident") and not foundation:
+            visual_kind = str(semantic.get("visualKind") or visual_kind)
+            headline = str(semantic.get("headline") or headline)
+            instruction = str(semantic.get("visualInstruction") or instruction)
         normalized.append({
             "index": index,
             "segmentIndex": int(candidate.get("segmentIndex") or default.get("segmentIndex") or index),
@@ -401,6 +467,8 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             "narration": narration,
             "caption": caption,
             "visualInstruction": instruction,
+            "semanticTags": semantic.get("semanticTags") or candidate.get("semanticTags") or default.get("semanticTags") or [visual_kind],
+            "visualPlan": semantic.get("visualPlan") or candidate.get("visualPlan") or default.get("visualPlan") or {"mode": "board_overlay", "focus": visual_kind, "primitives": [visual_kind]},
         })
     return normalized, "ai_router"
 
@@ -416,6 +484,8 @@ def _attach_scenes_to_segments(job: dict[str, Any], scenes: list[dict[str, Any]]
         segment["visualKind"] = scene.get("visualKind", "board_overview")
         segment["headline"] = scene.get("headline", "Xiangqi")
         segment["visualInstruction"] = scene.get("visualInstruction", "Highlight the current board idea.")
+        segment["semanticTags"] = list(scene.get("semanticTags") or [segment["visualKind"]])
+        segment["visualPlan"] = dict(scene.get("visualPlan") or {"mode": "board_overlay", "focus": segment["visualKind"], "primitives": [segment["visualKind"]]})
         if scene.get("movePly") is not None:
             segment["movePly"] = scene.get("movePly")
         segment["captionText"] = str(scene.get("caption") or segment.get("captionText") or segment.get("text") or "").strip()
@@ -452,6 +522,8 @@ def add_visual_storyboard(job: dict[str, Any], puzzle: dict[str, Any], store: An
                 "text": scene["narration"],
                 "captionText": scene["caption"],
                 "captionPosition": "bottom",
+                "semanticTags": list(scene.get("semanticTags") or [scene["visualKind"]]),
+                "visualPlan": dict(scene.get("visualPlan") or {"mode": "board_overlay", "focus": scene["visualKind"], "primitives": [scene["visualKind"]]}),
             }
             for scene in scenes
         ]
@@ -476,6 +548,7 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
     if mode not in FOUNDATION_VISUAL_MODES and mode != "storyboard":
         return []
     errors: list[str] = []
+    strict_semantic_contract = bool(job.get("visualStoryboardSource"))
     scenes = job.get("visualStoryboard")
     segments = [segment for segment in job.get("narrationSegments", []) if isinstance(segment, dict)]
     if not isinstance(scenes, list) or not scenes:
@@ -497,6 +570,13 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             errors.append(f"scene_{index} uses the retired generic fallback headline")
         if not str(scene.get("visualInstruction") or "").strip():
             errors.append(f"scene_{index} has no visualInstruction")
+        plan = scene.get("visualPlan")
+        if strict_semantic_contract and (not isinstance(plan, dict) or str(plan.get("mode") or "") not in {"board_overlay", "reference_edit", "none"}):
+            errors.append(f"scene_{index} has no valid visualPlan")
+        elif strict_semantic_contract and (not str(plan.get("focus") or "").strip() or not isinstance(plan.get("primitives"), list) or not plan.get("primitives")):
+            errors.append(f"scene_{index} visualPlan is not actionable")
+        if strict_semantic_contract and (not isinstance(scene.get("semanticTags"), list) or not scene.get("semanticTags")):
+            errors.append(f"scene_{index} has no semanticTags")
         asset = scene.get("generatedAsset")
         if asset is not None:
             if not isinstance(asset, dict):

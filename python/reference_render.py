@@ -30,6 +30,10 @@ def _mask_for_scene(scene_kind: str) -> Image.Image:
     elif scene_kind in {"generals_goal", "rule_focus"}:
         for top in (GRID_Y, GRID_Y + 7 * CELL):
             draw.rectangle((GRID_X + 3 * CELL, top, GRID_X + 5 * CELL, top + 2 * CELL), fill=(0, 0, 0, 0))
+    elif scene_kind == "history_timeline":
+        draw.rounded_rectangle((96, 300, 984, 370), radius=18, fill=(0, 0, 0, 0))
+    elif scene_kind == "cultural_heritage":
+        draw.rounded_rectangle((120, 1450, 960, 1700), radius=28, fill=(0, 0, 0, 0))
     else:
         raise ValueError(f"scene kind does not have a safe localized mask: {scene_kind}")
     return mask
@@ -55,6 +59,8 @@ def render_reference_scene(job: dict[str, Any], scene: dict[str, Any], stage_dir
         "visualKind": scene_kind,
         "headline": "",
         "visualInstruction": scene.get("visualInstruction") or "",
+        "semanticTags": list(scene.get("semanticTags") or [scene_kind]),
+        "visualPlan": dict(scene.get("visualPlan") or {"mode": "board_overlay", "focus": scene_kind, "primitives": [scene_kind]}),
         "startSec": 0.0,
         "endSec": 2.0,
     }]

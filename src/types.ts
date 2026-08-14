@@ -81,6 +81,14 @@ export type GeneratedVisualAsset = {
   assetRole: "editorial_backdrop" | "historical_inset" | "cultural_inset" | "concept_inset";
 };
 
+export type VisualPlan = {
+  mode: "board_overlay" | "reference_edit" | "none";
+  focus: string;
+  primitives: string[];
+  focusPiece?: PieceType;
+  focusSide?: Side;
+};
+
 export type VisualStoryboardScene = {
   index: number;
   segmentIndex?: number;
@@ -90,6 +98,8 @@ export type VisualStoryboardScene = {
   narration: string;
   caption: string;
   visualInstruction?: string;
+  semanticTags?: string[];
+  visualPlan?: VisualPlan;
   generatedAsset?: GeneratedVisualAsset;
 };
 
@@ -106,6 +116,8 @@ export type NarrationSegment = {
   visualKind?: VisualStoryboardScene["visualKind"];
   headline?: string;
   visualInstruction?: string;
+  semanticTags?: string[];
+  visualPlan?: VisualPlan;
 };
 
 export type VideoJob = {

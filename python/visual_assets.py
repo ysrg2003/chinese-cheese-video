@@ -30,7 +30,7 @@ POLL_SECONDS = 3.0
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_FPS = 30
 BOARD_X, BOARD_Y, CELL = 70, 390, 104
-EDITABLE_SCENE_KINDS = {"river_palaces", "generals_goal", "rule_focus"}
+EDITABLE_SCENE_KINDS = {"river_palaces", "generals_goal", "rule_focus", "history_timeline", "cultural_heritage"}
 ALLOWED_ROLES = {"editorial_backdrop", "historical_inset", "cultural_inset", "concept_inset"}
 INELIGIBLE_KINDS = {"move_path", "attack_line", "capture_sequence", "cannon_screen", "defense_zone", "threat_marker"}
 
@@ -38,7 +38,7 @@ VISUAL_ASSET_PLANNER_INSTRUCTIONS = """
 You are the reference-edit planner for an autonomous Xiangqi educational video. Return valid JSON only:
 {"assets":[{"sceneIndex":1,"useGeneratedAsset":true,"assetRole":"concept_inset","editPrompt":"English localized edit instruction","reason":"short factual reason"}]}
 
-Study the supplied narration and canonical board storyboard. Select zero, one, or two non-move scenes only when a localized material or color edit would make the exact existing scene clearer. The pipeline will upload the original Remotion scene and an exact transparent mask. Never request a new composition, a new board, a realistic replacement scene, or a full-image regeneration.
+Study the supplied narration, semantic visual plan, and canonical board storyboard. Select zero, one, or two non-move scenes only when a localized material or color edit would make the exact existing scene clearer and the scene's visualPlan explicitly permits a reference edit. The pipeline will upload the original Remotion scene and an exact transparent mask. Never request a new composition, a new board, a realistic replacement scene, or a full-image regeneration.
 
 The reference image is authoritative. The editPrompt must describe only what to add inside the masked region and must explicitly preserve all unmasked pixels, board lines, piece positions, labels, perspective, and layout. For the river scene, request a flat cool-blue flowing-water texture inside the existing rectangular river band; never request a scenic landscape or a new river surrounding a board. For palace or setup scenes, request only a subtle material or color treatment inside the existing region. Exact moves, coordinates, captures, tactical lines, and piece geometry stay deterministic Remotion overlays and must not be edited.
 
@@ -138,7 +138,8 @@ def _eligible_scenes(job: dict[str, Any]) -> dict[int, dict[str, Any]]:
             continue
         scene_index = _positive_int(scene.get("index"), index)
         visual_kind = str(scene.get("visualKind") or "")
-        if scene.get("movePly") is not None or visual_kind in INELIGIBLE_KINDS:
+        visual_plan = scene.get("visualPlan") if isinstance(scene.get("visualPlan"), dict) else {}
+        if scene.get("movePly") is not None or visual_kind in INELIGIBLE_KINDS or str(visual_plan.get("mode") or "board_overlay") != "reference_edit":
             continue
         eligible[scene_index] = scene
     return eligible
@@ -166,7 +167,9 @@ def _plan_assets_with_ai(job: dict[str, Any], puzzle: dict[str, Any]) -> list[di
                 "visualKind": scene.get("visualKind"),
                 "narration": scene.get("narration"),
                 "visualInstruction": scene.get("visualInstruction"),
-                "eligibleForReferenceEdit": str(scene.get("visualKind") or "") in EDITABLE_SCENE_KINDS and scene.get("movePly") is None,
+                "semanticTags": scene.get("semanticTags") or [],
+                "visualPlan": scene.get("visualPlan") or {},
+                "eligibleForReferenceEdit": str(scene.get("visualKind") or "") in EDITABLE_SCENE_KINDS and scene.get("movePly") is None and str((scene.get("visualPlan") or {}).get("mode") or "board_overlay") == "reference_edit",
             }
             for index, scene in enumerate(job.get("visualStoryboard", []), start=1)
             if isinstance(scene, dict)

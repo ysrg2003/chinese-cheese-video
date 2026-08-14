@@ -218,16 +218,51 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const overlayLine = (color: string, dashed = false) => <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={10} strokeLinecap="round" strokeDasharray={dashed ? "18 14" : undefined} />;
   const teachingMove = move || (kind === "piece_movement" ? job.moves[0] : undefined);
   const legalBoard = teachingMove ? boardAtSecond(job, Math.max(0, Number(teachingMove.startSec ?? 0) - 0.05)) : boardAtSecond(job, second);
-  const inferredType = inferPieceType(`${active.headline || ""} ${active.text || ""}`);
-  const inferredPiece = inferredType ? legalBoard.find((piece) => piece.type === inferredType) : undefined;
-  const legalOrigin = teachingMove?.from || inferredPiece?.position;
+  const plan = active.visualPlan;
+  const primitives = new Set<string>(Array.isArray(plan?.primitives) ? plan.primitives : []);
+  const inferredType = inferPieceType(`${active.headline || ""} ${active.text || ""}`) || plan?.focusPiece;
+  const inferredPiece = inferredType ? legalBoard.find((piece) => piece.type === inferredType && (!plan?.focusSide || piece.side === plan.focusSide)) || legalBoard.find((piece) => piece.type === inferredType) : undefined;
+  const fallbackTeachingPiece = kind === "piece_movement" ? legalBoard.find((piece) => piece.type === "pawn" && piece.side === "red") : undefined;
+  const legalOrigin = teachingMove?.from || inferredPiece?.position || fallbackTeachingPiece?.position;
   const legalTargets = legalOrigin ? legalDestinationsForPiece(legalBoard, legalOrigin) : [];
-  const showLegalTargets = Boolean(teachingMove || kind === "piece_movement" || kind === "piece_spotlight");
+  const showLegalTargets = Boolean(teachingMove || kind === "piece_movement" || kind === "piece_spotlight" || primitives.has("legal_destinations"));
+  const chariot = legalBoard.find((piece) => piece.type === "rook" && piece.side === "red") || legalBoard.find((piece) => piece.type === "rook");
+  const chariotPoint = chariot ? boardPoint(chariot.position[0], chariot.position[1]) : boardPoint(0, 9);
+  const horsePoint = boardPoint(1, 9);
+  const horseLegPoint = boardPoint(2, 8);
+  const horseTargetPoint = boardPoint(3, 7);
+  const cannonPoint = boardPoint(1, 7);
+  const screenPoint = boardPoint(1, 4);
+  const cannonTargetPoint = boardPoint(1, 2);
 
   return <>
     {!isMoveSegment && <div style={{ position: "absolute", top: 205, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
       <div style={{ padding: "9px 22px", borderRadius: 16, background: "rgba(33, 26, 22, .88)", color: "#fff8e9", fontSize: 25, fontWeight: 900, letterSpacing: 0.8, boxShadow: "0 10px 22px rgba(64, 35, 12, .22)" }}>{headline}</div>
     </div>}
+
+    {(primitives.has("files") || primitives.has("ranks") || primitives.has("all_intersections") || primitives.has("piece_anchor") || primitives.has("legal_destinations") || primitives.has("path_lines") || primitives.has("dim_square_interiors") || primitives.has("brighten_lines") || primitives.has("river_band") || primitives.has("palace_x") || primitives.has("central_files")) && <svg style={{ position: "absolute", inset: 0, zIndex: 4, opacity }} width="1080" height="1920">
+      {primitives.has("dim_square_interiors") && <rect x={grid.x} y={grid.y} width={grid.width} height={grid.height} fill="rgba(33,26,22,.19)" />}
+      {primitives.has("files") && Array.from({ length: 9 }).map((_, column) => <g key={`semantic-file-${column}`}><line x1={boardPoint(column, 0).x} y1={boardPoint(column, 0).y} x2={boardPoint(column, 4).x} y2={boardPoint(column, 4).y} stroke="#f5ce74" strokeWidth={7} /><line x1={boardPoint(column, 5).x} y1={boardPoint(column, 5).y} x2={boardPoint(column, 9).x} y2={boardPoint(column, 9).y} stroke="#f5ce74" strokeWidth={7} /></g>)}
+      {primitives.has("ranks") && Array.from({ length: 10 }).map((_, row) => <line key={`semantic-rank-${row}`} x1={boardPoint(0, row).x} y1={boardPoint(0, row).y} x2={boardPoint(8, row).x} y2={boardPoint(8, row).y} stroke="#fff1ac" strokeWidth={7} />)}
+      {primitives.has("all_intersections") && Array.from({ length: 10 }).flatMap((_, row) => Array.from({ length: 9 }).map((__, column) => <circle key={`semantic-point-${column}-${row}`} cx={boardPoint(column, row).x} cy={boardPoint(column, row).y} r={row === 4 ? 10 : 7} fill="#4a9ac2" stroke="#fff5d6" strokeWidth={4} />))}
+      {primitives.has("piece_anchor") && legalOrigin && <circle cx={boardPoint(legalOrigin[0], legalOrigin[1]).x} cy={boardPoint(legalOrigin[0], legalOrigin[1]).y} r="64" fill="none" stroke="#f5ce74" strokeWidth="12" strokeDasharray="18 12" />}
+      {primitives.has("path_lines") && legalOrigin && legalTargets.map((point) => <line key={`path-${point[0]}-${point[1]}`} x1={boardPoint(legalOrigin[0], legalOrigin[1]).x} y1={boardPoint(legalOrigin[0], legalOrigin[1]).y} x2={boardPoint(point[0], point[1]).x} y2={boardPoint(point[0], point[1]).y} stroke="#4a9ac2" strokeWidth="7" strokeDasharray="14 12" opacity=".72" />)}
+      {primitives.has("legal_destinations") && legalTargets.map((point) => <circle key={`semantic-legal-${point[0]}-${point[1]}`} cx={boardPoint(point[0], point[1]).x} cy={boardPoint(point[0], point[1]).y} r="28" fill="#4a9ac2" stroke="#fff5d6" strokeWidth="7" />)}
+      {primitives.has("brighten_lines") && Array.from({ length: 9 }).map((_, column) => <line key={`route-file-${column}`} x1={boardPoint(column, 0).x} y1={boardPoint(column, 0).y} x2={boardPoint(column, 9).x} y2={boardPoint(column, 9).y} stroke="#fff1ac" strokeWidth={5} opacity={0.8} />)}
+      {primitives.has("river_band") && <rect x={grid.x} y={grid.y + 4 * cell} width={grid.width} height={cell} fill="rgba(74,154,194,.52)" stroke="#b9eaff" strokeWidth={5} />}
+      {primitives.has("central_files") && [3, 4, 5].map((column) => <line key={`central-file-${column}`} x1={boardPoint(column, 0).x} y1={boardPoint(column, 0).y} x2={boardPoint(column, 9).x} y2={boardPoint(column, 9).y} stroke="#ef6655" strokeWidth={10} strokeDasharray="20 12" />)}
+      {primitives.has("palace_x") && <><line x1={boardPoint(3, 0).x} y1={boardPoint(3, 0).y} x2={boardPoint(5, 2).x} y2={boardPoint(5, 2).y} stroke="#f5ce74" strokeWidth={10} /><line x1={boardPoint(5, 0).x} y1={boardPoint(5, 0).y} x2={boardPoint(3, 2).x} y2={boardPoint(3, 2).y} stroke="#f5ce74" strokeWidth={10} /><line x1={boardPoint(3, 7).x} y1={boardPoint(3, 7).y} x2={boardPoint(5, 9).x} y2={boardPoint(5, 9).y} stroke="#f5ce74" strokeWidth={10} /><line x1={boardPoint(5, 7).x} y1={boardPoint(5, 7).y} x2={boardPoint(3, 9).x} y2={boardPoint(3, 9).y} stroke="#f5ce74" strokeWidth={10} /></>}
+    </svg>}
+
+    {(primitives.has("chariot_open_file") || primitives.has("cannon_screen") || primitives.has("horse_leg")) && <svg style={{ position: "absolute", inset: 0, zIndex: 6, opacity }} width="1080" height="1920">
+      {primitives.has("chariot_open_file") && <><line x1={chariotPoint.x} y1={boardPoint(chariot?.position[0] ?? 0, 0).y} x2={chariotPoint.x} y2={boardPoint(chariot?.position[0] ?? 0, 9).y} stroke="#4a9ac2" strokeWidth={11} strokeDasharray="22 14" /><circle cx={chariotPoint.x} cy={chariotPoint.y} r={48} fill="none" stroke="#4a9ac2" strokeWidth={9} /></>}
+      {primitives.has("cannon_screen") && <><line x1={cannonPoint.x} y1={cannonPoint.y} x2={cannonTargetPoint.x} y2={cannonTargetPoint.y} stroke="#ef6655" strokeWidth={12} strokeDasharray="22 14" /><circle cx={screenPoint.x} cy={screenPoint.y} r={38} fill="none" stroke="#f5ce74" strokeWidth={9} /><circle cx={cannonTargetPoint.x} cy={cannonTargetPoint.y} r={46} fill="none" stroke="#ef6655" strokeWidth={9} /></>}
+      {primitives.has("horse_leg") && <><line x1={horsePoint.x} y1={horsePoint.y} x2={horseLegPoint.x} y2={horseLegPoint.y} stroke="#f5ce74" strokeWidth={12} /><line x1={horseLegPoint.x - 22} y1={horseLegPoint.y - 22} x2={horseLegPoint.x + 22} y2={horseLegPoint.y + 22} stroke="#ef6655" strokeWidth={10} /><line x1={horseLegPoint.x + 22} y1={horseLegPoint.y - 22} x2={horseLegPoint.x - 22} y2={horseLegPoint.y + 22} stroke="#ef6655" strokeWidth={10} /><path d={`M ${horsePoint.x} ${horsePoint.y} L ${horseTargetPoint.x} ${horseTargetPoint.y}`} stroke="#4a9ac2" strokeWidth={10} strokeDasharray="18 12" fill="none" /></>}
+    </svg>}
+
+    {primitives.has("chariot_open_file") && <Marker left={chariotPoint.x} top={chariotPoint.y - 84} opacity={opacity} tone="blue">OPEN FILE</Marker>}
+    {primitives.has("cannon_screen") && <><Marker left={screenPoint.x} top={screenPoint.y - 76} opacity={opacity} tone="gold">ONE SCREEN</Marker><Marker left={cannonTargetPoint.x} top={cannonTargetPoint.y - 76} opacity={opacity} tone="red">TARGET</Marker></>}
+    {primitives.has("horse_leg") && <Marker left={horseLegPoint.x} top={horseLegPoint.y - 76} opacity={opacity} tone="red">HORSE LEG</Marker>}
 
     {(kind === "board_overview" || kind === "army_setup" || kind === "board_identity") && <>
       <div style={{ position: "absolute", left: grid.x, top: grid.y, width: grid.width, height: grid.height, border: "5px solid rgba(255, 241, 182, .9)", borderRadius: 18, opacity, zIndex: 3 }} />
@@ -254,7 +289,7 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
 
     {kind === "coordinate_map" && <><div style={{ position: "absolute", left: grid.x, top: board.y - 18, width: grid.width, display: "flex", justifyContent: "space-between", opacity, zIndex: 5 }}>{Array.from({ length: 9 }).map((_, index) => <Marker key={index} left={index * cell} top={0} opacity={opacity}>F{index + 1}</Marker>)}</div><div style={{ position: "absolute", left: board.x - 18, top: grid.y, height: grid.height, display: "flex", flexDirection: "column", justifyContent: "space-between", opacity, zIndex: 5 }}>{Array.from({ length: 10 }).map((_, index) => <Marker key={index} left={0} top={index * cell} opacity={opacity}>R{index + 1}</Marker>)}</div><div style={{ position: "absolute", left: boardPoint(4, 4).x - 42, top: boardPoint(4, 4).y - 42, width: 84, height: 84, borderRadius: 999, border: "7px solid #f5ce74", opacity, zIndex: 5 }} /></>}
 
-    {kind === "rule_focus" && <><div style={{ position: "absolute", left: boardPoint(4, 4).x - 110, top: boardPoint(4, 4).y - 110, width: 220, height: 220, borderRadius: 999, border: "10px solid #4a9ac2", boxShadow: "0 0 0 18px rgba(74,154,194,.18)", opacity, zIndex: 4 }} /><svg style={{ position: "absolute", inset: 0, zIndex: 5, opacity }} width="1080" height="1920"><line x1={boardPoint(4, 4).x - 175} y1={boardPoint(4, 4).y + 175} x2={boardPoint(4, 4).x - 80} y2={boardPoint(4, 4).y + 80} stroke="#56a76c" strokeWidth="11" strokeLinecap="round" /><line x1={boardPoint(4, 4).x + 175} y1={boardPoint(4, 4).y - 175} x2={boardPoint(4, 4).x + 80} y2={boardPoint(4, 4).y - 80} stroke="#e95b4c" strokeWidth="11" strokeLinecap="round" /><line x1={boardPoint(4, 4).x + 150} y1={boardPoint(4, 4).y - 205} x2={boardPoint(4, 4).x + 205} y2={boardPoint(4, 4).y - 150} stroke="#e95b4c" strokeWidth="11" strokeLinecap="round" /><line x1={boardPoint(4, 4).x + 205} y1={boardPoint(4, 4).y - 205} x2={boardPoint(4, 4).x + 150} y2={boardPoint(4, 4).y - 150} stroke="#e95b4c" strokeWidth="11" strokeLinecap="round" /></svg><Marker left={boardPoint(4, 4).x} top={boardPoint(4, 4).y - 138} opacity={opacity} tone="blue">RULE</Marker></>}
+    {kind === "rule_focus" && !primitives.has("chariot_open_file") && !primitives.has("cannon_screen") && !primitives.has("horse_leg") && <><div style={{ position: "absolute", left: boardPoint(4, 4).x - 110, top: boardPoint(4, 4).y - 110, width: 220, height: 220, borderRadius: 999, border: "10px solid #4a9ac2", boxShadow: "0 0 0 18px rgba(74,154,194,.18)", opacity, zIndex: 4 }} /><Marker left={boardPoint(4, 4).x} top={boardPoint(4, 4).y - 138} opacity={opacity} tone="blue">RULE</Marker></>}
 
     {kind === "piece_spotlight" && <><div style={{ position: "absolute", left: boardPoint(4, 2).x - 78, top: boardPoint(4, 2).y - 78, width: 156, height: 156, borderRadius: 999, border: "9px solid #f5ce74", boxShadow: "0 0 0 16px rgba(245,206,116,.18)", opacity, zIndex: 5 }} /><div style={{ position: "absolute", left: boardPoint(4, 7).x - 78, top: boardPoint(4, 7).y - 78, width: 156, height: 156, borderRadius: 999, border: "9px solid #ff876d", boxShadow: "0 0 0 16px rgba(182,60,47,.18)", opacity, zIndex: 5 }} /><Marker left={boardPoint(4, 2).x} top={boardPoint(4, 2).y - 112} opacity={opacity} tone="black">BLACK PIECE</Marker><Marker left={boardPoint(4, 7).x} top={boardPoint(4, 7).y + 112} opacity={opacity} tone="red">RED PIECE</Marker></>}
 
@@ -316,25 +351,6 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   </>;
 }
 
-const SHORTS_COVER_SECONDS = 2.6;
-
-function VerticalShortCover({ job, second }: { job: VideoJob; second: number }) {
-  if (job.referenceMode || second >= SHORTS_COVER_SECONDS) return null;
-  const opacity = interpolate(second, [0, 0.16, SHORTS_COVER_SECONDS - 0.24, SHORTS_COVER_SECONDS], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const title = String(job.title || "Xiangqi Lesson").trim();
-  const titleSize = title.length > 38 ? 44 : title.length > 28 ? 50 : 58;
-  const lessonType = job.moves?.length ? "LEGAL MOVES • CLEAR IDEAS" : "BOARD • HISTORY • STRATEGY";
-  return <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none", opacity }}>
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 372, background: "linear-gradient(145deg, rgba(18, 28, 48, .98) 0%, rgba(37, 48, 72, .96) 58%, rgba(182, 60, 47, .94) 100%)", borderBottom: "8px solid #f5ce74", boxShadow: "0 18px 34px rgba(22, 18, 15, .28)" }} />
-    <div style={{ position: "absolute", top: 58, left: 76, right: 76, direction: "ltr", color: "#fff9ed" }}>
-      <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 999, background: "#f5ce74", color: "#211a16", fontSize: 18, fontWeight: 900, letterSpacing: 1.4 }}>XIANGQI LAB</div>
-      <div style={{ marginTop: 25, fontSize: titleSize, lineHeight: 1.08, fontWeight: 900, letterSpacing: 0.2, textShadow: "0 4px 12px rgba(0,0,0,.32)" }}>{title}</div>
-      <div style={{ marginTop: 22, fontSize: 21, lineHeight: 1.15, fontWeight: 800, letterSpacing: 1.1, color: "#f5ce74" }}>CHINESE CHESS • {lessonType}</div>
-    </div>
-    <div style={{ position: "absolute", left: 76, right: 76, top: 324, display: "flex", justifyContent: "space-between", direction: "ltr", color: "#fff9ed", fontSize: 18, fontWeight: 800, letterSpacing: 0.8 }}><span>ENGLISH PRIMARY</span><span>SHORT LESSON</span></div>
-  </AbsoluteFill>;
-}
-
 function Caption({ job, second }: { job: VideoJob; second: number }) {
   if (job.language === "en" && job.captions_source === "english_captions_disabled_in_video") return null;
   const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
@@ -363,23 +379,20 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   const introOpacity = interpolate(frame, [0, 18, 42], [0, 1, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleScale = interpolate(frame, [0, 36], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : job.visual_mode === "storyboard" ? "" : copy.subtitle;
-  const showVerticalCover = !job.referenceMode && second < SHORTS_COVER_SECONDS;
-
   return     <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
     <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
-    {!job.referenceMode && !showVerticalCover && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
+    {!job.referenceMode && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
       <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
       <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
       {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
     </div>}
-    <Board job={job} second={showVerticalCover ? 0 : second} />
-    {!showVerticalCover && <GeneratedVisualAsset job={job} second={second} />}
-    {!showVerticalCover && <FoundationVisuals job={job} second={second} />}
-    {!showVerticalCover && <StoryboardVisuals job={job} second={second} />}
-    {!showVerticalCover && <MoveCard move={active} second={second} language={job.language} />}
-    {!showVerticalCover && !job.referenceMode && <Caption job={job} second={second} />}
-    <VerticalShortCover job={job} second={second} />
+    <Board job={job} second={second} />
+    <GeneratedVisualAsset job={job} second={second} />
+    <FoundationVisuals job={job} second={second} />
+    <StoryboardVisuals job={job} second={second} />
+    <MoveCard move={active} second={second} language={job.language} />
+    {!job.referenceMode && <Caption job={job} second={second} />}
     {!job.referenceMode && job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
-    {!job.referenceMode && !showVerticalCover && <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>}
+    {!job.referenceMode && <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>}
   </AbsoluteFill>;
 };

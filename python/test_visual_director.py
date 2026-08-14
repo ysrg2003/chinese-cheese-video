@@ -88,6 +88,31 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(result["visualStoryboard"][0]["visualKind"], "cannon_screen")
         self.assertEqual(result["narrationSegments"][0]["visualKind"], "cannon_screen")
 
+    def test_semantic_visual_plan_tracks_each_technical_sentence(self) -> None:
+        job = {
+            "id": "semantic-board-test",
+            "title": "The 9x10 Point Board",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "definition",
+            "moves": [],
+            "narrationSegments": [
+                {"kind": "intro", "text": "A Xiangqi board has nine vertical files and ten horizontal ranks, creating ninety intersections."},
+                {"kind": "intro", "text": "The pieces stand on those intersections, and a move travels along the lines between them."},
+                {"kind": "intro", "text": "The horizontal river divides the two sides, while the central files connect the battlefield from one palace to the other."},
+                {"kind": "intro", "text": "A chariot values an open file, a cannon values a line with the right screen, and a horse needs an unobstructed leg."},
+            ],
+        }
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-005-the-9x10-point-board", "language": "en", "visual_mode": "storyboard"})
+        scenes = result["visualStoryboard"]
+        self.assertEqual([scene["visualKind"] for scene in scenes], ["coordinate_map", "piece_movement", "river_palaces", "rule_focus"])
+        self.assertIn("all_intersections", scenes[0]["visualPlan"]["primitives"])
+        self.assertIn("legal_destinations", scenes[1]["visualPlan"]["primitives"])
+        self.assertIn("palace_x", scenes[2]["visualPlan"]["primitives"])
+        self.assertEqual(set(["chariot_open_file", "cannon_screen", "horse_leg"]), set(scenes[3]["visualPlan"]["primitives"]))
+        self.assertTrue(all(scene["semanticTags"] and scene["visualPlan"]["primitives"] for scene in scenes))
+        self.assertEqual(validate_visual_storyboard(result), [])
+
     def test_history_fallback_uses_specialized_visual_progression(self) -> None:
         job = {
             "id": "history-test",
@@ -107,7 +132,7 @@ class VisualDirectorTests(unittest.TestCase):
         }
         result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-002-history-of-xiangqi", "language": "en", "visual_mode": "storyboard"})
         kinds = [scene["visualKind"] for scene in result["visualStoryboard"]]
-        self.assertEqual(kinds[0], "board_overview")
+        self.assertEqual(kinds[0], "history_timeline")
         self.assertIn("two_armies", kinds)
         self.assertIn("river_palaces", kinds)
         self.assertEqual(kinds[-1], "learning_roadmap")
@@ -135,7 +160,7 @@ class VisualDirectorTests(unittest.TestCase):
         result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-005-the-9x10-point-board", "language": "en", "visual_mode": "storyboard"})
         self.assertEqual(
             [scene["visualKind"] for scene in result["visualStoryboard"]],
-            ["coordinate_map", "intersections", "river_palaces", "learning_roadmap"],
+            ["coordinate_map", "piece_movement", "river_palaces", "learning_roadmap"],
         )
 
 
