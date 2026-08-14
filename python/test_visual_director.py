@@ -88,6 +88,51 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(result["visualStoryboard"][0]["visualKind"], "cannon_screen")
         self.assertEqual(result["narrationSegments"][0]["visualKind"], "cannon_screen")
 
+    def test_move_beats_receive_distinct_semantic_visual_plans(self) -> None:
+        job = {
+            "id": "move-beat-test",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "rules",
+            "moves": [{"ply": 1, "from": [2, 9], "to": [4, 7], "piece": "bishop", "side": "red", "purpose": "guard the diagonal", "opponentReply": "block the elephant eye", "effect": "the bishop becomes restricted"}],
+            "narrationSegments": [
+                {"kind": "move", "movePhase": "action", "movePly": 1, "text": "Move 1. Red elephant moves from file 3, rank 10 to file 5, rank 8."},
+                {"kind": "move_reply", "movePhase": "reply", "movePly": 1, "text": "Now watch the reply. The likely response is to block the elephant eye."},
+                {"kind": "move_effect", "movePhase": "effect", "movePly": 1, "text": "After that response, the position changes: the bishop becomes restricted."},
+                {"kind": "move_constraint", "movePhase": "constraint", "movePly": 1, "text": "The rule to remember is the elephant eye and the river limit."},
+            ],
+        }
+        result = add_visual_storyboard(dict(job), {"visualStoryboard": []})
+        self.assertEqual([segment["movePhase"] for segment in result["narrationSegments"]], ["action", "reply", "effect", "constraint"])
+        self.assertEqual([scene["visualKind"] for scene in result["visualStoryboard"]], ["move_path", "threat_marker", "before_after", "rule_focus"])
+        self.assertEqual(result["visualStoryboard"][0]["visualPlan"]["primitives"], ["source_piece", "legal_path", "played_destination"])
+        self.assertIn("pressure_marker", result["visualStoryboard"][1]["visualPlan"]["primitives"])
+        self.assertIn("effect_after", result["visualStoryboard"][2]["visualPlan"]["primitives"])
+        self.assertEqual(result["visualStoryboard"][3]["visualPlan"]["primitives"], ["piece_anchor", "elephant_eye", "river_limit"])
+
+    def test_storyboard_validation_requires_all_move_explanation_beats(self) -> None:
+        base_scene = {"index": 1, "visualKind": "move_path", "headline": "Move", "visualInstruction": "Show the legal move.", "semanticTags": ["move"], "visualPlan": {"mode": "board_overlay", "focus": "move", "primitives": ["source_piece"]}}
+        job = {
+            "visual_mode": "storyboard",
+            "visualStoryboardSource": "ai_router",
+            "moves": [{"ply": 1, "from": [2, 9], "to": [4, 7]}],
+            "visualStoryboard": [base_scene],
+            "narrationSegments": [{"kind": "move", "movePly": 1, "startSec": 0.0, "endSec": 5.0, "visualKind": "move_path", "semanticTags": ["move"], "visualPlan": base_scene["visualPlan"]}],
+        }
+        errors = validate_visual_storyboard(job, audio_duration=5.0)
+        self.assertTrue(any("lacks beat phases" in error for error in errors))
+
+    def test_storyboard_validation_rejects_action_dominance(self) -> None:
+        phases = [("action", 0.0, 4.0), ("reply", 4.0, 4.3), ("effect", 4.3, 4.6), ("constraint", 4.6, 5.0)]
+        scenes = []
+        segments = []
+        for index, (phase, start, end) in enumerate(phases, start=1):
+            plan = {"mode": "board_overlay", "focus": phase, "primitives": ["piece_anchor"]}
+            scenes.append({"index": index, "visualKind": "move_path", "headline": phase, "visualInstruction": "Show this teaching beat.", "semanticTags": [phase], "visualPlan": plan, "movePly": 1})
+            segments.append({"kind": "move" if phase == "action" else f"move_{phase}", "movePhase": phase, "movePly": 1, "startSec": start, "endSec": end, "visualKind": "move_path", "semanticTags": [phase], "visualPlan": plan})
+        errors = validate_visual_storyboard({"visual_mode": "storyboard", "visualStoryboardSource": "ai_router", "moves": [{"ply": 1}], "visualStoryboard": scenes, "narrationSegments": segments}, audio_duration=5.0)
+        self.assertTrue(any("action beat dominates" in error for error in errors))
+
     def test_semantic_visual_plan_tracks_each_technical_sentence(self) -> None:
         job = {
             "id": "semantic-board-test",

@@ -209,21 +209,24 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const exitStart = Math.max(enterEnd, end - 0.2);
   const opacity = interpolate(second, [start, enterEnd, exitStart, end], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const kind = active.visualKind;
+  const phase = active.movePhase || (active.kind === "move" ? "action" : "intro");
+  const isMoveAction = phase === "action";
   const move = active.movePly ? job.moves.find((candidate) => candidate.ply === active.movePly) : undefined;
   const from = move ? boardPoint(move.from[0], move.from[1]) : boardPoint(1, 7);
   const to = move ? boardPoint(move.to[0], move.to[1]) : boardPoint(4, 4);
   const target = move ? boardPoint(move.to[0], move.to[1]) : boardPoint(4, 0);
   const headline = active.headline || "Board Idea";
-  const isMoveSegment = active.kind === "move" || active.movePly !== undefined;
+  const isMoveSegment = isMoveAction && (active.kind === "move" || active.movePly !== undefined);
   const overlayLine = (color: string, dashed = false) => <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={10} strokeLinecap="round" strokeDasharray={dashed ? "18 14" : undefined} />;
-  const teachingMove = move || (kind === "piece_movement" ? job.moves[0] : undefined);
+  const teachingMove = isMoveAction ? (move || (kind === "piece_movement" ? job.moves[0] : undefined)) : (kind === "piece_movement" ? job.moves[0] : undefined);
   const legalBoard = teachingMove ? boardAtSecond(job, Math.max(0, Number(teachingMove.startSec ?? 0) - 0.05)) : boardAtSecond(job, second);
   const plan = active.visualPlan;
   const primitives = new Set<string>(Array.isArray(plan?.primitives) ? plan.primitives : []);
   const inferredType = inferPieceType(`${active.headline || ""} ${active.text || ""}`) || plan?.focusPiece;
   const inferredPiece = inferredType ? legalBoard.find((piece) => piece.type === inferredType && (!plan?.focusSide || piece.side === plan.focusSide)) || legalBoard.find((piece) => piece.type === inferredType) : undefined;
   const fallbackTeachingPiece = kind === "piece_movement" ? legalBoard.find((piece) => piece.type === "pawn" && piece.side === "red") : undefined;
-  const legalOrigin = teachingMove?.from || inferredPiece?.position || fallbackTeachingPiece?.position;
+  const focusMovePoint = move?.to || move?.from;
+  const legalOrigin = inferredPiece?.position || focusMovePoint || teachingMove?.from || fallbackTeachingPiece?.position;
   const legalTargets = legalOrigin ? legalDestinationsForPiece(legalBoard, legalOrigin) : [];
   const showLegalTargets = Boolean(teachingMove || kind === "piece_movement" || kind === "piece_spotlight" || primitives.has("legal_destinations"));
   const chariot = legalBoard.find((piece) => piece.type === "rook" && piece.side === "red") || legalBoard.find((piece) => piece.type === "rook");
@@ -237,13 +240,16 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const notationDestinationPoint = boardPoint(1, 4);
   const screenPoint = boardPoint(1, 4);
   const cannonTargetPoint = boardPoint(1, 2);
+  const elephantEyePoints: BoardPoint[] = legalOrigin && (plan?.focusPiece === "bishop" || inferredType === "bishop")
+    ? ([[-2, -2], [2, -2], [-2, 2], [2, 2]] as const).map(([dx, dy]) => [legalOrigin[0] + dx / 2, legalOrigin[1] + dy / 2] as BoardPoint).filter(([x, y]) => x >= 0 && x <= 8 && y >= 0 && y <= 9)
+    : [];
 
   return <>
     {!isMoveSegment && <div style={{ position: "absolute", top: 250, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
       <div style={{ padding: "9px 22px", borderRadius: 16, background: "rgba(33, 26, 22, .88)", color: "#fff8e9", fontSize: 25, fontWeight: 900, letterSpacing: 0.8, boxShadow: "0 10px 22px rgba(64, 35, 12, .22)" }}>{headline}</div>
     </div>}
 
-    {(primitives.has("files") || primitives.has("ranks") || primitives.has("all_intersections") || primitives.has("piece_anchor") || primitives.has("legal_destinations") || primitives.has("path_lines") || primitives.has("dim_square_interiors") || primitives.has("brighten_lines") || primitives.has("river_band") || primitives.has("palace_x") || primitives.has("central_files") || primitives.has("territory_split") || primitives.has("palace_piece_anchor") || primitives.has("palace_entry_points") || primitives.has("route_constraints") || primitives.has("piece_family_anchor") || primitives.has("mirror_setup") || primitives.has("coordinate_endpoints")) && <svg style={{ position: "absolute", inset: 0, zIndex: 4, opacity }} width="1080" height="1920">
+    {(primitives.has("files") || primitives.has("ranks") || primitives.has("all_intersections") || primitives.has("piece_anchor") || primitives.has("legal_destinations") || primitives.has("path_lines") || primitives.has("dim_square_interiors") || primitives.has("brighten_lines") || primitives.has("river_band") || primitives.has("palace_x") || primitives.has("central_files") || primitives.has("territory_split") || primitives.has("palace_piece_anchor") || primitives.has("palace_entry_points") || primitives.has("route_constraints") || primitives.has("piece_family_anchor") || primitives.has("mirror_setup") || primitives.has("coordinate_endpoints") || primitives.has("pressure_marker") || primitives.has("effect_after") || primitives.has("elephant_eye") || primitives.has("river_limit") || primitives.has("constraint_boundary")) && <svg style={{ position: "absolute", inset: 0, zIndex: 4, opacity }} width="1080" height="1920">
       {primitives.has("dim_square_interiors") && <rect x={grid.x} y={grid.y} width={grid.width} height={grid.height} fill="rgba(33,26,22,.19)" />}
       {primitives.has("files") && Array.from({ length: 9 }).map((_, column) => <g key={`semantic-file-${column}`}><line x1={boardPoint(column, 0).x} y1={boardPoint(column, 0).y} x2={boardPoint(column, 4).x} y2={boardPoint(column, 4).y} stroke="#f5ce74" strokeWidth={7} /><line x1={boardPoint(column, 5).x} y1={boardPoint(column, 5).y} x2={boardPoint(column, 9).x} y2={boardPoint(column, 9).y} stroke="#f5ce74" strokeWidth={7} /></g>)}
       {primitives.has("ranks") && Array.from({ length: 10 }).map((_, row) => <line key={`semantic-rank-${row}`} x1={boardPoint(0, row).x} y1={boardPoint(0, row).y} x2={boardPoint(8, row).x} y2={boardPoint(8, row).y} stroke="#fff1ac" strokeWidth={7} />)}
@@ -260,6 +266,11 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
       {primitives.has("piece_family_anchor") && legalBoard.map((piece) => <circle key={`family-${piece.side}-${piece.type}-${piece.position.join("-")}`} cx={boardPoint(piece.position[0], piece.position[1]).x} cy={boardPoint(piece.position[0], piece.position[1]).y} r="52" fill="none" stroke={pieceFamilyColors[piece.type] || "#f5ce74"} strokeWidth="7" strokeDasharray="10 8" opacity=".9" />)}
       {primitives.has("mirror_setup") && <line x1={boardPoint(4, 0).x} y1={grid.y - 20} x2={boardPoint(4, 9).x} y2={grid.y + grid.height + 20} stroke="#fff1ac" strokeWidth="7" strokeDasharray="18 14" opacity=".86" />}
       {primitives.has("coordinate_endpoints") && <><line x1={notationSourcePoint.x} y1={notationSourcePoint.y} x2={notationDestinationPoint.x} y2={notationDestinationPoint.y} stroke="#4a9ac2" strokeWidth="9" strokeDasharray="20 14" opacity=".86" /><circle cx={notationSourcePoint.x} cy={notationSourcePoint.y} r="58" fill="none" stroke="#ef6655" strokeWidth="10" /><circle cx={notationDestinationPoint.x} cy={notationDestinationPoint.y} r="52" fill="none" stroke="#4a9ac2" strokeWidth="10" /></>}
+      {primitives.has("pressure_marker") && <><circle cx={target.x} cy={target.y} r="76" fill="rgba(233,91,76,.16)" stroke="#e95b4c" strokeWidth="11" strokeDasharray="18 12" /><line x1={target.x - 92} y1={target.y} x2={target.x + 92} y2={target.y} stroke="#e95b4c" strokeWidth="7" opacity=".75" /><line x1={target.x} y1={target.y - 92} x2={target.x} y2={target.y + 92} stroke="#e95b4c" strokeWidth="7" opacity=".75" /></>}
+      {primitives.has("effect_after") && <><circle cx={to.x} cy={to.y} r="84" fill="rgba(86,167,108,.14)" stroke="#56a76c" strokeWidth="12" /><circle cx={to.x} cy={to.y} r="112" fill="none" stroke="#56a76c" strokeWidth="6" strokeDasharray="16 12" /></>}
+      {primitives.has("elephant_eye") && elephantEyePoints.map(([x, y]) => <circle key={`elephant-eye-${x}-${y}`} cx={boardPoint(x, y).x} cy={boardPoint(x, y).y} r="34" fill="rgba(239,102,85,.18)" stroke="#ef6655" strokeWidth="9" strokeDasharray="12 9" />)}
+      {primitives.has("river_limit") && <><rect x={grid.x} y={grid.y + 4 * cell} width={grid.width} height={cell} fill="rgba(74,154,194,.16)" stroke="#e95b4c" strokeWidth="7" strokeDasharray="18 14" /><line x1={boardPoint(0, 4).x} y1={boardPoint(0, 4).y} x2={boardPoint(8, 4).x} y2={boardPoint(8, 4).y} stroke="#e95b4c" strokeWidth="7" strokeDasharray="20 12" /><line x1={boardPoint(0, 5).x} y1={boardPoint(0, 5).y} x2={boardPoint(8, 5).x} y2={boardPoint(8, 5).y} stroke="#e95b4c" strokeWidth="7" strokeDasharray="20 12" /></>}
+      {primitives.has("constraint_boundary") && <><circle cx={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x} cy={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y} r="90" fill="none" stroke="#4a9ac2" strokeWidth="10" strokeDasharray="14 12" /><line x1={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x - 74} y1={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y - 74} x2={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x + 74} y2={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y + 74} stroke="#4a9ac2" strokeWidth="7" /><line x1={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x + 74} y1={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y - 74} x2={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x - 74} y2={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y + 74} stroke="#4a9ac2" strokeWidth="7" /></>}
       {primitives.has("central_files") && [3, 4, 5].map((column) => <line key={`central-file-${column}`} x1={boardPoint(column, 0).x} y1={boardPoint(column, 0).y} x2={boardPoint(column, 9).x} y2={boardPoint(column, 9).y} stroke="#ef6655" strokeWidth={10} strokeDasharray="20 12" />)}
       {primitives.has("palace_x") && <><line x1={boardPoint(3, 0).x} y1={boardPoint(3, 0).y} x2={boardPoint(5, 2).x} y2={boardPoint(5, 2).y} stroke="#f5ce74" strokeWidth={10} /><line x1={boardPoint(5, 0).x} y1={boardPoint(5, 0).y} x2={boardPoint(3, 2).x} y2={boardPoint(3, 2).y} stroke="#f5ce74" strokeWidth={10} /><line x1={boardPoint(3, 7).x} y1={boardPoint(3, 7).y} x2={boardPoint(5, 9).x} y2={boardPoint(5, 9).y} stroke="#f5ce74" strokeWidth={10} /><line x1={boardPoint(5, 7).x} y1={boardPoint(5, 7).y} x2={boardPoint(3, 9).x} y2={boardPoint(3, 9).y} stroke="#f5ce74" strokeWidth={10} /></>}
     </svg>}
@@ -274,6 +285,11 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
     {primitives.has("cannon_screen") && <><Marker left={screenPoint.x} top={screenPoint.y - 76} opacity={opacity} tone="gold">ONE SCREEN</Marker><Marker left={cannonTargetPoint.x} top={cannonTargetPoint.y - 76} opacity={opacity} tone="red">TARGET</Marker></>}
     {primitives.has("horse_leg") && <Marker left={horseLegPoint.x} top={horseLegPoint.y - 76} opacity={opacity} tone="red">HORSE LEG</Marker>}
     {primitives.has("route_constraints") && <Marker left={board.x + board.width / 2} top={grid.y + 4.5 * cell} opacity={opacity} tone="gold">REGION LIMITS</Marker>}
+    {primitives.has("pressure_marker") && <Marker left={target.x} top={target.y - 112} opacity={opacity} tone="red">REPLY PRESSURE</Marker>}
+    {primitives.has("effect_after") && <Marker left={to.x} top={to.y + 112} opacity={opacity} tone="blue">POSITION CHANGED</Marker>}
+    {primitives.has("elephant_eye") && elephantEyePoints.length > 0 && <Marker left={boardPoint(elephantEyePoints[0][0], elephantEyePoints[0][1]).x} top={boardPoint(elephantEyePoints[0][0], elephantEyePoints[0][1]).y - 72} opacity={opacity} tone="red">ELEPHANT EYE</Marker>}
+    {primitives.has("river_limit") && <Marker left={board.x + board.width / 2} top={grid.y + 4.5 * cell} opacity={opacity} tone="red">RIVER LIMIT</Marker>}
+    {primitives.has("constraint_boundary") && <Marker left={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x} top={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y - 120} opacity={opacity} tone="blue">MOVEMENT LIMIT</Marker>}
     {primitives.has("mirror_setup") && <Marker left={boardPoint(4, 4).x} top={boardPoint(4, 4).y + 70} opacity={opacity} tone="gold">MIRRORED SETUP</Marker>}
     {primitives.has("coordinate_endpoints") && <><Marker left={notationSourcePoint.x} top={notationSourcePoint.y - 86} opacity={opacity} tone="red">SOURCE F2 R8</Marker><Marker left={notationDestinationPoint.x} top={notationDestinationPoint.y - 86} opacity={opacity} tone="blue">DEST F2 R5</Marker><Marker left={board.x + board.width / 2} top={grid.y + grid.height + 34} opacity={opacity} tone="gold">EXAMPLE NOTATION</Marker></>}
     {primitives.has("notation_sequence") && <Marker left={board.x + board.width / 2} top={grid.y + grid.height + 34} opacity={opacity} tone="gold">IDENTIFY → START → END → LEGAL CHECK</Marker>}
@@ -337,7 +353,7 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
       <Marker left={to.x} top={to.y - 132} opacity={opacity} tone="blue">SAFE ZONE</Marker>
     </>}
 
-    {kind === "threat_marker" && <>
+    {kind === "threat_marker" && !primitives.has("pressure_marker") && <>
       <div style={{ position: "absolute", left: target.x - 78, top: target.y - 78, width: 156, height: 156, borderRadius: 999, border: "10px solid #e95b4c", boxShadow: "0 0 0 18px rgba(233,91,76,.18)", opacity, zIndex: 5 }} />
       <Marker left={target.x} top={target.y - 112} opacity={opacity} tone="red">THREAT</Marker>
     </>}
@@ -405,7 +421,11 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
     <GeneratedVisualAsset job={job} second={second} />
     <FoundationVisuals job={job} second={second} />
     <StoryboardVisuals job={job} second={second} />
-    <MoveCard move={active} second={second} language={job.language} />
+    {(() => {
+      const activeSegment = job.narrationSegments?.find((segment) => second >= Number(segment.startSec ?? 0) && second < Number(segment.endSec ?? -1));
+      const actionMove = activeSegment?.movePhase === "action" || (!activeSegment?.movePhase && activeSegment?.kind === "move");
+      return <MoveCard move={actionMove ? active : undefined} second={second} language={job.language} />;
+    })()}
     {!job.referenceMode && <Caption job={job} second={second} />}
     {!job.referenceMode && job.audioSrc ? <Audio src={staticFile(job.audioSrc)} volume={1} /> : null}
     {!job.referenceMode && <div style={{ position: "absolute", left: 76, right: 76, bottom: 52, display: "flex", justifyContent: "space-between", color: "#795a3e", fontSize: 23, direction: "ltr", zIndex: 12 }}><span>{copy.footer} • {job.language.toUpperCase()}</span><span>{Math.max(0, Math.ceil(job.durationInSeconds - second))}{copy.seconds}</span></div>}

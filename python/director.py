@@ -208,6 +208,48 @@ def _move_spoken_text(
     return spoken, caption
 
 
+def _short_caption(text: str, prefix: str, maximum_words: int = 10) -> str:
+    words = str(text or "").strip().rstrip(".").split()
+    clipped = " ".join(words[:maximum_words]).strip()
+    return f"{prefix}: {clipped}" if clipped else prefix
+
+
+def _move_beats(move: dict[str, Any], language: str, content_type: str, analysis_focus: str = "") -> list[dict[str, Any]]:
+    spoken_text, caption_text = _move_spoken_text(move, language, content_type, analysis_focus)
+    ply = int(move.get("ply", 1))
+    piece_key = str(move.get("piece") or "pawn")
+    piece = PIECE_NAMES.get(piece_key, PIECE_NAMES["pawn"])[language]
+    side = "red" if str(move.get("side", "red")) == "red" else "black"
+    purpose = str(move.get("purpose") or move.get("label") or "improve the position").strip().rstrip(".")
+    reply = str(move.get("opponentReply") or ("contest the new line" if side == "red" else "answer the pressure")).strip().rstrip(".")
+    effect = str(move.get("effect") or "the available choices change").strip().rstrip(".")
+    focus = str(analysis_focus or "the legal consequence").strip().rstrip(".")
+    source = _coordinate_label(move.get("from"), language)
+    target = _coordinate_label(move.get("to"), language)
+    if language == "zh":
+        action_text = f"第{ply}步，{side}方{piece}从{source}走到{target}，目的是{purpose}。"
+        reply_text = f"接着看对手的回应：对手很可能{reply}。"
+        effect_text = f"回应之后，局面发生变化：{effect}。"
+        constraint_text = f"最后记住这个限制：{focus}。"
+        reply_caption = _short_caption(reply, "回应")
+        effect_caption = _short_caption(effect, "变化")
+        constraint_caption = _short_caption(focus, "规则")
+    else:
+        action_text = f"Move {ply}. {side.title()} {piece} moves from {source} to {target} to {purpose}."
+        reply_text = f"Now watch the reply. The likely response is to {reply}."
+        effect_text = f"After that response, the position changes: {effect}."
+        constraint_text = f"The rule to remember is {focus}."
+        reply_caption = _short_caption(reply, "Likely reply")
+        effect_caption = _short_caption(effect, "Position change")
+        constraint_caption = _short_caption(focus, "Rule")
+    return [
+        {"kind": "move", "movePhase": "action", "movePly": ply, "text": action_text, "captionText": caption_text, "captionPosition": "board"},
+        {"kind": "move_reply", "movePhase": "reply", "movePly": ply, "text": reply_text, "captionText": reply_caption, "captionPosition": "board"},
+        {"kind": "move_effect", "movePhase": "effect", "movePly": ply, "text": effect_text, "captionText": effect_caption, "captionPosition": "board"},
+        {"kind": "move_constraint", "movePhase": "constraint", "movePly": ply, "text": constraint_text, "captionText": constraint_caption, "captionPosition": "board"},
+    ]
+
+
 def build_narration_segments(
     base_narration: str,
     moves: list[dict[str, Any]],
@@ -223,16 +265,10 @@ def build_narration_segments(
         for intro_part in intro_parts:
             segments.append({"kind": "intro", "text": intro_part, "captionText": intro_part, "captionPosition": "bottom"})
     for move in moves:
-        spoken_text, caption_text = _move_spoken_text(move, language, content_type, analysis_focus)
-        move["spokenText"] = spoken_text
-        move["captionText"] = caption_text
-        segments.append({
-            "kind": "move",
-            "movePly": int(move.get("ply", len(segments))),
-            "text": spoken_text,
-            "captionText": caption_text,
-            "captionPosition": "board",
-        })
+        beats = _move_beats(move, language, content_type, analysis_focus)
+        move["spokenText"] = " ".join(str(beat["text"]) for beat in beats)
+        move["captionText"] = beats[0]["captionText"]
+        segments.extend(beats)
     return " ".join(segment["text"] for segment in segments).strip(), segments
 
 

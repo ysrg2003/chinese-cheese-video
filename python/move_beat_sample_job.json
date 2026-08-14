@@ -1,0 +1,367 @@
+{
+  "id": "move-beat-sample",
+  "title": "How An Elephant Changes The Position",
+  "language": "en",
+  "fen": "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r",
+  "visual_mode": "storyboard",
+  "content_type": "rules",
+  "moves": [
+    {
+      "ply": 1,
+      "from": [
+        2,
+        9
+      ],
+      "to": [
+        4,
+        7
+      ],
+      "piece": "bishop",
+      "side": "red",
+      "label": "Guard the diagonal",
+      "purpose": "guard the central diagonal",
+      "opponentReply": "block the elephant eye",
+      "effect": "the bishop becomes restricted",
+      "spokenText": "Move 1. Red elephant moves from file 3, rank 10 to file 5, rank 8 to guard the central diagonal. Now watch the reply. The likely response is to block the elephant eye. After that response, the position changes: the bishop becomes restricted. The rule to remember is the elephant eye and the river limit.",
+      "captionText": "Move 1: Elephant file 3, rank 10 → file 5, rank 8. Guard the central diagonal.",
+      "startSec": 7.485,
+      "endSec": 16.84,
+      "animationStartSec": 7.485,
+      "animationEndSec": 8.365
+    }
+  ],
+  "narration": "This lesson explains the elephant's route, the opponent's reply, and the restriction that changes the position. Move 1. Red elephant moves from file 3, rank 10 to file 5, rank 8 to guard the central diagonal. Now watch the reply. The likely response is to block the elephant eye. After that response, the position changes: the bishop becomes restricted. The rule to remember is the elephant eye and the river limit.",
+  "analysis_focus": "the elephant eye and the river limit",
+  "narrationSegments": [
+    {
+      "kind": "intro",
+      "text": "This lesson explains the elephant's route, the opponent's reply, and the restriction that changes the position.",
+      "captionText": "This lesson explains the elephant's route, the opponent's reply, and the restric",
+      "captionPosition": "bottom",
+      "sceneId": 1,
+      "visualKind": "piece_spotlight",
+      "headline": "Piece Spotlight",
+      "visualInstruction": "Spotlight the named piece on both armies and draw its legal direction or movement geometry.",
+      "semanticTags": [
+        "piece_spotlight"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "piece_spotlight",
+        "primitives": [
+          "piece_spotlight"
+        ]
+      },
+      "startSec": 0.0,
+      "endSec": 7.485,
+      "source": "narration_segments_fallback"
+    },
+    {
+      "kind": "move",
+      "movePhase": "action",
+      "movePly": 1,
+      "text": "Move 1. Red elephant moves from file 3, rank 10 to file 5, rank 8 to guard the central diagonal.",
+      "captionText": "Move 1: Elephant file 3, rank 10 → file 5, rank 8. Guard the central diagonal.",
+      "captionPosition": "board",
+      "sceneId": 2,
+      "visualKind": "move_path",
+      "headline": "Move 1 • Bishop",
+      "visualInstruction": "Show the supplied legal move from its source to its destination with a fast animation, then leave the board ready for the explanation beat.",
+      "semanticTags": [
+        "move",
+        "action",
+        "bishop",
+        "legal_geometry"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "legal bishop action",
+        "primitives": [
+          "source_piece",
+          "legal_path",
+          "played_destination"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      },
+      "startSec": 7.485,
+      "endSec": 16.84,
+      "source": "narration_segments_fallback"
+    },
+    {
+      "kind": "move_reply",
+      "movePhase": "reply",
+      "movePly": 1,
+      "text": "Now watch the reply. The likely response is to block the elephant eye.",
+      "captionText": "Likely reply: block the elephant eye",
+      "captionPosition": "board",
+      "sceneId": 3,
+      "visualKind": "threat_marker",
+      "headline": "Move 1 • Bishop • Reply",
+      "visualInstruction": "Show the opponent-pressure point and legal response choices after the supplied move; do not replay the same move path.",
+      "semanticTags": [
+        "move",
+        "reply",
+        "bishop",
+        "pressure"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "opponent reply pressure after move 1",
+        "primitives": [
+          "piece_anchor",
+          "pressure_marker",
+          "legal_destinations"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      },
+      "startSec": 16.84,
+      "endSec": 22.922,
+      "source": "narration_segments_fallback"
+    },
+    {
+      "kind": "move_effect",
+      "movePhase": "effect",
+      "movePly": 1,
+      "text": "After that response, the position changes: the bishop becomes restricted.",
+      "captionText": "Position change: the bishop becomes restricted",
+      "captionPosition": "board",
+      "sceneId": 4,
+      "visualKind": "before_after",
+      "headline": "Move 1 • Bishop • Position Change",
+      "visualInstruction": "Show the resulting position around the moved piece and mark the changed defensive or attacking relationship; do not show a second move.",
+      "semanticTags": [
+        "move",
+        "effect",
+        "bishop",
+        "position_change"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "position change after move 1",
+        "primitives": [
+          "piece_anchor",
+          "played_destination",
+          "effect_after"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      },
+      "startSec": 22.922,
+      "endSec": 27.6,
+      "source": "narration_segments_fallback"
+    },
+    {
+      "kind": "move_constraint",
+      "movePhase": "constraint",
+      "movePly": 1,
+      "text": "The rule to remember is the elephant eye and the river limit.",
+      "captionText": "Rule: the elephant eye and the river limit",
+      "captionPosition": "board",
+      "sceneId": 5,
+      "visualKind": "rule_focus",
+      "headline": "Move 1 • Bishop • Rule",
+      "visualInstruction": "Show the exact piece-specific limitation that explains the spoken consequence, without inventing a move or leaving a generic rule ring.",
+      "semanticTags": [
+        "constraint",
+        "elephant",
+        "eye",
+        "river_limit"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "elephant eye and river limit after move 1",
+        "primitives": [
+          "piece_anchor",
+          "elephant_eye",
+          "river_limit"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      },
+      "startSec": 27.6,
+      "endSec": 33.213,
+      "source": "narration_segments_fallback"
+    }
+  ],
+  "captions": [
+    {
+      "startSec": 0.0,
+      "endSec": 7.485,
+      "text": "This lesson explains the elephant's route, the opponent's reply, and the restric",
+      "kind": "intro",
+      "movePly": null,
+      "captionPosition": "bottom",
+      "source": "narration_segments_fallback"
+    },
+    {
+      "startSec": 7.485,
+      "endSec": 16.84,
+      "text": "Move 1: Elephant file 3, rank 10 → file 5, rank 8. Guard the central diagonal.",
+      "kind": "move",
+      "movePly": 1,
+      "captionPosition": "board",
+      "source": "narration_segments_fallback"
+    },
+    {
+      "startSec": 16.84,
+      "endSec": 22.922,
+      "text": "Likely reply: block the elephant eye",
+      "kind": "move_reply",
+      "movePly": 1,
+      "captionPosition": "board",
+      "source": "narration_segments_fallback"
+    },
+    {
+      "startSec": 22.922,
+      "endSec": 27.6,
+      "text": "Position change: the bishop becomes restricted",
+      "kind": "move_effect",
+      "movePly": 1,
+      "captionPosition": "board",
+      "source": "narration_segments_fallback"
+    },
+    {
+      "startSec": 27.6,
+      "endSec": 33.213,
+      "text": "Rule: the elephant eye and the river limit",
+      "kind": "move_constraint",
+      "movePly": 1,
+      "captionPosition": "board",
+      "source": "narration_segments_fallback"
+    }
+  ],
+  "visualStoryboard": [
+    {
+      "index": 1,
+      "segmentIndex": 1,
+      "movePly": null,
+      "visualKind": "piece_spotlight",
+      "headline": "Piece Spotlight",
+      "narration": "This lesson explains the elephant's route, the opponent's reply, and the restriction that changes the position.",
+      "caption": "This lesson explains the elephant's route, the opponent's reply, and the restric",
+      "visualInstruction": "Spotlight the named piece on both armies and draw its legal direction or movement geometry.",
+      "semanticTags": [
+        "piece_spotlight"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "piece_spotlight",
+        "primitives": [
+          "piece_spotlight"
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "segmentIndex": 2,
+      "movePly": 1,
+      "visualKind": "move_path",
+      "headline": "Move 1 • Bishop",
+      "narration": "Move 1. Red elephant moves from file 3, rank 10 to file 5, rank 8 to guard the central diagonal.",
+      "caption": "Move 1: Elephant file 3, rank 10 → file 5, rank 8. Guard the central diagonal.",
+      "visualInstruction": "Show the supplied legal move from its source to its destination with a fast animation, then leave the board ready for the explanation beat.",
+      "semanticTags": [
+        "move",
+        "action",
+        "bishop",
+        "legal_geometry"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "legal bishop action",
+        "primitives": [
+          "source_piece",
+          "legal_path",
+          "played_destination"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      }
+    },
+    {
+      "index": 3,
+      "segmentIndex": 3,
+      "movePly": 1,
+      "visualKind": "threat_marker",
+      "headline": "Move 1 • Bishop • Reply",
+      "narration": "Now watch the reply. The likely response is to block the elephant eye.",
+      "caption": "Likely reply: block the elephant eye",
+      "visualInstruction": "Show the opponent-pressure point and legal response choices after the supplied move; do not replay the same move path.",
+      "semanticTags": [
+        "move",
+        "reply",
+        "bishop",
+        "pressure"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "opponent reply pressure after move 1",
+        "primitives": [
+          "piece_anchor",
+          "pressure_marker",
+          "legal_destinations"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      }
+    },
+    {
+      "index": 4,
+      "segmentIndex": 4,
+      "movePly": 1,
+      "visualKind": "before_after",
+      "headline": "Move 1 • Bishop • Position Change",
+      "narration": "After that response, the position changes: the bishop becomes restricted.",
+      "caption": "Position change: the bishop becomes restricted",
+      "visualInstruction": "Show the resulting position around the moved piece and mark the changed defensive or attacking relationship; do not show a second move.",
+      "semanticTags": [
+        "move",
+        "effect",
+        "bishop",
+        "position_change"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "position change after move 1",
+        "primitives": [
+          "piece_anchor",
+          "played_destination",
+          "effect_after"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      }
+    },
+    {
+      "index": 5,
+      "segmentIndex": 5,
+      "movePly": 1,
+      "visualKind": "rule_focus",
+      "headline": "Move 1 • Bishop • Rule",
+      "narration": "The rule to remember is the elephant eye and the river limit.",
+      "caption": "Rule: the elephant eye and the river limit",
+      "visualInstruction": "Show the exact piece-specific limitation that explains the spoken consequence, without inventing a move or leaving a generic rule ring.",
+      "semanticTags": [
+        "constraint",
+        "elephant",
+        "eye",
+        "river_limit"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "elephant eye and river limit after move 1",
+        "primitives": [
+          "piece_anchor",
+          "elephant_eye",
+          "river_limit"
+        ],
+        "focusPiece": "bishop",
+        "focusSide": "red"
+      }
+    }
+  ],
+  "visualStoryboardSource": "fallback",
+  "durationInSeconds": 33.213
+}

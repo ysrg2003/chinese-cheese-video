@@ -41,7 +41,7 @@ export type CaptionCue = {
   startSec: number;
   endSec: number;
   text: string;
-  kind?: "intro" | "move" | "speech";
+  kind?: "intro" | "move" | "speech" | "move_reply" | "move_effect" | "move_constraint";
   movePly?: number;
   captionPosition?: "bottom" | "board";
   source?: string;
@@ -104,11 +104,12 @@ export type VisualStoryboardScene = {
 };
 
 export type NarrationSegment = {
-  kind: "intro" | "move";
+  kind: "intro" | "move" | "move_reply" | "move_effect" | "move_constraint";
   text: string;
   captionText?: string;
   captionPosition?: "bottom" | "board";
   movePly?: number;
+  movePhase?: "action" | "reply" | "effect" | "constraint";
   startSec?: number;
   endSec?: number;
   source?: string;

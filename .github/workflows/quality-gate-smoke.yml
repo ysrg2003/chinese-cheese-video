@@ -93,6 +93,23 @@ jobs:
             --public-root public
           test -s smoke-output/semantic-visual-qa/visual-qa.json
 
+      - name: Render and verify beat-level move explanation proof
+        run: |
+          PYTHONPATH=python python python/build_move_beat_sample.py
+          npx remotion render src/index.tsx XiangqiComposition smoke-output/move-beat-proof.mp4 --props=python/move_beat_sample_job.json --codec=h264 --log=error
+          PYTHONPATH=python python python/visual_qa.py \
+            --job python/move_beat_sample_job.json \
+            --video smoke-output/move-beat-proof.mp4 \
+            --qa-dir smoke-output/move-beat-visual-qa \
+            --public-root public
+          test -s smoke-output/move-beat-visual-qa/visual-qa.json
+          grep -q 'move_reply' python/move_beat_sample_job.json
+          grep -q 'move_effect' python/move_beat_sample_job.json
+          grep -q 'move_constraint' python/move_beat_sample_job.json
+          grep -q 'pressure_marker' python/move_beat_sample_job.json
+          grep -q 'effect_after' python/move_beat_sample_job.json
+          grep -q 'elephant_eye' python/move_beat_sample_job.json
+
       - name: Verify production remains fail-closed in this smoke
         run: |
           grep -q 'XIANGQI_PRODUCTION_FREEZE' python/run_pipeline.py

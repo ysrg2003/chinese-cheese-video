@@ -16,7 +16,7 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "intersection_pulse", "territory_split", "palace_piece_anchor", "palace_entry_points", "route_constraints",
     "piece_family_anchor", "mirror_setup", "coordinate_endpoints", "notation_sequence",
     "chariot_open_file", "cannon_screen", "horse_leg", "source_piece", "legal_path", "played_destination",
-    "cannon_target", "legal_l_targets",
+    "cannon_target", "legal_l_targets", "pressure_marker", "effect_after", "elephant_eye", "river_limit", "constraint_boundary",
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
     "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
     "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
@@ -177,6 +177,7 @@ def _segment_payload(job: dict[str, Any]) -> list[dict[str, Any]]:
         payload.append({
             "segmentIndex": index,
             "kind": segment.get("kind", "intro"),
+            "movePhase": segment.get("movePhase"),
             "movePly": move_ply,
             "text": str(segment.get("text") or ""),
             "captionText": str(segment.get("captionText") or ""),
@@ -299,8 +300,50 @@ def _static_kind_for(segment: dict[str, Any], index: int, profile: str) -> str:
 def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, language: str) -> dict[str, Any]:
     text = " ".join(str(segment.get(key) or "") for key in ("text", "captionText", "kind")).lower()
     move = segment.get("move") if isinstance(segment.get("move"), dict) else {}
-    if segment.get("kind") == "move" and move:
+    if segment.get("movePly") is not None and move:
         piece = str(move.get("piece") or "piece").lower()
+        phase = str(segment.get("movePhase") or ("action" if segment.get("kind") == "move" else "effect"))
+        piece_label = piece.title()
+        base_headline = f"Move {segment.get('movePly') or 1} • {piece_label}" if language == "en" else f"第{segment.get('movePly') or 1}手 • {piece}"
+        focus_piece = piece if piece in {"king", "advisor", "bishop", "knight", "rook", "cannon", "pawn"} else None
+        if phase == "reply":
+            return {
+                "visualKind": "threat_marker",
+                "headline": f"{base_headline} • Reply" if language == "en" else f"{base_headline} • 回应",
+                "visualInstruction": "Show the opponent-pressure point and legal response choices after the supplied move; do not replay the same move path.",
+                "semanticTags": ["move", "reply", piece, "pressure"],
+                "visualPlan": {"mode": "board_overlay", "focus": f"opponent reply pressure after move {segment.get('movePly')}", "primitives": ["piece_anchor", "pressure_marker", "legal_destinations"], "focusPiece": focus_piece, "focusSide": move.get("side")},
+                "confident": True,
+            }
+        if phase == "effect":
+            return {
+                "visualKind": "before_after",
+                "headline": f"{base_headline} • Position Change" if language == "en" else f"{base_headline} • 局面变化",
+                "visualInstruction": "Show the resulting position around the moved piece and mark the changed defensive or attacking relationship; do not show a second move.",
+                "semanticTags": ["move", "effect", piece, "position_change"],
+                "visualPlan": {"mode": "board_overlay", "focus": f"position change after move {segment.get('movePly')}", "primitives": ["piece_anchor", "played_destination", "effect_after"], "focusPiece": focus_piece, "focusSide": move.get("side")},
+                "confident": True,
+            }
+        if phase == "constraint":
+            is_elephant = piece == "bishop" or any(marker in text for marker in ("elephant", "bishop", "eye", "river"))
+            if is_elephant:
+                primitives = ["piece_anchor", "elephant_eye", "river_limit"]
+                kind = "rule_focus"
+                tags = ["constraint", "elephant", "eye", "river_limit"]
+                focus = f"elephant eye and river limit after move {segment.get('movePly')}"
+            else:
+                primitives = ["piece_anchor", "constraint_boundary", "legal_destinations"]
+                kind = "defense_zone"
+                tags = ["constraint", piece, "legal_geometry"]
+                focus = f"{piece} movement constraint after move {segment.get('movePly')}"
+            return {
+                "visualKind": kind,
+                "headline": f"{base_headline} • Rule" if language == "en" else f"{base_headline} • 规则",
+                "visualInstruction": "Show the exact piece-specific limitation that explains the spoken consequence, without inventing a move or leaving a generic rule ring.",
+                "semanticTags": tags,
+                "visualPlan": {"mode": "board_overlay", "focus": focus, "primitives": primitives, "focusPiece": "bishop" if is_elephant else focus_piece, "focusSide": move.get("side")},
+                "confident": True,
+            }
         primitives = ["source_piece", "legal_path", "played_destination"]
         if piece == "cannon":
             primitives.extend(["cannon_screen", "cannon_target"])
@@ -308,10 +351,10 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
             primitives.extend(["horse_leg", "legal_l_targets"])
         return {
             "visualKind": "cannon_screen" if piece == "cannon" else "move_path",
-            "headline": f"Move {segment.get('movePly') or 1} • {piece.title()}" if language == "en" else f"第{segment.get('movePly') or 1}手 • {piece}",
-            "visualInstruction": "Show the supplied legal move from its source to its destination, then expose the piece-specific constraint that makes the move meaningful.",
-            "semanticTags": ["move", piece, "legal_geometry"],
-            "visualPlan": {"mode": "board_overlay", "focus": f"legal {piece} move", "primitives": primitives, "focusPiece": piece if piece in {"king", "advisor", "bishop", "knight", "rook", "cannon", "pawn"} else None, "focusSide": move.get("side")},
+            "headline": base_headline,
+            "visualInstruction": "Show the supplied legal move from its source to its destination with a fast animation, then leave the board ready for the explanation beat.",
+            "semanticTags": ["move", "action", piece, "legal_geometry"],
+            "visualPlan": {"mode": "board_overlay", "focus": f"legal {piece} action", "primitives": primitives, "focusPiece": focus_piece, "focusSide": move.get("side")},
             "confident": True,
         }
 
@@ -481,8 +524,10 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             visual_kind = default.get("visualKind", "board_overview")
         if foundation and index <= len(FOUNDATION_ORDER):
             visual_kind = FOUNDATION_ORDER[index - 1]
+        source_segment = (job.get("narrationSegments") or [{}])[index - 1] if isinstance(job.get("narrationSegments"), list) and len(job.get("narrationSegments")) >= index and isinstance((job.get("narrationSegments") or [{}])[index - 1], dict) else {}
         segment_for_contract = {
-            "kind": (job.get("narrationSegments") or [{}])[index - 1].get("kind", "intro") if isinstance(job.get("narrationSegments"), list) and len(job.get("narrationSegments")) >= index and isinstance((job.get("narrationSegments") or [{}])[index - 1], dict) else "intro",
+            "kind": source_segment.get("kind", "intro"),
+            "movePhase": source_segment.get("movePhase"),
             "text": narration,
             "captionText": caption,
             "movePly": candidate.get("movePly", default.get("movePly")),
@@ -497,6 +542,7 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             "index": index,
             "segmentIndex": int(candidate.get("segmentIndex") or default.get("segmentIndex") or index),
             "movePly": candidate.get("movePly", default.get("movePly")),
+            "movePhase": source_segment.get("movePhase"),
             "visualKind": visual_kind,
             "headline": headline,
             "narration": narration,
@@ -516,6 +562,8 @@ def _attach_scenes_to_segments(job: dict[str, Any], scenes: list[dict[str, Any]]
     for index, segment in enumerate(segments, start=1):
         scene = by_index.get(index) or scenes[min(index - 1, len(scenes) - 1)]
         segment["sceneId"] = scene.get("index", index)
+        if scene.get("movePhase"):
+            segment["movePhase"] = scene.get("movePhase")
         segment["visualKind"] = scene.get("visualKind", "board_overview")
         segment["headline"] = scene.get("headline", "Xiangqi")
         segment["visualInstruction"] = scene.get("visualInstruction", "Highlight the current board idea.")
@@ -645,7 +693,7 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             previous_static_kind = visual_kind
         elif not is_static_segment:
             previous_static_kind = None
-        if segment.get("kind") == "move" and segment.get("movePly") is not None and int(segment["movePly"]) not in move_plies:
+        if segment.get("movePly") is not None and int(segment["movePly"]) not in move_plies:
             errors.append(f"segment_{index} references missing movePly={segment['movePly']}")
         try:
             start = float(segment.get("startSec", 0.0))
@@ -657,4 +705,18 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             errors.append(f"segment_{index} has non-numeric time window")
     if audio_duration and audio_duration > 0 and latest_end > float(audio_duration) + 0.08:
         errors.append(f"latest_scene_end={latest_end:.3f} exceeds_audio_duration={float(audio_duration):.3f}")
+    if strict_semantic_contract:
+        move_groups: dict[int, list[dict[str, Any]]] = {}
+        for segment in segments:
+            if segment.get("movePly") is not None:
+                move_groups.setdefault(int(segment["movePly"]), []).append(segment)
+        required_phases = {"action", "reply", "effect", "constraint"}
+        for ply, group in sorted(move_groups.items()):
+            phases = {str(item.get("movePhase") or "") for item in group}
+            if not required_phases.issubset(phases):
+                errors.append(f"movePly={ply} lacks beat phases; required={sorted(required_phases)}, actual={sorted(phases)}")
+            total_window = sum(max(0.0, float(item.get("endSec", 0.0)) - float(item.get("startSec", 0.0))) for item in group)
+            action_window = sum(max(0.0, float(item.get("endSec", 0.0)) - float(item.get("startSec", 0.0))) for item in group if item.get("movePhase") == "action")
+            if total_window > 0 and action_window / total_window > 0.42:
+                errors.append(f"movePly={ply} action beat dominates its teaching window: {action_window / total_window:.3f}")
     return errors

@@ -57,3 +57,9 @@ The first public en-008 artifact exposed one more AI-path mismatch: the narratio
 ## Follow-up: long-title layout hardening
 
 The final public move lesson exposed a presentation defect independent of board semantics: a long title wrapped into the non-move storyboard headline area. The renderer now uses a responsive title font size for long titles and moves non-move storyboard headlines below the title block. A still frame from `The General: The Piece You Must Never Expose` confirms two clean title lines and a separate `Palace: General And Advisors` headline with no collision.
+
+## Root-cause fix for move-dominant lessons
+
+The en-012 public artifact exposed a separate production defect: a move narration sentence bundled action, opponent reply, positional effect, and piece restriction into one long `kind: move` segment. Remotion correctly rendered the supplied `move_path` scene for that entire window, so the resulting lesson was dominated by moves even though the narration contained several distinct teaching ideas.
+
+The production source now expands every move into four timed beats: `move/action`, `move_reply/reply`, `move_effect/effect`, and `move_constraint/constraint`. The visual director maps these beats to distinct renderer-supported treatments: legal action path, reply pressure and legal choices, before/after position change, and piece-specific constraint. `MoveCard` and move-path overlays are restricted to the action beat. Validation fails closed when any move lacks the four phases or when the action beat occupies more than 42% of its teaching window. A reusable CI fixture renders and inspects these beats before any production upload.
