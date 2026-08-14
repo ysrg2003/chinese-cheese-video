@@ -8,7 +8,7 @@ from typing import Any
 
 from ai_router_bridge import load_router
 from tts import align_narration_segments_to_cues, captions_from_narration_segments, captions_from_word_cues, synthesize
-from youtube_publisher import YouTubePublisherError, _execute_with_backoff
+from youtube_publisher import YouTubePublisherError, _execute_with_backoff, load_policy
 
 
 class LocalizationError(RuntimeError):
@@ -191,12 +191,15 @@ def generate_localization_assets(job: dict[str, Any], english_metadata: dict[str
     zh_captions = captions_from_narration_segments(aligned, "zh") if aligned else captions_from_word_cues(zh_word_cues, "zh")
     zh_srt = write_srt(zh_captions, output / "zh" / "captions.srt")
     zh_vtt = write_vtt(zh_captions, output / "zh" / "captions.vtt")
-    english_captions_enabled = bool(job.get("captions")) and str(job.get("captions_source") or "") != "english_captions_disabled_in_video"
+    delivery = load_policy().get("delivery", {})
+    english_caption_artifact_available = bool(job.get("captions")) and str(job.get("captions_source") or "") != "english_captions_disabled_in_video"
+    english_caption_track_enabled = english_caption_artifact_available and bool(delivery.get("english_youtube_caption_track", False))
     en_payload: dict[str, Any] = {
-        "enabled": english_captions_enabled,
-        "source": str(job.get("captions_source") or "disabled_by_policy"),
+        "enabled": english_caption_track_enabled,
+        "source": str(job.get("captions_source") or "english_teaching_cues"),
+        "in_video": english_caption_artifact_available,
     }
-    if english_captions_enabled:
+    if english_caption_track_enabled:
         en_captions = job.get("captions") or []
         en_srt = write_srt(en_captions, output / "en" / "captions.srt")
         en_vtt = write_vtt(en_captions, output / "en" / "captions.vtt")
@@ -213,7 +216,7 @@ def generate_localization_assets(job: dict[str, Any], english_metadata: dict[str
             "audio_track_status": "generated_studio_upload_required",
         },
         "en": en_payload,
-        "notes": "Chinese captions are automated. English captions are disabled in-video by policy unless explicitly enabled. Alternate audio attachment requires eligible YouTube Studio multi-language-audio access.",
+        "notes": "English teaching cues remain inside the rendered video; the redundant English YouTube caption track is disabled by policy. Chinese captions are automated. Alternate audio attachment requires eligible YouTube Studio multi-language-audio access.",
     }
     (output / "localization.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload

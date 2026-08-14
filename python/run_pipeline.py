@@ -44,7 +44,7 @@ def read_json(path: str | None) -> dict[str, Any] | None:
 
 
 def apply_caption_delivery_policy(job: dict[str, Any]) -> dict[str, Any]:
-    """Disable redundant English caption layers unless explicitly opted in."""
+    """Keep concise English teaching cues unless explicitly disabled."""
     if job.get("language") != "en":
         return job
     delivery = load_policy().get("delivery", {})
@@ -57,6 +57,8 @@ def apply_caption_delivery_policy(job: dict[str, Any]) -> dict[str, Any]:
     if not enabled:
         job["captions"] = []
         job["captions_source"] = "english_captions_disabled_in_video"
+    elif str(job.get("captions_source") or "") == "english_captions_disabled_in_video":
+        job["captions_source"] = "english_teaching_cues"
     return job
 
 

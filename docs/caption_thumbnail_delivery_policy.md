@@ -2,7 +2,7 @@
 
 **Effective policy for Xiangqi Lab**
 
-The channel is English-primary. English narration is already audible, while the Remotion scene provides synchronized headlines, move cards, board highlights, and fast legal move animation. Showing a second English text layer inside the video repeats the same message and can cover the move labels. Therefore, English burned-in captions are disabled by default, and the English caption track is not uploaded by default.
+The channel is English-primary. English narration is already audible, while the Remotion scene provides concise synchronized teaching cues: scene headlines, MoveCards, board highlights, fast legal move animation, and spoken-sentence cues. These in-video teaching cues remain enabled because they tell the viewer what to watch. The separate English caption track on YouTube is disabled by default because it duplicates the same narration.
 
 Chinese localization remains active. The pipeline translates the English narration into Simplified Chinese, generates the male Chinese voice `zh-CN-YunjianNeural`, creates Chinese SRT/VTT captions from the same translated narration units, and uploads the `zh-Hans` caption track through the YouTube Data API. The Chinese audio file is retained as a durable artifact for YouTube Studio alternate-audio attachment when the channel is eligible for that feature.
 
@@ -10,11 +10,11 @@ The setting is centralized in `config/youtube_metadata_policy.json`:
 
 | Setting | Default | Meaning |
 |---|---:|---|
-| `delivery.english_in_video_captions` | `false` | Do not render English captions inside the MP4. |
+| `delivery.english_in_video_captions` | `true` | Keep concise English teaching cues inside the MP4. |
 | `delivery.english_youtube_caption_track` | `false` | Do not upload a redundant English YouTube caption track. |
 | `delivery.thumbnail_languages` | `["en"]` | Generate and validate only the English thumbnail. |
 
-A deliberate test or accessibility deployment can opt into English captions by setting `YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO=1`. This override is intentionally explicit; the normal GitHub Actions workflow does not set it.
+A deliberate visual simplification can disable the English teaching-cue layer by setting `YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO=0`. This override is intentionally explicit; the normal GitHub Actions workflow does not set it. It does not control the separate YouTube caption-track policy.
 
 ## Thumbnail automation
 
@@ -28,7 +28,7 @@ YouTube's official Data API exposes `captions.insert` for uploading caption trac
 
 ## Acceptance contract
 
-Before `upload_video()` is called, the workflow must have a valid Chinese audio file, Chinese SRT/VTT files, valid Chinese metadata, and one valid English thumbnail. If any required artifact fails, upload is blocked. After upload, the workflow uploads the Chinese caption track, updates English and Chinese localized metadata, sets the English thumbnail automatically, associates the public video with its playlist, and persists all statuses in SQLite.
+Before `upload_video()` is called, the workflow must have valid English teaching cues in the job/render contract, a valid Chinese audio file, Chinese SRT/VTT files, valid Chinese metadata, and one valid English thumbnail. If any required artifact fails, upload is blocked. After upload, the workflow uploads the Chinese caption track but not the redundant English YouTube caption track, updates English and Chinese localized metadata, sets the English thumbnail automatically, associates the public video with its playlist, and persists all statuses in SQLite. For piece lessons and move explanations, legal destination dots are computed from the actual board position and filtered through Xiangqi legality before they are drawn.
 
 ## References
 
@@ -38,7 +38,8 @@ Before `upload_video()` is called, the workflow must have a valid Chinese audio 
 
 ## Verification of the change
 
-Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. GitHub Actions quality-gate run [31773582539](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31773582539) also completed successfully. Its artifact contains `thumbnail_en.jpg` and no `thumbnail_zh.jpg`; `thumbnail-smoke.json` reports `width=1280`, `height=720`, `default_language=en`, and `localized_thumbnail_status=disabled_by_policy`. The smoke explicitly performs no production upload or YouTube mutation.
+Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. The later legal-destination implementation and policy correction are tracked on the current `master`; the final GitHub quality-gate run is recorded below.
+ Its artifact contains `thumbnail_en.jpg` and no `thumbnail_zh.jpg`; `thumbnail-smoke.json` reports `width=1280`, `height=720`, `default_language=en`, and `localized_thumbnail_status=disabled_by_policy`. The smoke explicitly performs no production upload or YouTube mutation.
 
 ## Legacy video cleanup proof
 

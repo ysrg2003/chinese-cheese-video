@@ -64,7 +64,7 @@ Old jobs without the optional animation fields remain compatible because Remotio
 
 ## Caption behavior
 
-English narration is spoken directly and explained by the synchronized storyboard headlines, MoveCard, board highlights, and move animation. To prevent duplicate text layers, the default English policy now disables burned-in English captions and does not upload an English caption track. The policy is explicit and can be overridden only with `YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO=1` for a deliberate test or accessibility deployment.
+English narration is spoken directly and reinforced by concise synchronized storyboard headlines, MoveCard, board highlights, move animation, and sentence-level teaching cues. These in-video cues remain enabled because they tell the viewer where to focus. Only the separate English YouTube caption track is disabled by default, because it duplicates the narration. Setting `YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO=0` is an explicit visual-simplification override, not the normal production policy.
 
 Chinese localization continues to generate Chinese audio and an exact Chinese caption track from the same translated narration units. Chinese captions are uploaded through the YouTube captions API; they are not burned into the English-primary video. When Edge-TTS WordBoundary data exists, Chinese caption windows come from the audio cues, preserving the same spoken text and timing.
 

@@ -98,7 +98,7 @@
   "source_note_template": "Original educational Xiangqi board analysis. No third-party match footage is re-uploaded.",
   "prohibited_terms": ["guaranteed views", "viral secret", "official tournament footage", "Arabic", "female voice"],
   "delivery": {
-    "english_in_video_captions": false,
+    "english_in_video_captions": true,
     "english_youtube_caption_track": false,
     "thumbnail_languages": ["en"]
   },

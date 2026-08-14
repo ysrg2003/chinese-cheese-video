@@ -1,0 +1,24 @@
+{
+  "id": "legal-overlay-sample",
+  "title": "Pawn Legal Destinations",
+  "language": "en",
+  "fen": "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r",
+  "narration": "This pawn has one legal forward destination before it crosses the river.",
+  "moves": [
+    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 0.8, "endSec": 1.5, "animationStartSec": 0.8, "animationEndSec": 1.25, "label": "Advance one point"}
+  ],
+  "captions": [
+    {"startSec": 0.1, "endSec": 0.75, "text": "Pawn movement", "kind": "intro", "captionPosition": "bottom"},
+    {"startSec": 0.8, "endSec": 1.8, "text": "One legal forward destination", "kind": "move", "captionPosition": "board", "movePly": 1}
+  ],
+  "narrationSegments": [
+    {"kind": "move", "text": "This pawn has one legal forward destination before it crosses the river.", "captionText": "One legal forward destination", "movePly": 1, "startSec": 0.1, "endSec": 1.8, "sceneId": 1, "visualKind": "piece_movement", "headline": "Pawn Legal Destinations"}
+  ],
+  "visual_mode": "storyboard",
+  "visualStoryboard": [
+    {"index": 1, "segmentIndex": 0, "movePly": 1, "visualKind": "piece_movement", "headline": "Pawn Legal Destinations", "narration": "This pawn has one legal forward destination before it crosses the river.", "caption": "One legal forward destination"}
+  ],
+  "audioSrc": "",
+  "durationInSeconds": 2.0,
+  "theme": "wood"
+}

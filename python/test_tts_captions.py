@@ -10,20 +10,20 @@ from tts import align_narration_segments_to_cues, captions_from_narration_segmen
 
 
 class CaptionTranscriptTests(unittest.TestCase):
-    def test_english_caption_delivery_is_disabled_by_default(self) -> None:
+    def test_english_teaching_cues_remain_enabled_by_default(self) -> None:
         job = {"language": "en", "captions": [{"text": "spoken words"}], "captions_source": "edge_tts_word_boundaries_short"}
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO", None)
             result = apply_caption_delivery_policy(job)
-        self.assertEqual(result["captions"], [])
-        self.assertEqual(result["captions_source"], "english_captions_disabled_in_video")
-
-    def test_english_caption_delivery_can_be_explicitly_enabled(self) -> None:
-        job = {"language": "en", "captions": [{"text": "spoken words"}], "captions_source": "edge_tts_word_boundaries_short"}
-        with patch.dict(os.environ, {"YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO": "1"}, clear=False):
-            result = apply_caption_delivery_policy(job)
         self.assertEqual(result["captions"], [{"text": "spoken words"}])
         self.assertEqual(result["captions_source"], "edge_tts_word_boundaries_short")
+
+    def test_english_teaching_cues_can_be_explicitly_disabled(self) -> None:
+        job = {"language": "en", "captions": [{"text": "spoken words"}], "captions_source": "edge_tts_word_boundaries_short"}
+        with patch.dict(os.environ, {"YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO": "0"}, clear=False):
+            result = apply_caption_delivery_policy(job)
+        self.assertEqual(result["captions"], [])
+        self.assertEqual(result["captions_source"], "english_captions_disabled_in_video")
 
     def test_chinese_caption_delivery_is_not_changed_by_english_policy(self) -> None:
         job = {"language": "zh", "captions": [{"text": "中文"}], "captions_source": "zh_audio"}

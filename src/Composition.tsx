@@ -7,8 +7,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import type { BoardPiece, BoardPoint, Move, VideoJob, VisualStoryboardScene } from "./types";
-import { activeMoveAtSecond, boardAtSecond } from "./xq";
+import type { BoardPiece, BoardPoint, Move, PieceType, VideoJob, VisualStoryboardScene } from "./types";
+import { activeMoveAtSecond, boardAtSecond, legalDestinationsForPiece } from "./xq";
 
 const COLORS = {
   ink: "#211a16",
@@ -38,6 +38,18 @@ function pieceAsset(piece: BoardPiece): string {
 
 function boardPoint(file: number, rank: number) {
   return { x: grid.x + file * cell, y: grid.y + rank * cell };
+}
+
+function inferPieceType(text: string): PieceType | undefined {
+  const value = text.toLowerCase();
+  if (value.includes("general") || value.includes("king") || value.includes("将") || value.includes("帅")) return "king";
+  if (value.includes("advisor") || value.includes("guard") || value.includes("士") || value.includes("仕")) return "advisor";
+  if (value.includes("elephant") || value.includes("bishop") || value.includes("象") || value.includes("相")) return "bishop";
+  if (value.includes("horse") || value.includes("knight") || value.includes("马") || value.includes("馬")) return "knight";
+  if (value.includes("rook") || value.includes("chariot") || value.includes("车") || value.includes("車")) return "rook";
+  if (value.includes("cannon") || value.includes("炮") || value.includes("砲")) return "cannon";
+  if (value.includes("pawn") || value.includes("soldier") || value.includes("兵") || value.includes("卒")) return "pawn";
+  return undefined;
 }
 
 function Board({ job, second }: { job: VideoJob; second: number }) {
@@ -204,6 +216,13 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const headline = active.headline || "Board Idea";
   const isMoveSegment = active.kind === "move" || active.movePly !== undefined;
   const overlayLine = (color: string, dashed = false) => <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth={10} strokeLinecap="round" strokeDasharray={dashed ? "18 14" : undefined} />;
+  const teachingMove = move || (kind === "piece_movement" ? job.moves[0] : undefined);
+  const legalBoard = teachingMove ? boardAtSecond(job, Math.max(0, Number(teachingMove.startSec ?? 0) - 0.05)) : boardAtSecond(job, second);
+  const inferredType = inferPieceType(`${active.headline || ""} ${active.text || ""}`);
+  const inferredPiece = inferredType ? legalBoard.find((piece) => piece.type === inferredType) : undefined;
+  const legalOrigin = teachingMove?.from || inferredPiece?.position;
+  const legalTargets = legalOrigin ? legalDestinationsForPiece(legalBoard, legalOrigin) : [];
+  const showLegalTargets = Boolean(teachingMove || kind === "piece_movement" || kind === "piece_spotlight");
 
   return <>
     {!isMoveSegment && <div style={{ position: "absolute", top: 205, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
@@ -240,14 +259,28 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
     {kind === "piece_spotlight" && <><div style={{ position: "absolute", left: boardPoint(4, 2).x - 78, top: boardPoint(4, 2).y - 78, width: 156, height: 156, borderRadius: 999, border: "9px solid #f5ce74", boxShadow: "0 0 0 16px rgba(245,206,116,.18)", opacity, zIndex: 5 }} /><div style={{ position: "absolute", left: boardPoint(4, 7).x - 78, top: boardPoint(4, 7).y - 78, width: 156, height: 156, borderRadius: 999, border: "9px solid #ff876d", boxShadow: "0 0 0 16px rgba(182,60,47,.18)", opacity, zIndex: 5 }} /><Marker left={boardPoint(4, 2).x} top={boardPoint(4, 2).y - 112} opacity={opacity} tone="black">BLACK PIECE</Marker><Marker left={boardPoint(4, 7).x} top={boardPoint(4, 7).y + 112} opacity={opacity} tone="red">RED PIECE</Marker></>}
 
     {(kind === "piece_movement" || kind === "move_path" || kind === "attack_line" || kind === "capture_sequence" || kind === "cannon_screen") && <>
-      {kind === "piece_movement" && !move ? <><svg style={{ position: "absolute", inset: 0, zIndex: 5, opacity }} width="1080" height="1920"><line x1={boardPoint(0, 5).x} y1={boardPoint(0, 5).y} x2={boardPoint(8, 5).x} y2={boardPoint(8, 5).y} stroke="#e0a63c" strokeWidth="10" strokeLinecap="round" /><line x1={boardPoint(1, 7).x} y1={boardPoint(1, 7).y} x2={boardPoint(1, 2).x} y2={boardPoint(1, 2).y} stroke="#ef6655" strokeWidth="10" strokeDasharray="16 12" strokeLinecap="round" /><polyline points={`${boardPoint(6, 7).x},${boardPoint(6, 7).y} ${boardPoint(6, 5).x},${boardPoint(6, 5).y} ${boardPoint(7, 5).x},${boardPoint(7, 5).y}`} fill="none" stroke="#4a9ac2" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" /></svg><div style={{ position: "absolute", left: boardPoint(1, 4).x - 42, top: boardPoint(1, 4).y - 42, width: 84, height: 84, borderRadius: 999, border: "8px solid #f5ce74", boxShadow: "0 0 0 12px rgba(245,206,116,.20)", opacity, zIndex: 6 }} /><Marker left={boardPoint(4, 5).x} top={boardPoint(4, 5).y - 58} opacity={opacity} tone="gold">ROOK LINE</Marker><Marker left={boardPoint(1, 4).x} top={boardPoint(1, 4).y - 82} opacity={opacity} tone="red">CANNON SCREEN</Marker><Marker left={boardPoint(7, 5).x} top={boardPoint(7, 5).y - 54} opacity={opacity} tone="blue">HORSE LEG</Marker></> : <><svg style={{ position: "absolute", inset: 0, zIndex: 5, opacity }} width="1080" height="1920">
+            {kind === "piece_movement" && !move ? <Marker left={board.x + board.width / 2} top={board.y - 58} opacity={opacity} tone="gold">LEGAL DESTINATIONS</Marker> : <>
+<svg style={{ position: "absolute", inset: 0, zIndex: 5, opacity }} width="1080" height="1920">
         {overlayLine("#e0a63c", kind === "move_path")}
         <polygon points={`${to.x},${to.y} ${to.x - 18},${to.y - 34} ${to.x + 18},${to.y - 34}`} fill="#e0a63c" />
         {kind === "capture_sequence" && <circle cx={target.x} cy={target.y} r={58} fill="none" stroke="#ef6655" strokeWidth="9" />}
       </svg>
-      {move && <Marker left={from.x} top={from.y - 62} opacity={opacity} tone="gold">FROM</Marker>}
-      {move && <Marker left={to.x} top={to.y + 62} opacity={opacity} tone="red">TO</Marker>}
-      {kind === "cannon_screen" && <><Img src={staticFile("assets/pieces/black_pawn.svg")} style={{ position: "absolute", left: boardPoint(1, 4).x - 47, top: boardPoint(1, 4).y - 47, width: 94, height: 94, objectFit: "contain", opacity, zIndex: 6 }} /><Marker left={boardPoint(1, 4).x} top={boardPoint(1, 4).y - 78} opacity={opacity} tone="gold">SCREEN</Marker></>}</>}
+      {move && kind !== "piece_movement" && <Marker left={from.x} top={from.y - 62} opacity={opacity} tone="gold">FROM</Marker>}
+      {move && kind !== "piece_movement" && <Marker left={to.x} top={to.y + 62} opacity={opacity} tone="red">TO</Marker>}
+      {kind === "cannon_screen" && <><Img src={staticFile("assets/pieces/black_pawn.svg")} style={{ position: "absolute", left: boardPoint(1, 4).x - 47, top: boardPoint(1, 4).y - 47, width: 94, height: 94, objectFit: "contain", opacity, zIndex: 6 }} /><Marker left={boardPoint(1, 4).x} top={boardPoint(1, 4).y - 78} opacity={opacity} tone="gold">SCREEN</Marker></>}
+      {showLegalTargets && legalOrigin && <svg style={{ position: "absolute", inset: 0, zIndex: 7, opacity }} width="1080" height="1920">
+        <circle cx={boardPoint(legalOrigin[0], legalOrigin[1]).x} cy={boardPoint(legalOrigin[0], legalOrigin[1]).y} r="58" fill="none" stroke="#f5ce74" strokeWidth="9" strokeDasharray="14 10" />
+        {legalTargets.map((point) => {
+          const targetPoint = boardPoint(point[0], point[1]);
+          const occupied = legalBoard.some((piece) => piece.position[0] === point[0] && piece.position[1] === point[1]);
+          const isPlayedDestination = Boolean(teachingMove && teachingMove.to[0] === point[0] && teachingMove.to[1] === point[1]);
+          return <g key={`legal-${point[0]}-${point[1]}`}>
+            <circle cx={targetPoint.x} cy={targetPoint.y} r={isPlayedDestination ? 30 : 22} fill={isPlayedDestination || occupied ? "#ef6655" : "#4a9ac2"} fillOpacity=".92" stroke="#fff5d6" strokeWidth="6" />
+            {isPlayedDestination && <circle cx={targetPoint.x} cy={targetPoint.y} r="48" fill="none" stroke="#ef6655" strokeWidth="8" />}
+          </g>;
+        })}
+      </svg>}
+    </>}
     </>}
 
     {kind === "defense_zone" && <>
