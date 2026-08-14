@@ -140,6 +140,32 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(scenes[3]["visualPlan"]["primitives"], ["river_band", "palace_x", "central_files", "route_constraints"])
         self.assertEqual(validate_visual_storyboard(result), [])
 
+    def test_ai_storyboard_en007_setup_sentences_get_piece_family_contracts(self) -> None:
+        texts = [
+            "A Xiangqi game begins with thirty-two pieces in a mirrored starting arrangement.",
+            "Each side has one general, two advisors, two elephants, two horses, two chariots, two cannons, and five soldiers.",
+            "The chariots begin on the corners, the horses stand beside them, the elephants and advisors protect the route toward the general, the cannons begin behind the soldiers, and the soldiers form a line facing the river.",
+            "This arrangement explains which files open first and which pieces need a road before they become active.",
+        ]
+        job = {
+            "id": "en007-ai-storyboard-contract-test",
+            "title": "Set Up All 32 Pieces",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "rules",
+            "moves": [],
+            "narrationSegments": [{"kind": "intro", "text": text} for text in texts],
+        }
+        raw = [{"index": index, "segmentIndex": index, "narration": text, "caption": "Short cue", "headline": "AI suggestion", "visualInstruction": "Highlight the board."} for index, text in enumerate(texts, start=1)]
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-007-set-up-all-32-pieces", "language": "en", "visual_mode": "storyboard", "visualStoryboard": raw})
+        scenes = result["visualStoryboard"]
+        self.assertEqual([scene["visualKind"] for scene in scenes], ["army_setup", "army_setup", "army_setup", "rule_focus"])
+        self.assertEqual(scenes[0]["visualPlan"]["primitives"], ["piece_family_anchor", "mirror_setup"])
+        self.assertEqual(scenes[1]["visualPlan"]["primitives"], ["piece_family_anchor"])
+        self.assertEqual(scenes[2]["visualPlan"]["primitives"], ["piece_family_anchor", "river_band", "mirror_setup"])
+        self.assertEqual(scenes[3]["visualPlan"]["primitives"], ["central_files", "route_constraints"])
+        self.assertEqual(validate_visual_storyboard(result), [])
+
     def test_history_fallback_uses_specialized_visual_progression(self) -> None:
         job = {
             "id": "history-test",

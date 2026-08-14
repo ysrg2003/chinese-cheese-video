@@ -14,6 +14,7 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "files", "ranks", "all_intersections", "piece_anchor", "legal_destinations", "path_lines",
     "dim_square_interiors", "brighten_lines", "river_band", "palace_x", "central_files",
     "intersection_pulse", "territory_split", "palace_piece_anchor", "palace_entry_points", "route_constraints",
+    "piece_family_anchor", "mirror_setup",
     "chariot_open_file", "cannon_screen", "horse_leg", "source_piece", "legal_path", "played_destination",
     "cannon_target", "legal_l_targets",
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
@@ -324,6 +325,14 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
 
     if any(marker in text for marker in ("history", "historical", "origin", "origins", "centuries", "dynasty", "tradition", "culture", "heritage", "历史", "传统", "文化")):
         return contract("history_timeline", "History In Context", "Show a restrained three-stop history timeline while keeping the canonical Xiangqi board unchanged; a masked reference edit may add only a localized historical texture or inset.", ["history", "timeline", "context"], ["timeline", "board_reference"], mode="reference_edit")
+    if ("thirty-two" in text or "32" in text) and "piece" in text and any(marker in text for marker in ("mirrored", "starting", "arrangement", "setup")):
+        return contract("army_setup", "Mirrored Starting Setup", "Keep the full initial board still, tint the two sides separately, mark the mirror axis, and anchor each piece family at its real starting home.", ["setup", "mirror", "thirty_two_pieces", "starting_arrangement"], ["piece_family_anchor", "mirror_setup"])
+    if ("one general" in text and "two advisors" in text) or ("starting homes" in text and any(marker in text for marker in ("pieces", "family", "chariots", "horses", "cannons", "soldiers"))):
+        return contract("army_setup", "Piece Families And Homes", "Hold the canonical starting position and ring each named piece family at its exact home: General, Advisors, Elephants, Horses, Chariots, Cannons, and Soldiers.", ["setup", "piece_families", "starting_homes", "inventory"], ["piece_family_anchor"])
+    if any(marker in text for marker in ("chariots begin", "horses stand", "cannons begin", "soldiers form", "elephants and advisors")):
+        return contract("army_setup", "Starting Homes By Family", "Highlight the corners, adjacent Horses, inner Elephants and Advisors, Cannons behind Soldiers, and the Soldier line facing the river on the unchanged board.", ["setup", "chariots", "horses", "elephants", "advisors", "cannons", "soldiers", "river"], ["piece_family_anchor", "river_band", "mirror_setup"])
+    if ("file" in text or "files" in text) and any(marker in text for marker in ("open", "road", "active", "route")) and "piece" in text:
+        return contract("rule_focus", "Starting Routes And Open Files", "Brighten the central files and outline the two palace regions as route constraints, without inventing a move that is not in the setup data.", ["setup", "files", "routes", "open", "piece_activity", "legal_geometry"], ["central_files", "route_constraints"])
     if ("nine" in text or "9" in text) and ("file" in text or "vertical" in text) and ("ten" in text or "10" in text or "rank" in text):
         return contract("coordinate_map", "Nine Files, Ten Ranks", "Draw all nine vertical files and ten horizontal ranks in sequence, then pulse the 90 legal intersections.", ["files", "ranks", "intersections", "board_geometry"], ["files", "ranks", "all_intersections"])
     if any(marker in text for marker in ("ninety intersections", "90 intersections", "pieces stand on intersections", "pieces stand on those intersections", "stand on intersections", "stand on those intersections", "move travels along the lines", "points and paths")):
