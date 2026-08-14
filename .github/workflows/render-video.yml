@@ -47,8 +47,8 @@ permissions:
 jobs:
   produce:
     runs-on: ubuntu-latest
-    # Keep the same run alive while YouTube clears transient post-upload limits.
-    timeout-minutes: 360
+    # Keep runs short and observable; a retryable pending state self-dispatches a new run.
+    timeout-minutes: 60
     env:
       LOCAL_DB_PATH: data/chinese_cheese_video.db
       AI_ROUTER_PATH: ai-provider-router
@@ -152,18 +152,20 @@ jobs:
         id: continuous_reconcile
         continue-on-error: true
         env:
-          RECONCILIATION_MAX_ATTEMPTS: "12"
-          RECONCILIATION_INITIAL_DELAY_SECONDS: "60"
-          RECONCILIATION_MAX_DELAY_SECONDS: "1800"
-          RECONCILIATION_MAX_RUNTIME_MINUTES: "270"
+          # Fast bounded cycle: 0s, 30s, 60s, then 120s. If still pending,
+          # self-dispatch rather than holding a runner idle for a long period.
+          RECONCILIATION_MAX_ATTEMPTS: "4"
+          RECONCILIATION_INITIAL_DELAY_SECONDS: "30"
+          RECONCILIATION_MAX_DELAY_SECONDS: "120"
+          RECONCILIATION_MAX_RUNTIME_MINUTES: "15"
         run: python python/continuous_reconcile.py --output continuous-reconcile.json | tee continuous-reconcile.log
 
       - name: Queue another completion run when YouTube remains pending
         if: steps.continuous_reconcile.outcome == 'failure' && env.XIANGQI_PRODUCTION_FREEZE != '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CONTINUATION_DELAY_SECONDS: "900"
-          CONTINUATION_MAX_DEPTH: "12"
+          CONTINUATION_DELAY_SECONDS: "180"
+          CONTINUATION_MAX_DEPTH: "36"
           CONTINUATION_DAILY_COUNT: ${{ inputs.daily_count || '1' }}
           CONTINUATION_LANGUAGES: ${{ inputs.languages || 'en' }}
           CONTINUATION_DISCOVERY_LIMIT: ${{ inputs.discovery_limit || '20' }}
@@ -217,7 +219,7 @@ jobs:
             fi
             if [ "$ATTEMPT" -lt 4 ]; then
               echo "Production attempt failed; reconciling public state before retrying."
-              python python/continuous_reconcile.py --max-attempts 4 --initial-delay-seconds 60 --max-delay-seconds 900 --max-runtime-minutes 90 --output "continuous-reconcile-retry-${ATTEMPT}.json" | tee "continuous-reconcile-retry-${ATTEMPT}.log"
+              python python/continuous_reconcile.py --max-attempts 3 --initial-delay-seconds 30 --max-delay-seconds 120 --max-runtime-minutes 10 --output "continuous-reconcile-retry-${ATTEMPT}.json" | tee "continuous-reconcile-retry-${ATTEMPT}.log"
               RECONCILE_STATUS=${PIPESTATUS[0]}
               if [ "$RECONCILE_STATUS" -ne 0 ]; then
                 echo "Public reconciliation is still pending; the retry loop will continue without re-rendering public jobs."

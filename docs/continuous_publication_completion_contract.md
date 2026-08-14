@@ -16,9 +16,9 @@ The autonomous production workflow must complete the current public publication 
 
 ## Retry parameters
 
-The default retry window is bounded by the GitHub Actions job timeout. The reconciliation loop performs an immediate attempt, then waits with exponential backoff, capped at 30 minutes between attempts. The number of attempts and total window are configurable through environment variables so the workflow can be tuned without changing publication logic.
+Each reconciliation run is deliberately short and observable. It performs an immediate attempt, then retries after 30 seconds, 60 seconds, and at most 120 seconds. If YouTube still returns a retryable rate-limit, the run finishes its bounded retry window and queues a fresh continuation after three minutes. The number of attempts and the total window are configurable through environment variables so the workflow can be tuned without changing publication logic.
 
-The loop is idempotent. It inspects the SQLite publication state before and after every attempt, exits immediately when no resumable publication remains, and never invokes the renderer. If the window ends while a public publication is still pending, the database state remains resumable and the scheduled workflow continues from that state without creating a duplicate.
+The loop is idempotent. It inspects the SQLite publication state before and after every attempt, exits immediately when no resumable publication remains, and never invokes the renderer. If the short window ends while a public publication is still pending, the database state remains resumable and the continuation repeats the same post-upload work without creating a duplicate.
 
 ## Curriculum handoff
 
@@ -32,7 +32,7 @@ This contract is enforced at three boundaries: the YouTube publisher reuses the 
 
 ## GitHub Actions continuation
 
-The production workflow keeps one run alive for a bounded reconciliation window. If a retryable YouTube rate-limit remains after that window, it waits a safe interval and dispatches the same workflow again with the original production inputs and an incremented continuation depth. The depth cap prevents an accidental infinite loop; the scheduled runs remain the final safety net. GitHub documents that `workflow_dispatch` can be triggered from a workflow using `GITHUB_TOKEN`, which is the mechanism used here [1] [2].
+The production workflow keeps each reconciliation window short. If a retryable YouTube rate-limit remains after that window, it waits three minutes and dispatches the same workflow again with the original production inputs and an incremented continuation depth. This creates visible, bounded runs instead of a single long idle run. The depth cap prevents an accidental infinite loop; the scheduled runs remain the final safety net. GitHub documents that `workflow_dispatch` can be triggered from a workflow using `GITHUB_TOKEN`, which is the mechanism used here [1] [2].
 
 The continuation carries `daily_count`, `languages`, `discovery_limit`, and `reconcile_only` forward. It never changes the content identity, never clears a pending publication, and never turns a post-upload retry into a new upload.
 
