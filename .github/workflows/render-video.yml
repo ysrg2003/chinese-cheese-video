@@ -153,6 +153,7 @@ jobs:
             output/jobs/**/job.json
             output/jobs/**/references/**
             output/jobs/**/localization/**
+            output/jobs/**/prepublish_thumbnails/**
             output/jobs/**/*.mp4
             public/generated/**/job.json
             public/generated/**/voice.mp3

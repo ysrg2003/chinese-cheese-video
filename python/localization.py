@@ -212,6 +212,29 @@ def generate_localization_assets(job: dict[str, Any], english_metadata: dict[str
     return payload
 
 
+def validate_localization_assets(assets: dict[str, Any]) -> list[str]:
+    """Return blocking defects in the local multilingual artifacts before upload."""
+    errors: list[str] = []
+    required = {
+        "zh.audio_path": ((assets.get("zh") or {}).get("audio_path") if isinstance(assets, dict) else None),
+        "zh.caption_srt": ((assets.get("zh") or {}).get("caption_srt") if isinstance(assets, dict) else None),
+        "zh.caption_vtt": ((assets.get("zh") or {}).get("caption_vtt") if isinstance(assets, dict) else None),
+        "en.caption_srt": ((assets.get("en") or {}).get("caption_srt") if isinstance(assets, dict) else None),
+        "en.caption_vtt": ((assets.get("en") or {}).get("caption_vtt") if isinstance(assets, dict) else None),
+    }
+    for label, raw_path in required.items():
+        if not raw_path:
+            errors.append(f"localization artifact missing: {label}")
+            continue
+        path = Path(raw_path)
+        if not path.is_file() or path.stat().st_size == 0:
+            errors.append(f"localization artifact missing or empty: {label}: {path}")
+    zh = assets.get("zh") if isinstance(assets, dict) else None
+    if not isinstance(zh, dict) or not _require_zh(zh.get("title"), "zh.title") or not _require_zh(zh.get("description"), "zh.description"):
+        errors.append("Chinese localized metadata is invalid")
+    return errors
+
+
 def _upload_caption(service: Any, video_id: str, caption_path: str | Path, language: str, name: str) -> dict[str, Any]:
     from googleapiclient.http import MediaFileUpload
 

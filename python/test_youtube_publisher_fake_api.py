@@ -90,7 +90,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "content_type": "tactics",
             "narration": "Find the forcing move before the cannon closes the file.",
         }
-        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1"}, clear=False), patch.object(
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
             youtube_publisher, "upload_video", return_value={"id": "video-001"}
         ):
             result = youtube_publisher.publish_video(
@@ -119,7 +119,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "content_type": "tactics",
             "narration": "The video already exists; replace only the deleted playlist.",
         }
-        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1"}, clear=False), patch.object(
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
             youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
         ):
             result = youtube_publisher.publish_video(
@@ -146,7 +146,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "content_type": "tactics",
             "narration": "The upload already exists; only the playlist association needs a retry.",
         }
-        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1"}, clear=False), patch.object(
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
             youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
         ):
             result = youtube_publisher.publish_video(

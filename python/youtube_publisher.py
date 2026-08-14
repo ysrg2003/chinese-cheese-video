@@ -374,6 +374,37 @@ def publish_video(
     if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() not in {"1", "true", "yes"}:
         return {"status": "disabled", "metadata": metadata}
     service = service or build_service()
+    localization_assets: dict[str, Any] | None = None
+    thumbnail_assets: dict[str, Any] | None = None
+    localization_root: Path | None = None
+    localization_enabled = os.getenv("YOUTUBE_LOCALIZATION_ENABLED", "1").lower() in {"1", "true", "yes"}
+    if localization_enabled and all(hasattr(service, name) for name in ("captions", "videos")):
+        from localization import generate_localization_assets, validate_localization_assets
+        from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
+
+        if localization_dir:
+            localization_root = Path(localization_dir)
+        else:
+            base_dir = Path(video_path).parent if video_path else Path("output") / "jobs" / str(job.get("id") or "pending")
+            localization_root = base_dir / "localization"
+        try:
+            localization_assets = generate_localization_assets(job, metadata, localization_root)
+            localization_errors = validate_localization_assets(localization_assets)
+            if localization_errors:
+                raise YouTubePublisherError("Pre-publish localization gate failed: " + "; ".join(localization_errors))
+            thumbnail_assets = generate_thumbnail_assets(
+                video_path,
+                job,
+                localization_root / "thumbnails",
+                zh_title=localization_assets["zh"].get("title"),
+            )
+            thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
+            if thumbnail_errors:
+                raise YouTubePublisherError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
+        except YouTubePublisherError:
+            raise
+        except Exception as exc:
+            raise YouTubePublisherError(f"Pre-publish localization gate failed: {exc}") from exc
     existing_video_id = _reusable_existing_video_id(existing_publication)
     if existing_video_id:
         video_id = existing_video_id
@@ -424,49 +455,40 @@ def publish_video(
             "error_message": str(exc),
         }
     localization: dict[str, Any] = {"status": "disabled"}
-    if os.getenv("YOUTUBE_LOCALIZATION_ENABLED", "1").lower() in {"1", "true", "yes"}:
+    if localization_enabled:
         if not all(hasattr(service, name) for name in ("captions", "videos")):
             localization = {
                 "status": "pending_studio_or_real_service",
-                "message": "The configured service does not expose caption/video APIs; the English publication remains complete.",
+                "message": "The configured service does not expose caption/video APIs; publication is blocked when localization is required.",
             }
-        else:
-            try:
-                from localization import generate_localization_assets, set_thumbnail, update_localized_metadata, upload_caption_tracks
-                from thumbnail import generate_thumbnail_assets
+            raise YouTubePublisherError(localization["message"])
+        try:
+            from localization import set_thumbnail, update_localized_metadata, upload_caption_tracks
 
-                if localization_dir:
-                    localization_root = Path(localization_dir)
-                else:
-                    base_dir = Path(video_path).parent if video_path else Path("output") / "jobs" / str(job.get("id") or video_id)
-                    localization_root = base_dir / "localization"
-                assets = generate_localization_assets(job, metadata, localization_root)
-                caption_results = upload_caption_tracks(service, video_id, assets)
-                metadata_result = update_localized_metadata(service, video_id, metadata, assets["zh"])
-                thumbnail_assets = generate_thumbnail_assets(
-                    video_path,
-                    job,
-                    localization_root / "thumbnails",
-                    zh_title=assets["zh"].get("title"),
-                )
-                thumbnail_result = None
-                if hasattr(service, "thumbnails"):
-                    thumbnail_result = set_thumbnail(service, video_id, thumbnail_assets["default"])
-                    thumbnail_assets["default_upload"] = thumbnail_result
-                    thumbnail_assets["default_upload_status"] = "completed"
-                else:
-                    thumbnail_assets["default_upload_status"] = "pending_real_service"
-                localization = {
-                    "status": "completed",
-                    "assets": assets,
-                    "captions": caption_results,
-                    "metadata_update": metadata_result,
-                    "audio_track_status": assets["zh"].get("audio_track_status"),
-                    "thumbnail": thumbnail_assets,
-                    "localized_thumbnail_status": "studio_upload_required",
-                }
-            except Exception as exc:
-                localization = {"status": "failed_pending_retry", "error": str(exc)}
+            if localization_assets is None or thumbnail_assets is None or localization_root is None:
+                raise YouTubePublisherError("Pre-publish localization artifacts were not prepared")
+            caption_results = upload_caption_tracks(service, video_id, localization_assets)
+            if any(isinstance(value, dict) and value.get("status") == "failed" for value in caption_results.values()):
+                raise YouTubePublisherError(f"Caption upload failed: {caption_results}")
+            metadata_result = update_localized_metadata(service, video_id, metadata, localization_assets["zh"])
+            thumbnail_result = None
+            if hasattr(service, "thumbnails"):
+                thumbnail_result = set_thumbnail(service, video_id, thumbnail_assets["default"])
+                thumbnail_assets["default_upload"] = thumbnail_result
+                thumbnail_assets["default_upload_status"] = "completed"
+            else:
+                raise YouTubePublisherError("YouTube thumbnail API is unavailable")
+            localization = {
+                "status": "completed",
+                "assets": localization_assets,
+                "captions": caption_results,
+                "metadata_update": metadata_result,
+                "audio_track_status": localization_assets["zh"].get("audio_track_status"),
+                "thumbnail": thumbnail_assets,
+                "localized_thumbnail_status": "studio_upload_required",
+            }
+        except Exception as exc:
+            raise YouTubePublisherError(f"Post-upload localization application failed: {exc}") from exc
     publication_metadata = dict(metadata)
     publication_metadata["localization"] = localization
     return {

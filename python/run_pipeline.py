@@ -19,6 +19,7 @@ from timing import finalize_timing
 from youtube_publisher import publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
+from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
 from xiangqi_rules import validate_move_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -216,6 +217,19 @@ def main() -> int:
         if not args.skip_render and not args.dry_run:
             output_path = render_job(job, stage_dir)
             result["video_path"] = str(output_path)
+            prepublish_thumbnail_dir = stage_dir / "prepublish_thumbnails"
+            thumbnail_assets = generate_thumbnail_assets(
+                output_path,
+                job,
+                prepublish_thumbnail_dir,
+                zh_title=None,
+            )
+            thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
+            if thumbnail_errors:
+                raise RuntimeError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
+            job["thumbnailAssets"] = thumbnail_assets
+            write_job_files(job, stage_dir, public_dir)
+            result["thumbnail_assets"] = thumbnail_assets
             if store:
                 video_url = store.upload("xiangqi-videos", f"jobs/{job_id}.mp4", output_path, "video/mp4")
                 store.update_job(job_id, "completed", output_url=video_url, output_payload=result)

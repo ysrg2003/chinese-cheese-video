@@ -159,6 +159,34 @@ def _build_thumbnail(frame: Image.Image, title: str, language: str, output_path:
     raise RuntimeError(f"Thumbnail is larger than YouTube's 2MB upload limit: {output_path.stat().st_size}")
 
 
+def validate_thumbnail_assets(assets: dict[str, Any]) -> list[str]:
+    """Return blocking defects for thumbnails before any YouTube mutation."""
+    errors: list[str] = []
+    for key in ("english", "zh_studio_localized"):
+        raw_path = assets.get(key) if isinstance(assets, dict) else None
+        if not raw_path:
+            errors.append(f"thumbnail asset missing: {key}")
+            continue
+        path = Path(raw_path)
+        if not path.is_file():
+            errors.append(f"thumbnail file missing: {key}: {path}")
+            continue
+        if path.suffix.lower() not in {".jpg", ".jpeg"}:
+            errors.append(f"thumbnail is not JPEG: {key}: {path}")
+        if path.stat().st_size > 2_000_000:
+            errors.append(f"thumbnail exceeds 2MB: {key}: {path.stat().st_size}")
+        try:
+            with Image.open(path) as image:
+                if image.size != (WIDTH, HEIGHT):
+                    errors.append(f"thumbnail dimensions invalid: {key}: {image.size}")
+                if image.format not in {"JPEG", "MPO"}:
+                    errors.append(f"thumbnail format invalid: {key}: {image.format}")
+                image.verify()
+        except Exception as exc:
+            errors.append(f"thumbnail unreadable: {key}: {exc}")
+    return errors
+
+
 def generate_thumbnail_assets(video_path: str | Path, job: dict[str, Any], output_dir: str | Path, zh_title: str | None = None) -> dict[str, Any]:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)

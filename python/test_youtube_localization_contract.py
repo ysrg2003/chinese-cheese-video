@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import youtube_publisher
@@ -72,34 +73,66 @@ class FakeExtendedApi:
 class YouTubeLocalizationContractTests(unittest.TestCase):
     def test_localization_runs_after_publication_without_reupload(self):
         service = FakeExtendedApi()
-        assets = {
-            "en": {"caption_srt": "/tmp/en.srt"},
-            "zh": {
-                "title": "中国象棋：合法的防守",
-                "description": "这是一个中国象棋教学视频。",
-                "audio_track_status": "generated_studio_upload_required",
-            },
-        }
-        thumbnail_assets = {"default": "/tmp/thumbnail.jpg", "zh_studio_localized": "/tmp/thumbnail_zh.jpg"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in ("en/captions.srt", "en/captions.vtt", "zh/captions.srt", "zh/captions.vtt", "zh/voice.mp3"):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"artifact")
+            assets = {
+                "en": {"caption_srt": str(root / "en/captions.srt"), "caption_vtt": str(root / "en/captions.vtt")},
+                "zh": {
+                    "title": "中国象棋：合法的防守",
+                    "description": "这是一个中国象棋教学视频。",
+                    "audio_path": str(root / "zh/voice.mp3"),
+                    "caption_srt": str(root / "zh/captions.srt"),
+                    "caption_vtt": str(root / "zh/captions.vtt"),
+                    "audio_track_status": "generated_studio_upload_required",
+                },
+            }
+            from PIL import Image
+            thumbnail_en = root / "thumbnail.jpg"
+            thumbnail_zh = root / "thumbnail_zh.jpg"
+            Image.new("RGB", (1280, 720), (20, 30, 40)).save(thumbnail_en, format="JPEG")
+            Image.new("RGB", (1280, 720), (20, 30, 40)).save(thumbnail_zh, format="JPEG")
+            thumbnail_assets = {"default": str(thumbnail_en), "english": str(thumbnail_en), "zh_studio_localized": str(thumbnail_zh)}
+            job = {
+                "id": "localized-contract",
+                "title": "A Legal Xiangqi Defense",
+                "language": "en",
+                "content_type": "rules",
+                "narration": "This is a legal Xiangqi defense.",
+            }
+            with patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
+                youtube_publisher, "upload_video", return_value={"id": "video-localized"}
+            ), patch("localization.generate_localization_assets", return_value=assets), patch(
+                "localization.upload_caption_tracks", return_value={"en": {"id": "en-caption"}, "zh-Hans": {"id": "zh-caption"}}
+            ), patch("localization.update_localized_metadata", return_value={"id": "video-localized"}), patch(
+                "thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets
+            ), patch("localization.set_thumbnail", return_value={"items": []}):
+                result = youtube_publisher.publish_video(None, job, service=service)
+        self.assertEqual(result["status"], "published")
+        self.assertEqual(result["localization"]["status"], "completed")
+        self.assertEqual(result["video_id"], "video-localized")
+        self.assertEqual(len(service.playlist_items), 1)
+
+    def test_localization_preflight_blocks_upload_on_missing_artifacts(self):
+        service = FakeExtendedApi()
         job = {
-            "id": "localized-contract",
+            "id": "blocked-localization-contract",
             "title": "A Legal Xiangqi Defense",
             "language": "en",
             "content_type": "rules",
             "narration": "This is a legal Xiangqi defense.",
         }
-        with patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
-            youtube_publisher, "upload_video", return_value={"id": "video-localized"}
-        ), patch("localization.generate_localization_assets", return_value=assets), patch(
-            "localization.upload_caption_tracks", return_value={"en": {"id": "en-caption"}, "zh-Hans": {"id": "zh-caption"}}
-        ), patch("localization.update_localized_metadata", return_value={"id": "video-localized"}), patch(
-            "thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets
-        ), patch("localization.set_thumbnail", return_value={"items": []}):
-            result = youtube_publisher.publish_video(None, job, service=service)
-        self.assertEqual(result["status"], "published")
-        self.assertEqual(result["localization"]["status"], "completed")
-        self.assertEqual(result["video_id"], "video-localized")
-        self.assertEqual(len(service.playlist_items), 1)
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(
+            os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False
+        ), patch.object(youtube_publisher, "upload_video", return_value={"id": "must-not-upload"}) as upload_mock, patch(
+            "localization.generate_localization_assets", side_effect=RuntimeError("translation unavailable")
+        ):
+            with self.assertRaises(youtube_publisher.YouTubePublisherError):
+                youtube_publisher.publish_video(video.name, job, service=service)
+        upload_mock.assert_not_called()
 
 
 if __name__ == "__main__":
