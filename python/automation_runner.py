@@ -289,10 +289,12 @@ def main() -> int:
                 metrics["failed"] += 1
                 action = "blocked" if isinstance(exc, PermanentContentError) else "will be retried"
                 print(f"Candidate failed and {action}: {candidate['id']}: {exc}", file=sys.stderr)
-        store.finish_run(run_id, "completed" if metrics["failed"] == 0 else "partial", metrics)
+        deferred = int(metrics.get("deferred", 0))
+        incomplete = metrics["failed"] > 0 or deferred > 0
+        store.finish_run(run_id, "partial" if incomplete else "completed", metrics)
         store.checkpoint()
         print(json.dumps(metrics, ensure_ascii=False, indent=2))
-        return 0 if metrics["failed"] == 0 else 2
+        return 2 if incomplete else 0
     except Exception as exc:
         metrics["error"] = str(exc)
         store.finish_run(run_id, "failed", metrics, str(exc))

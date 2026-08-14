@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      continuation_depth:
+        description: "Internal continuation counter used when a pending publication needs another workflow run"
+        required: false
+        default: "0"
+        type: string
 
 concurrency:
   group: chinese-cheese-video-production
@@ -37,11 +42,13 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   produce:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Keep the same run alive while YouTube clears transient post-upload limits.
+    timeout-minutes: 360
     env:
       LOCAL_DB_PATH: data/chinese_cheese_video.db
       AI_ROUTER_PATH: ai-provider-router
@@ -140,12 +147,54 @@ jobs:
           grep -q 'validate_move_sequence' python/director.py
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
 
-      - name: Reconcile public videos with pending playlist associations
+      - name: Continuously reconcile public publications before production
         if: env.XIANGQI_PRODUCTION_FREEZE != '1'
-        run: python python/reconcile_youtube.py | tee youtube-reconcile.json
+        id: continuous_reconcile
+        continue-on-error: true
+        env:
+          RECONCILIATION_MAX_ATTEMPTS: "12"
+          RECONCILIATION_INITIAL_DELAY_SECONDS: "60"
+          RECONCILIATION_MAX_DELAY_SECONDS: "1800"
+          RECONCILIATION_MAX_RUNTIME_MINUTES: "270"
+        run: python python/continuous_reconcile.py --output continuous-reconcile.json | tee continuous-reconcile.log
 
-      - name: Run autonomous discovery and production
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true
+      - name: Queue another completion run when YouTube remains pending
+        if: steps.continuous_reconcile.outcome == 'failure' && env.XIANGQI_PRODUCTION_FREEZE != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONTINUATION_DELAY_SECONDS: "900"
+          CONTINUATION_MAX_DEPTH: "12"
+          CONTINUATION_DAILY_COUNT: ${{ inputs.daily_count || '1' }}
+          CONTINUATION_LANGUAGES: ${{ inputs.languages || 'en' }}
+          CONTINUATION_DISCOVERY_LIMIT: ${{ inputs.discovery_limit || '20' }}
+          CONTINUATION_RECONCILE_ONLY: ${{ inputs.reconcile_only == true }}
+        run: |
+          DEPTH="${{ inputs.continuation_depth || '0' }}"
+          if ! [[ "$DEPTH" =~ ^[0-9]+$ ]]; then
+            echo "Invalid continuation depth: $DEPTH" >&2
+            exit 1
+          fi
+          if [ "$DEPTH" -ge "$CONTINUATION_MAX_DEPTH" ]; then
+            echo "Continuation safety cap reached at depth $DEPTH; preserving pending state for the next scheduled run." >&2
+            exit 0
+          fi
+          NEXT_DEPTH=$((DEPTH + 1))
+          echo "Waiting ${CONTINUATION_DELAY_SECONDS}s before queueing continuation ${NEXT_DEPTH}."
+          sleep "$CONTINUATION_DELAY_SECONDS"
+          if ! grep -q '"status": "retry_window_exhausted"' continuous-reconcile.json; then
+            echo "Reconciliation ended with a non-retryable failure; preserving the state without self-dispatch."
+            exit 0
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/render-video.yml/dispatches" \
+            -f ref=master \
+            -f "inputs[daily_count]=${CONTINUATION_DAILY_COUNT}" \
+            -f "inputs[languages]=${CONTINUATION_LANGUAGES}" \
+            -f "inputs[discovery_limit]=${CONTINUATION_DISCOVERY_LIMIT}" \
+            -f "inputs[reconcile_only]=${CONTINUATION_RECONCILE_ONLY}" \
+            -f "inputs[continuation_depth]=${NEXT_DEPTH}"
+
+      - name: Run autonomous discovery and production until the current item completes
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && steps.continuous_reconcile.outcome == 'success'
         id: autonomous_run
         continue-on-error: true
         env:
@@ -153,10 +202,29 @@ jobs:
           RUN_LANGUAGES: ${{ inputs.languages }}
           RUN_DISCOVERY_LIMIT: ${{ inputs.discovery_limit }}
         run: |
+          set +e
           COUNT="${RUN_DAILY_COUNT:-1}"
           LANGUAGES="${RUN_LANGUAGES:-en}"
           LIMIT="${RUN_DISCOVERY_LIMIT:-20}"
-          python python/automation_runner.py --daily-count "$COUNT" --languages "$LANGUAGES" --discover-limit "$LIMIT" | tee automation-run.json
+          FINAL_STATUS=1
+          for ATTEMPT in 1 2 3 4; do
+            echo "Production attempt ${ATTEMPT}/4"
+            python python/automation_runner.py --daily-count "$COUNT" --languages "$LANGUAGES" --discover-limit "$LIMIT" | tee "automation-run-${ATTEMPT}.json"
+            FINAL_STATUS=${PIPESTATUS[0]}
+            if [ "$FINAL_STATUS" -eq 0 ]; then
+              cp "automation-run-${ATTEMPT}.json" automation-run.json
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt 4 ]; then
+              echo "Production attempt failed; reconciling public state before retrying."
+              python python/continuous_reconcile.py --max-attempts 4 --initial-delay-seconds 60 --max-delay-seconds 900 --max-runtime-minutes 90 --output "continuous-reconcile-retry-${ATTEMPT}.json" | tee "continuous-reconcile-retry-${ATTEMPT}.log"
+              RECONCILE_STATUS=${PIPESTATUS[0]}
+              if [ "$RECONCILE_STATUS" -ne 0 ]; then
+                echo "Public reconciliation is still pending; the retry loop will continue without re-rendering public jobs."
+              fi
+            fi
+          done
+          exit "$FINAL_STATUS"
 
       - name: Export normalized YouTube catalog
         if: always()
@@ -170,7 +238,11 @@ jobs:
           retention-days: 14
           path: |
             automation-run.json
-            youtube-reconcile.json
+            automation-run-*.json
+            continuous-reconcile.json
+            continuous-reconcile.log
+            continuous-reconcile-retry-*.json
+            continuous-reconcile-retry-*.log
             youtube-catalog.json
             data/chinese_cheese_video.db
             data/ai_router.db
@@ -198,6 +270,6 @@ jobs:
             git push
           fi
 
-      - name: Mark workflow failed when production failed
-        if: steps.autonomous_run.outcome == 'failure'
+      - name: Mark workflow failed when completion could not be achieved
+        if: steps.continuous_reconcile.outcome == 'failure' || steps.autonomous_run.outcome == 'failure'
         run: exit 1
