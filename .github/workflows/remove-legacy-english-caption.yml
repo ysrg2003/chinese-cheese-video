@@ -48,6 +48,11 @@ jobs:
           PYTHONPATH: python
         run: python python/remove_redundant_english_caption.py --video-id "${{ inputs.video_id }}" | tee caption-cleanup-result.json
 
+      - name: Verify targeted manual English transcript is absent
+        env:
+          PYTHONPATH: python
+        run: python python/remove_redundant_english_caption.py --video-id "${{ inputs.video_id }}" --dry-run --assert-absent | tee caption-cleanup-post-verification.json
+
       - name: Upload cleanup audit
         uses: actions/upload-artifact@v4
         with:
@@ -56,3 +61,4 @@ jobs:
           path: |
             caption-cleanup-dry-run.json
             caption-cleanup-result.json
+            caption-cleanup-post-verification.json

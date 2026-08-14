@@ -59,9 +59,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Remove only the legacy English transcript track created by Xiangqi Lab")
     parser.add_argument("--video-id", required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--assert-absent", action="store_true", help="Fail if a matching manual English transcript still exists")
     args = parser.parse_args()
     result = remove_redundant_english_tracks(build_service(), args.video_id, dry_run=args.dry_run)
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if args.assert_absent and result.get("matched"):
+        return 1
     return 0
 
 
