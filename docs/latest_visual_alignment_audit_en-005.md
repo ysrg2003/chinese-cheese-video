@@ -53,3 +53,7 @@ The first public en-007 artifact exposed a separate AI-path mismatch: a sentence
 ## Follow-up: coordinate notation hardening from en-008
 
 The first public en-008 artifact exposed one more AI-path mismatch: the narration gave a concrete source coordinate, destination coordinate, and replay notation habit, while the generated storyboard used `coordinate_map` labels or a generic `rule_focus` without marking the endpoints. The deterministic contract now maps these sentences to `coordinate_endpoints` and `notation_sequence`. Remotion draws the example from file 2/rank 8 to file 2/rank 5 on the actual intersections, labels `SOURCE F2 R8` and `DEST F2 R5`, and displays `IDENTIFY → START → END → LEGAL CHECK`. The path is explicitly an example notation path and does not claim that a game was played.
+
+## Follow-up: long-title layout hardening
+
+The final public move lesson exposed a presentation defect independent of board semantics: a long title wrapped into the non-move storyboard headline area. The renderer now uses a responsive title font size for long titles and moves non-move storyboard headlines below the title block. A still frame from `The General: The Piece You Must Never Expose` confirms two clean title lines and a separate `Palace: General And Advisors` headline with no collision.

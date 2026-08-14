@@ -239,7 +239,7 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const cannonTargetPoint = boardPoint(1, 2);
 
   return <>
-    {!isMoveSegment && <div style={{ position: "absolute", top: 205, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
+    {!isMoveSegment && <div style={{ position: "absolute", top: 250, left: 92, right: 92, display: "flex", justifyContent: "center", zIndex: 8, opacity }}>
       <div style={{ padding: "9px 22px", borderRadius: 16, background: "rgba(33, 26, 22, .88)", color: "#fff8e9", fontSize: 25, fontWeight: 900, letterSpacing: 0.8, boxShadow: "0 10px 22px rgba(64, 35, 12, .22)" }}>{headline}</div>
     </div>}
 
@@ -393,11 +393,12 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   const introOpacity = interpolate(frame, [0, 18, 42], [0, 1, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleScale = interpolate(frame, [0, 36], [0.92, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const subtitle = job.visual_mode === "foundation_storyboard" ? "See the board before the first move" : job.visual_mode === "storyboard" ? "" : copy.subtitle;
+  const titleFontSize = job.title.length > 44 ? 48 : job.title.length > 34 ? 52 : 58;
   return     <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
     <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
     {!job.referenceMode && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
       <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
-      <div style={{ marginTop: 16, fontSize: 58, fontWeight: 900, lineHeight: 1.15 }}>{job.title}</div>
+      <div style={{ marginTop: 16, fontSize: titleFontSize, fontWeight: 900, lineHeight: 1.08 }}>{job.title}</div>
       {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
     </div>}
     <Board job={job} second={second} />
