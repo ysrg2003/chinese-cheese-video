@@ -81,6 +81,29 @@ class YouTubePublisherLocalTests(unittest.TestCase):
             "published-video",
         )
 
+    def test_publication_replacement_preserves_remediation_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalStore(Path(directory) / "replacement.db")
+            store.upsert_youtube_publication(
+                "replacement-job-en",
+                "en",
+                "rules",
+                "deleted_invalid_content",
+                metadata={"remediation": {"original_video_id": "old-video"}},
+            )
+            store.upsert_youtube_publication(
+                "replacement-job-en",
+                "en",
+                "rules",
+                "published",
+                video_id="new-video",
+                video_url="https://www.youtube.com/watch?v=new-video",
+                metadata={"title": "Corrected lesson"},
+            )
+            current = store.get_youtube_publication("replacement-job-en")
+            self.assertEqual(current["video_id"], "new-video")
+            self.assertEqual(current["metadata"]["remediation"]["original_video_id"], "old-video")
+
     def test_youtube_catalog_tracks_channel_playlists_video_and_association(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = LocalStore(Path(directory) / "catalog.db")

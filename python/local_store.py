@@ -858,6 +858,17 @@ class LocalStore:
         video_url = str(publication.get("video_url") or "").strip() or None
         error_message = publication.get("error_message")
         with self._connect() as connection:
+            previous = connection.execute(
+                "SELECT metadata_json FROM youtube_videos WHERE job_id = ? LIMIT 1",
+                (str(job.get("id") or ""),),
+            ).fetchone()
+            if previous:
+                try:
+                    previous_metadata = json.loads(previous["metadata_json"] or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    previous_metadata = {}
+                if isinstance(previous_metadata, dict) and previous_metadata.get("remediation") and "remediation" not in metadata:
+                    metadata["remediation"] = previous_metadata["remediation"]
             connection.execute(
                 """
                 UPDATE youtube_playlists SET youtube_playlist_id=COALESCE(?, youtube_playlist_id),
@@ -948,8 +959,19 @@ class LocalStore:
 
     def upsert_youtube_publication(self, job_id: str, language: str, content_type: str, status: str, **fields: Any) -> None:
         now = datetime.now(timezone.utc).isoformat()
-        metadata = fields.get("metadata", {})
+        metadata = dict(fields.get("metadata") or {})
         with self._connect() as connection:
+            previous = connection.execute(
+                "SELECT metadata_json FROM youtube_publications WHERE job_id = ? LIMIT 1",
+                (job_id,),
+            ).fetchone()
+            if previous:
+                try:
+                    previous_metadata = json.loads(previous["metadata_json"] or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    previous_metadata = {}
+                if isinstance(previous_metadata, dict) and previous_metadata.get("remediation") and "remediation" not in metadata:
+                    metadata["remediation"] = previous_metadata["remediation"]
             connection.execute(
                 """
                 INSERT INTO youtube_publications
