@@ -42,3 +42,7 @@ The implementation was pushed to `ysrg2003/chinese-cheese-video` on `master`. Th
 ## Operational note
 
 The two newly validated Chinese/English videos use the source trend title supplied by the RSS candidate. Their narration and captions follow the correct language-specific voice and transcript path; title localization is a separate editorial enhancement and does not affect audio/caption synchronization or database integrity.
+
+## Policy refinement — English-primary delivery
+
+The later channel policy removes redundant English captions from the rendered English video and from the default YouTube caption upload. The spoken English narration, synchronized storyboard headings, MoveCard, and board highlights remain the visual teaching layer. Chinese localization continues to generate and upload the Chinese caption track from the translated Chinese narration. The exact implementation and override are documented in `docs/caption_thumbnail_delivery_policy.md`.

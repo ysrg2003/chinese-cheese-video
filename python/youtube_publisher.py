@@ -396,7 +396,6 @@ def publish_video(
                 video_path,
                 job,
                 localization_root / "thumbnails",
-                zh_title=localization_assets["zh"].get("title"),
             )
             thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
             if thumbnail_errors:
@@ -485,7 +484,7 @@ def publish_video(
                 "metadata_update": metadata_result,
                 "audio_track_status": localization_assets["zh"].get("audio_track_status"),
                 "thumbnail": thumbnail_assets,
-                "localized_thumbnail_status": "studio_upload_required",
+                "localized_thumbnail_status": "disabled_by_policy",
             }
         except Exception as exc:
             raise YouTubePublisherError(f"Post-upload localization application failed: {exc}") from exc

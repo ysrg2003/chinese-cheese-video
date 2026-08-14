@@ -64,9 +64,9 @@ Old jobs without the optional animation fields remain compatible because Remotio
 
 ## Caption behavior
 
-Intro narration is split into sentence-sized segments. Each intro sentence receives a bottom caption cue, so a long transcript no longer remains on screen as one large block. Move narration retains the short `captionText` above the board under the MoveCard. Both caption types disappear outside their aligned segment windows.
+English narration is spoken directly and explained by the synchronized storyboard headlines, MoveCard, board highlights, and move animation. To prevent duplicate text layers, the default English policy now disables burned-in English captions and does not upload an English caption track. The policy is explicit and can be overridden only with `YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO=1` for a deliberate test or accessibility deployment.
 
-When Edge-TTS WordBoundary data exists, the segment windows come from the audio cues. When it does not, the timing layer distributes the segments proportionally. In both cases the speech window and caption window remain aligned, while the piece transition receives its own short animation window.
+Chinese localization continues to generate Chinese audio and an exact Chinese caption track from the same translated narration units. Chinese captions are uploaded through the YouTube captions API; they are not burned into the English-primary video. When Edge-TTS WordBoundary data exists, Chinese caption windows come from the audio cues, preserving the same spoken text and timing.
 
 ## Verification
 

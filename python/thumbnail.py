@@ -160,9 +160,9 @@ def _build_thumbnail(frame: Image.Image, title: str, language: str, output_path:
 
 
 def validate_thumbnail_assets(assets: dict[str, Any]) -> list[str]:
-    """Return blocking defects for thumbnails before any YouTube mutation."""
+    """Return blocking defects for the English thumbnail before any YouTube mutation."""
     errors: list[str] = []
-    for key in ("english", "zh_studio_localized"):
+    for key in ("english",):
         raw_path = assets.get(key) if isinstance(assets, dict) else None
         if not raw_path:
             errors.append(f"thumbnail asset missing: {key}")
@@ -188,20 +188,24 @@ def validate_thumbnail_assets(assets: dict[str, Any]) -> list[str]:
 
 
 def generate_thumbnail_assets(video_path: str | Path, job: dict[str, Any], output_dir: str | Path, zh_title: str | None = None) -> dict[str, Any]:
+    """Generate the single English thumbnail used by the channel.
+
+    ``zh_title`` remains an ignored compatibility argument for callers from
+    older jobs; localized thumbnails are intentionally not generated or
+    validated because the channel policy is English-thumbnail-only.
+    """
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     frame_path = output / "clean_board.png"
     _render_clean_board_frame(job, frame_path)
     frame = Image.open(frame_path).convert("RGB")
     en_path = _build_thumbnail(frame, str(job.get("title") or "Xiangqi Lesson"), "en", output / "thumbnail_en.jpg")
-    zh_path = _build_thumbnail(frame, str(zh_title or job.get("title") or "中国象棋课程"), "zh", output / "thumbnail_zh.jpg")
     return {
         "default": str(en_path),
         "english": str(en_path),
-        "zh_studio_localized": str(zh_path),
         "width": WIDTH,
         "height": HEIGHT,
         "max_bytes": 2_000_000,
         "default_language": "en",
-        "localized_thumbnail_status": "studio_upload_required",
+        "localized_thumbnail_status": "disabled_by_policy",
     }

@@ -16,7 +16,7 @@ from local_store import LocalStore
 from supabase_store import SupabaseStore
 from tts import align_narration_segments_to_cues, captions_from_narration, captions_from_narration_segments, captions_from_word_cues, synthesize
 from timing import finalize_timing
-from youtube_publisher import publish_video
+from youtube_publisher import load_policy, publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
 from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
@@ -41,6 +41,23 @@ def read_json(path: str | None) -> dict[str, Any] | None:
     if not path:
         return None
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def apply_caption_delivery_policy(job: dict[str, Any]) -> dict[str, Any]:
+    """Disable redundant English caption layers unless explicitly opted in."""
+    if job.get("language") != "en":
+        return job
+    delivery = load_policy().get("delivery", {})
+    enabled = os.getenv("YOUTUBE_ENGLISH_CAPTIONS_IN_VIDEO")
+    enabled = (
+        str(enabled).lower() in {"1", "true", "yes"}
+        if enabled is not None
+        else bool(delivery.get("english_in_video_captions", False))
+    )
+    if not enabled:
+        job["captions"] = []
+        job["captions_source"] = "english_captions_disabled_in_video"
+    return job
 
 
 def build_store(args: argparse.Namespace) -> Any | None:
@@ -199,6 +216,11 @@ def main() -> int:
             else:
                 job["captions"] = captions_from_narration(job["narration"], float(job.get("durationInSeconds") or 0), job["language"])
                 job["captions_source"] = "narration_fallback"
+
+        # English narration already appears as the spoken audio and as the
+        # synchronized storyboard/move labels. Apply the policy outside the TTS
+        # branch so skip-tts and pre-authored jobs obey it too.
+        job = apply_caption_delivery_policy(job)
 
         job = finalize_timing(
             job,

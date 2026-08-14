@@ -43,3 +43,7 @@ The downloaded proof artifact contains `output/jobs/curriculum-en-001-what-is-xi
 ## Final repository state
 
 The production-generated SQLite state was rebased locally, the proof documentation was committed as `fa1293c`, pushed to `master`, and the local branch is clean and synchronized with `origin/master`.
+
+## Subsequent delivery-policy refinement
+
+After the proof run, the channel policy was refined so English captions are disabled in the MP4 and are not uploaded as a redundant YouTube track by default. Chinese audio and Chinese captions remain active. The thumbnail policy is now English-only: `thumbnail_en.jpg` is generated, validated, and uploaded automatically; `thumbnail_zh.jpg` is no longer generated or required. See `docs/caption_thumbnail_delivery_policy.md` for the contract and official API references.

@@ -191,9 +191,16 @@ def generate_localization_assets(job: dict[str, Any], english_metadata: dict[str
     zh_captions = captions_from_narration_segments(aligned, "zh") if aligned else captions_from_word_cues(zh_word_cues, "zh")
     zh_srt = write_srt(zh_captions, output / "zh" / "captions.srt")
     zh_vtt = write_vtt(zh_captions, output / "zh" / "captions.vtt")
-    en_captions = job.get("captions") or []
-    en_srt = write_srt(en_captions, output / "en" / "captions.srt")
-    en_vtt = write_vtt(en_captions, output / "en" / "captions.vtt")
+    english_captions_enabled = bool(job.get("captions")) and str(job.get("captions_source") or "") != "english_captions_disabled_in_video"
+    en_payload: dict[str, Any] = {
+        "enabled": english_captions_enabled,
+        "source": str(job.get("captions_source") or "disabled_by_policy"),
+    }
+    if english_captions_enabled:
+        en_captions = job.get("captions") or []
+        en_srt = write_srt(en_captions, output / "en" / "captions.srt")
+        en_vtt = write_vtt(en_captions, output / "en" / "captions.vtt")
+        en_payload.update({"caption_srt": str(en_srt), "caption_vtt": str(en_vtt)})
     payload = {
         "zh": {
             "title": zh["title"],
@@ -205,8 +212,8 @@ def generate_localization_assets(job: dict[str, Any], english_metadata: dict[str
             "segments": zh["segments"],
             "audio_track_status": "generated_studio_upload_required",
         },
-        "en": {"caption_srt": str(en_srt), "caption_vtt": str(en_vtt)},
-        "notes": "YouTube Data API captions and localizations are automated. Alternate audio attachment requires eligible YouTube Studio multi-language-audio access.",
+        "en": en_payload,
+        "notes": "Chinese captions are automated. English captions are disabled in-video by policy unless explicitly enabled. Alternate audio attachment requires eligible YouTube Studio multi-language-audio access.",
     }
     (output / "localization.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -219,9 +226,13 @@ def validate_localization_assets(assets: dict[str, Any]) -> list[str]:
         "zh.audio_path": ((assets.get("zh") or {}).get("audio_path") if isinstance(assets, dict) else None),
         "zh.caption_srt": ((assets.get("zh") or {}).get("caption_srt") if isinstance(assets, dict) else None),
         "zh.caption_vtt": ((assets.get("zh") or {}).get("caption_vtt") if isinstance(assets, dict) else None),
-        "en.caption_srt": ((assets.get("en") or {}).get("caption_srt") if isinstance(assets, dict) else None),
-        "en.caption_vtt": ((assets.get("en") or {}).get("caption_vtt") if isinstance(assets, dict) else None),
     }
+    english_assets = assets.get("en") if isinstance(assets, dict) else None
+    if isinstance(english_assets, dict) and english_assets.get("enabled"):
+        required.update({
+            "en.caption_srt": english_assets.get("caption_srt"),
+            "en.caption_vtt": english_assets.get("caption_vtt"),
+        })
     for label, raw_path in required.items():
         if not raw_path:
             errors.append(f"localization artifact missing: {label}")
@@ -257,10 +268,10 @@ def _upload_caption(service: Any, video_id: str, caption_path: str | Path, langu
 
 def upload_caption_tracks(service: Any, video_id: str, assets: dict[str, Any]) -> dict[str, Any]:
     uploaded: dict[str, Any] = {}
-    tracks = [
-        ("en", assets.get("en", {}).get("caption_srt"), "English transcript"),
-        ("zh-Hans", assets.get("zh", {}).get("caption_srt"), "简体中文 transcript"),
-    ]
+    tracks = [("zh-Hans", assets.get("zh", {}).get("caption_srt"), "简体中文 transcript")]
+    english_assets = assets.get("en") if isinstance(assets, dict) else None
+    if isinstance(english_assets, dict) and english_assets.get("enabled"):
+        tracks.insert(0, ("en", english_assets.get("caption_srt"), "English transcript"))
     for language, path, name in tracks:
         if not path or not Path(path).exists():
             continue

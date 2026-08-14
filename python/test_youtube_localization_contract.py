@@ -75,12 +75,12 @@ class YouTubeLocalizationContractTests(unittest.TestCase):
         service = FakeExtendedApi()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for relative in ("en/captions.srt", "en/captions.vtt", "zh/captions.srt", "zh/captions.vtt", "zh/voice.mp3"):
+            for relative in ("zh/captions.srt", "zh/captions.vtt", "zh/voice.mp3"):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"artifact")
             assets = {
-                "en": {"caption_srt": str(root / "en/captions.srt"), "caption_vtt": str(root / "en/captions.vtt")},
+                "en": {"enabled": False, "source": "english_captions_disabled_in_video"},
                 "zh": {
                     "title": "中国象棋：合法的防守",
                     "description": "这是一个中国象棋教学视频。",
@@ -92,10 +92,8 @@ class YouTubeLocalizationContractTests(unittest.TestCase):
             }
             from PIL import Image
             thumbnail_en = root / "thumbnail.jpg"
-            thumbnail_zh = root / "thumbnail_zh.jpg"
             Image.new("RGB", (1280, 720), (20, 30, 40)).save(thumbnail_en, format="JPEG")
-            Image.new("RGB", (1280, 720), (20, 30, 40)).save(thumbnail_zh, format="JPEG")
-            thumbnail_assets = {"default": str(thumbnail_en), "english": str(thumbnail_en), "zh_studio_localized": str(thumbnail_zh)}
+            thumbnail_assets = {"default": str(thumbnail_en), "english": str(thumbnail_en), "localized_thumbnail_status": "disabled_by_policy"}
             job = {
                 "id": "localized-contract",
                 "title": "A Legal Xiangqi Defense",
@@ -106,7 +104,7 @@ class YouTubeLocalizationContractTests(unittest.TestCase):
             with patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
                 youtube_publisher, "upload_video", return_value={"id": "video-localized"}
             ), patch("localization.generate_localization_assets", return_value=assets), patch(
-                "localization.upload_caption_tracks", return_value={"en": {"id": "en-caption"}, "zh-Hans": {"id": "zh-caption"}}
+                "localization.upload_caption_tracks", return_value={"zh-Hans": {"id": "zh-caption"}}
             ), patch("localization.update_localized_metadata", return_value={"id": "video-localized"}), patch(
                 "thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets
             ), patch("localization.set_thumbnail", return_value={"items": []}):

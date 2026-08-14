@@ -97,6 +97,11 @@
   "description_template": "{primary_keyword} — {hook}\n\nIn this {series_name} lesson, Xiangqi Lab explains the position, the tactical idea, and the move to remember.\n\nLanguage: {language_label}\nSeries: {series_name}\n\n{source_note}\n\n{playlist_cta}\n{channel_cta}\n\n{hashtags}",
   "source_note_template": "Original educational Xiangqi board analysis. No third-party match footage is re-uploaded.",
   "prohibited_terms": ["guaranteed views", "viral secret", "official tournament footage", "Arabic", "female voice"],
+  "delivery": {
+    "english_in_video_captions": false,
+    "english_youtube_caption_track": false,
+    "thumbnail_languages": ["en"]
+  },
   "keyword_policy": {
     "primary_keyword_count": 1,
     "secondary_keyword_count": 3,

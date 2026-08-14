@@ -115,7 +115,8 @@ class YouTubePublisherLocalTests(unittest.TestCase):
                 "source_kind": "generated_evergreen",
                 "source_url": "https://example.com/source",
                 "narration": "The cannon opens the file.",
-                "captions": [{"startSec": 0.0, "endSec": 1.2, "text": "The cannon opens the file."}],
+                "captions": [],
+                "captions_source": "english_captions_disabled_in_video",
                 "durationInSeconds": 4.2,
             }
             publication = {
@@ -133,7 +134,7 @@ class YouTubePublisherLocalTests(unittest.TestCase):
             video = next(item for item in catalog["videos"] if item["job_id"] == "catalog-job-en")
             self.assertEqual(video["status"], "published")
             self.assertEqual(video["playlist_key"], "en-tactics")
-            self.assertEqual(video["captions_source"], "edge_tts_word_boundaries")
+            self.assertEqual(video["captions_source"], "english_captions_disabled_in_video")
             self.assertEqual(len(catalog["video_playlists"]), 1)
             self.assertEqual(catalog["video_playlists"][0]["youtube_playlist_id"], "catalog-playlist")
 

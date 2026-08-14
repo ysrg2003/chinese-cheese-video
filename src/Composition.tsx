@@ -284,6 +284,7 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
 }
 
 function Caption({ job, second }: { job: VideoJob; second: number }) {
+  if (job.language === "en" && job.captions_source === "english_captions_disabled_in_video") return null;
   const cue = job.captions.find((item) => second >= item.startSec && second < item.endSec);
   if (!cue) return null;
   const isIntro = cue.captionPosition === "bottom" || cue.kind === "intro";

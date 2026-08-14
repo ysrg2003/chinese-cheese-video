@@ -188,7 +188,7 @@ class LocalStore:
                     playlist_key TEXT,
                     audio_path TEXT,
                     video_path TEXT,
-                    captions_source TEXT NOT NULL DEFAULT 'edge_tts_word_boundaries',
+                    captions_source TEXT NOT NULL DEFAULT 'english_captions_disabled_in_video',
                     narration_sha256 TEXT,
                     captions_sha256 TEXT,
                     status TEXT NOT NULL DEFAULT 'rendered',
@@ -521,7 +521,7 @@ class LocalStore:
                     INSERT INTO youtube_videos
                         (job_id, language, content_type, title, video_id, video_url, privacy_status,
                          playlist_key, captions_source, status, error_message, metadata_json, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'edge_tts_word_boundaries', ?, ?, ?, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(job_id) DO UPDATE SET video_id=COALESCE(excluded.video_id, youtube_videos.video_id),
                         video_url=COALESCE(excluded.video_url, youtube_videos.video_url),
                         playlist_key=COALESCE(excluded.playlist_key, youtube_videos.playlist_key),
@@ -532,6 +532,7 @@ class LocalStore:
                     (
                         row["job_id"], row["language"], row["content_type"], title,
                         row["video_id"], row["video_url"], "public", playlist_key,
+                        str(metadata.get("captions_source") or "legacy_caption_policy"),
                         row["status"], row["error_message"], row["metadata_json"] or "{}",
                     ),
                 )
@@ -884,7 +885,7 @@ class LocalStore:
                      duration_seconds, video_id, video_url, privacy_status, playlist_key, audio_path,
                      video_path, captions_source, narration_sha256, captions_sha256, status, published_at,
                      error_message, metadata_json, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'edge_tts_word_boundaries', ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(job_id) DO UPDATE SET candidate_id=COALESCE(excluded.candidate_id, youtube_videos.candidate_id),
                     title=excluded.title, source_kind=excluded.source_kind, source_url=excluded.source_url,
                     duration_seconds=excluded.duration_seconds, video_id=COALESCE(excluded.video_id, youtube_videos.video_id),
@@ -901,7 +902,7 @@ class LocalStore:
                     job.get("source_kind"), job.get("source_url"), float(job.get("durationInSeconds") or 0),
                     video_id, video_url, str(metadata.get("privacyStatus") or os.getenv("YOUTUBE_PUBLISH_MODE", "public")),
                     playlist_key, str(audio_path) if audio_path else None, str(video_path) if video_path else None,
-                    narration_hash, captions_hash, status, now if status == "published" else None,
+                    str(job.get("captions_source") or "legacy_caption_policy"), narration_hash, captions_hash, status, now if status == "published" else None,
                     error_message, json.dumps(metadata, ensure_ascii=False), now,
                 ),
             )
