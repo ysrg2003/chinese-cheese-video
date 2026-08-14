@@ -65,8 +65,8 @@ jobs:
       VISUAL_ASSET_ENABLED: ${{ vars.VISUAL_ASSET_ENABLED || '1' }}
       VISUAL_ASSET_MAX_PER_VIDEO: ${{ vars.VISUAL_ASSET_MAX_PER_VIDEO || '2' }}
       VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
-      # Visual-remediation stop. Production stays frozen until the verified board renderer is approved.
-      XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '1' }}
+      # The repository default is autonomous production; set the repository variable to 1 for an emergency freeze.
+      XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '0' }}
 
     steps:
       - name: Checkout repository and persistent SQLite catalog
@@ -115,6 +115,17 @@ jobs:
             public|private|unlisted) ;;
             *) echo "Invalid YOUTUBE_PUBLISH_MODE: $YOUTUBE_PUBLISH_MODE" >&2; exit 1 ;;
           esac
+
+      - name: Enforce autonomous preflight contracts
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1'
+        run: |
+          npx tsc --noEmit
+          PYTHONPATH=python python -m unittest discover -s python -p 'test_*.py'
+          python -m py_compile python/*.py
+          test -f docs/xiangqi_visual_spec.md
+          grep -q 'Pre-publish thumbnail gate failed' python/run_pipeline.py
+          grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
+          grep -q 'validate_move_sequence' python/director.py
 
       - name: Reconcile public videos with pending playlist associations
         if: env.XIANGQI_PRODUCTION_FREEZE != '1'

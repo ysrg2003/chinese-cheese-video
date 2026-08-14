@@ -81,3 +81,7 @@ After pinning `remotion`, `@remotion/cli`, and `@remotion/media-utils` to `4.0.5
 ## Thumbnail acceptance
 
 The non-publishing thumbnail test produced both `thumbnail_en.jpg` and `thumbnail_zh.jpg` at 1280x720 and well under the 2MB limit. Visual inspection confirms that the clean board card uses the corrected 9x10 board with the visible river and centered palaces, while the English and Chinese headlines remain legible. The English file is the default YouTube thumbnail; the Chinese file is retained as the localized Studio variant.
+
+## GitHub Actions acceptance artifact
+
+Run `31769123910` succeeded on commit `1c3420a`. Its downloaded `clean-board.png` is 1080x1920 and visually matches the local acceptance frame: standard 32-piece placement on intersections, central palace diagonals, and a full-width river band separating the armies. The smoke workflow also produced and validated both 1280x720 thumbnails. The artifact contains `no-publish.txt`, confirming that this run performed no YouTube mutation.
