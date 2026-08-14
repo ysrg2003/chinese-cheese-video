@@ -39,3 +39,7 @@ Before `upload_video()` is called, the workflow must have a valid Chinese audio 
 ## Verification of the change
 
 Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. GitHub Actions quality-gate run [31773582539](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31773582539) also completed successfully. Its artifact contains `thumbnail_en.jpg` and no `thumbnail_zh.jpg`; `thumbnail-smoke.json` reports `width=1280`, `height=720`, `default_language=en`, and `localized_thumbnail_status=disabled_by_policy`. The smoke explicitly performs no production upload or YouTube mutation.
+
+## Legacy video cleanup proof
+
+The one-time cleanup workflow [31773822614](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31773822614) found the legacy manual track `English transcript` on video `D-o77HngwOU` and deleted only that track ID. The follow-up idempotent run [31773940298](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31773940298) returned `matched=[]` in the initial dry-run, completed with no deletion, and passed the post-delete `assert-absent` verification. Automatic ASR captions and the Chinese caption track were not selected or deleted.
