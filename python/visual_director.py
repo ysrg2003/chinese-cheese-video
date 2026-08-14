@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
 
@@ -430,7 +431,7 @@ def add_visual_storyboard(job: dict[str, Any], puzzle: dict[str, Any], store: An
     foundation = mode in FOUNDATION_VISUAL_MODES
     raw = puzzle.get("visualStoryboard")
     source_hint = "provided_ai" if raw is not None else ""
-    if raw is None:
+    if raw is None and os.getenv("AI_ROUTER_REQUIRE_KEYS", "1").lower() not in {"0", "false", "no"}:
         try:
             raw = _request_ai_storyboard(puzzle, job, store)
         except Exception as exc:
