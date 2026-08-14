@@ -166,6 +166,30 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(scenes[3]["visualPlan"]["primitives"], ["central_files", "route_constraints"])
         self.assertEqual(validate_visual_storyboard(result), [])
 
+    def test_ai_storyboard_en008_coordinate_sentences_get_endpoint_contracts(self) -> None:
+        texts = [
+            "A move therefore has a source point and a destination point, such as file two, rank eight to file two, rank five.",
+            "The important habit is consistent: identify the piece, name where it starts, name where it ends, and then explain why the route is legal.",
+            "We are building the visual language that will make every later example precise and easy to replay.",
+        ]
+        job = {
+            "id": "en008-ai-storyboard-contract-test",
+            "title": "How Xiangqi Coordinates Work",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "definition",
+            "moves": [],
+            "narrationSegments": [{"kind": "intro", "text": text} for text in texts],
+        }
+        raw = [{"index": index, "segmentIndex": index, "narration": text, "caption": "Short cue", "headline": "AI suggestion", "visualInstruction": "Highlight the board."} for index, text in enumerate(texts, start=1)]
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-008-xiangqi-coordinates", "language": "en", "visual_mode": "storyboard", "visualStoryboard": raw})
+        scenes = result["visualStoryboard"]
+        self.assertEqual([scene["visualKind"] for scene in scenes], ["coordinate_map", "coordinate_map", "coordinate_map"])
+        self.assertEqual(scenes[0]["visualPlan"]["primitives"], ["files", "ranks", "coordinate_endpoints"])
+        self.assertEqual(scenes[1]["visualPlan"]["primitives"], ["coordinate_endpoints", "notation_sequence"])
+        self.assertEqual(scenes[2]["visualPlan"]["primitives"], ["files", "ranks", "coordinate_endpoints", "notation_sequence"])
+        self.assertEqual(validate_visual_storyboard(result), [])
+
     def test_history_fallback_uses_specialized_visual_progression(self) -> None:
         job = {
             "id": "history-test",
