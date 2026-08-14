@@ -98,6 +98,9 @@ def main() -> int:
                 if candidate_id.endswith(suffix):
                     candidate_id = candidate_id[: -len(suffix)]
                 store.update_candidate(candidate_id, "published", published_job_id=row["job_id"])
+                lesson_key = str(job.get("curriculum_lesson_key") or metadata.get("curriculum_lesson_key") or "").strip()
+                if lesson_key and language == "en":
+                    store.update_curriculum_episode(lesson_key, language, "published", candidate_id=candidate_id, job_id=row["job_id"])
                 metrics["published"] += 1
             else:
                 metrics["failed"] += 1
