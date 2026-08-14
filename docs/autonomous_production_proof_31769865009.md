@@ -47,3 +47,5 @@ The production-generated SQLite state was rebased locally, the proof documentati
 ## Subsequent delivery-policy refinement
 
 After the proof run, the channel policy was refined so English captions are disabled in the MP4 and are not uploaded as a redundant YouTube track by default. Chinese audio and Chinese captions remain active. The thumbnail policy is now English-only: `thumbnail_en.jpg` is generated, validated, and uploaded automatically; `thumbnail_zh.jpg` is no longer generated or required. See `docs/caption_thumbnail_delivery_policy.md` for the contract and official API references.
+
+The delivery-policy commit `620ad32` was subsequently verified by quality-gate run [31773582539](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31773582539). The GitHub artifact contains only `thumbnail_en.jpg`; the English-caption disable policy, English-only thumbnail contract, corrected board render, and fail-closed production checks all passed.

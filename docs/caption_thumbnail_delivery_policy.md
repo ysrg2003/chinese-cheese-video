@@ -35,3 +35,7 @@ Before `upload_video()` is called, the workflow must have a valid Chinese audio 
 [1]: https://developers.google.com/youtube/v3/docs/thumbnails/set "YouTube Data API — Thumbnails: set"
 [2]: https://developers.google.com/youtube/v3/docs/captions/insert "YouTube Data API — Captions: insert"
 [3]: https://developers.google.com/youtube/v3/docs/videos/update "YouTube Data API — Videos: update"
+
+## Verification of the change
+
+Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. GitHub Actions quality-gate run [31773582539](https://github.com/ysrg2003/chinese-cheese-video/actions/runs/31773582539) also completed successfully. Its artifact contains `thumbnail_en.jpg` and no `thumbnail_zh.jpg`; `thumbnail-smoke.json` reports `width=1280`, `height=720`, `default_language=en`, and `localized_thumbnail_status=disabled_by_policy`. The smoke explicitly performs no production upload or YouTube mutation.
