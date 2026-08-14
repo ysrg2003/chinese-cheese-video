@@ -20,6 +20,7 @@ from youtube_publisher import load_policy, publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
 from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
+from visual_qa import verify_rendered_visuals
 from xiangqi_rules import validate_move_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -241,6 +242,17 @@ def main() -> int:
         if not args.skip_render and not args.dry_run:
             output_path = render_job(job, stage_dir)
             result["video_path"] = str(output_path)
+            visual_qa = verify_rendered_visuals(
+                job,
+                output_path,
+                stage_dir / "visual_qa",
+                ROOT / "public",
+            )
+            job["visualQA"] = visual_qa
+            result["visual_qa"] = visual_qa
+            if not visual_qa.get("ok"):
+                raise RuntimeError("Rendered visual QA failed: " + "; ".join(visual_qa.get("errors") or ["unknown visual QA failure"]))
+            write_job_files(job, stage_dir, public_dir)
             prepublish_thumbnail_dir = stage_dir / "prepublish_thumbnails"
             thumbnail_assets = generate_thumbnail_assets(
                 output_path,

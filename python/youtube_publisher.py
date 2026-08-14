@@ -371,6 +371,11 @@ def publish_video(
     localization_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     metadata = build_metadata(job, policy=load_policy(policy_path), playlists=load_playlists(playlists_path))
+    is_new_upload = video_path is not None and not existing_publication
+    if is_new_upload and job.get("visualStoryboardSource"):
+        visual_qa = job.get("visualQA")
+        if not isinstance(visual_qa, dict) or visual_qa.get("ok") is not True:
+            raise YouTubePublisherError("Pre-publish visual QA gate failed: rendered MP4 has no verified visualQA.ok=true")
     if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() not in {"1", "true", "yes"}:
         return {"status": "disabled", "metadata": metadata}
     service = service or build_service()

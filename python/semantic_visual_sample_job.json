@@ -1,0 +1,230 @@
+{
+  "id": "semantic-visual-proof",
+  "title": "How Xiangqi Routes Work",
+  "language": "en",
+  "visual_mode": "storyboard",
+  "content_type": "definition",
+  "fen": "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR w",
+  "moves": [],
+  "captions": [],
+  "narrationSegments": [
+    {
+      "kind": "intro",
+      "text": "A Xiangqi board has nine vertical files and ten horizontal ranks, creating ninety intersections.",
+      "startSec": 0.0,
+      "endSec": 3.4,
+      "sceneId": 1,
+      "visualKind": "coordinate_map",
+      "headline": "Nine Files, Ten Ranks",
+      "visualInstruction": "Draw all nine vertical files and ten horizontal ranks in sequence, then pulse the 90 legal intersections.",
+      "semanticTags": [
+        "files",
+        "ranks",
+        "intersections",
+        "board_geometry"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "nine files, ten ranks",
+        "primitives": [
+          "files",
+          "ranks",
+          "all_intersections"
+        ]
+      },
+      "captionText": "Play On Points",
+      "captionPosition": "bottom"
+    },
+    {
+      "kind": "intro",
+      "text": "The pieces stand on those intersections, and a move travels along the lines between them.",
+      "startSec": 3.4,
+      "endSec": 6.8,
+      "sceneId": 2,
+      "visualKind": "piece_movement",
+      "headline": "Points And Paths",
+      "visualInstruction": "Select one real red pawn on an intersection, pulse its origin, and show its legal destination points along the board lines.",
+      "semanticTags": [
+        "intersections",
+        "piece_anchor",
+        "paths",
+        "legal_destinations"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "points and paths",
+        "primitives": [
+          "piece_anchor",
+          "legal_destinations",
+          "path_lines"
+        ],
+        "focusPiece": "pawn",
+        "focusSide": "red"
+      },
+      "captionText": "Play On Points",
+      "captionPosition": "bottom"
+    },
+    {
+      "kind": "intro",
+      "text": "The horizontal river divides the two sides, while the central files connect the battlefield from one palace to the other.",
+      "startSec": 6.8,
+      "endSec": 10.2,
+      "sceneId": 3,
+      "visualKind": "river_palaces",
+      "headline": "River And Palaces",
+      "visualInstruction": "Shade the river band, outline both central 3-by-3 palaces with their X diagonals, and brighten the three central files.",
+      "semanticTags": [
+        "river",
+        "palaces",
+        "central_files"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "river and palaces",
+        "primitives": [
+          "river_band",
+          "palace_x",
+          "central_files"
+        ]
+      },
+      "captionText": "River And Palaces",
+      "captionPosition": "bottom"
+    },
+    {
+      "kind": "intro",
+      "text": "A chariot values an open file, a cannon values a line with the right screen, and a horse needs an unobstructed leg.",
+      "startSec": 10.2,
+      "endSec": 14.5,
+      "sceneId": 4,
+      "visualKind": "rule_focus",
+      "headline": "Three Movement Constraints",
+      "visualInstruction": "Show three short legal demonstrations: a chariot ray on an open file, a cannon with exactly one screen, and a horse with its leg clear versus blocked.",
+      "semanticTags": [
+        "chariot",
+        "cannon",
+        "screen",
+        "horse",
+        "leg"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "three movement constraints",
+        "primitives": [
+          "chariot_open_file",
+          "cannon_screen",
+          "horse_leg"
+        ]
+      },
+      "captionText": "Cannon Geometry",
+      "captionPosition": "bottom"
+    }
+  ],
+  "durationInSeconds": 14.5,
+  "audioSrc": "",
+  "theme": "wood",
+  "visualStoryboard": [
+    {
+      "index": 1,
+      "segmentIndex": 1,
+      "movePly": null,
+      "visualKind": "coordinate_map",
+      "headline": "Nine Files, Ten Ranks",
+      "narration": "A Xiangqi board has nine vertical files and ten horizontal ranks, creating ninety intersections.",
+      "caption": "Play On Points",
+      "visualInstruction": "Draw all nine vertical files and ten horizontal ranks in sequence, then pulse the 90 legal intersections.",
+      "semanticTags": [
+        "files",
+        "ranks",
+        "intersections",
+        "board_geometry"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "nine files, ten ranks",
+        "primitives": [
+          "files",
+          "ranks",
+          "all_intersections"
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "segmentIndex": 2,
+      "movePly": null,
+      "visualKind": "piece_movement",
+      "headline": "Points And Paths",
+      "narration": "The pieces stand on those intersections, and a move travels along the lines between them.",
+      "caption": "Play On Points",
+      "visualInstruction": "Select one real red pawn on an intersection, pulse its origin, and show its legal destination points along the board lines.",
+      "semanticTags": [
+        "intersections",
+        "piece_anchor",
+        "paths",
+        "legal_destinations"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "points and paths",
+        "primitives": [
+          "piece_anchor",
+          "legal_destinations",
+          "path_lines"
+        ],
+        "focusPiece": "pawn",
+        "focusSide": "red"
+      }
+    },
+    {
+      "index": 3,
+      "segmentIndex": 3,
+      "movePly": null,
+      "visualKind": "river_palaces",
+      "headline": "River And Palaces",
+      "narration": "The horizontal river divides the two sides, while the central files connect the battlefield from one palace to the other.",
+      "caption": "River And Palaces",
+      "visualInstruction": "Shade the river band, outline both central 3-by-3 palaces with their X diagonals, and brighten the three central files.",
+      "semanticTags": [
+        "river",
+        "palaces",
+        "central_files"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "river and palaces",
+        "primitives": [
+          "river_band",
+          "palace_x",
+          "central_files"
+        ]
+      }
+    },
+    {
+      "index": 4,
+      "segmentIndex": 4,
+      "movePly": null,
+      "visualKind": "rule_focus",
+      "headline": "Three Movement Constraints",
+      "narration": "A chariot values an open file, a cannon values a line with the right screen, and a horse needs an unobstructed leg.",
+      "caption": "Cannon Geometry",
+      "visualInstruction": "Show three short legal demonstrations: a chariot ray on an open file, a cannon with exactly one screen, and a horse with its leg clear versus blocked.",
+      "semanticTags": [
+        "chariot",
+        "cannon",
+        "screen",
+        "horse",
+        "leg"
+      ],
+      "visualPlan": {
+        "mode": "board_overlay",
+        "focus": "three movement constraints",
+        "primitives": [
+          "chariot_open_file",
+          "cannon_screen",
+          "horse_leg"
+        ]
+      }
+    }
+  ],
+  "visualStoryboardSource": "fallback"
+}

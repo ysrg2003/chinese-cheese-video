@@ -128,6 +128,9 @@ jobs:
           python -m py_compile python/*.py
           test -f docs/xiangqi_visual_spec.md
           grep -q 'Pre-publish thumbnail gate failed' python/run_pipeline.py
+          test -f python/visual_qa.py
+          grep -q 'Rendered visual QA failed' python/run_pipeline.py
+          grep -q 'verify_rendered_visuals' python/run_pipeline.py
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
           grep -q 'validate_move_sequence' python/director.py
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
@@ -170,6 +173,7 @@ jobs:
             output/jobs/**/references/**
             output/jobs/**/localization/**
             output/jobs/**/prepublish_thumbnails/**
+            output/jobs/**/visual_qa/**
             output/jobs/**/*.mp4
             public/generated/**/job.json
             public/generated/**/voice.mp3

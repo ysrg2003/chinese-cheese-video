@@ -108,6 +108,31 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
         resource = service.playlist_items_api.inserted[0]["body"]["snippet"]["resourceId"]
         self.assertEqual(resource["videoId"], "video-001")
 
+    def test_new_storyboard_upload_requires_rendered_visual_qa(self):
+        service = FakeService()
+        job = {
+            "id": "job-missing-visual-qa",
+            "title": "Missing Visual QA",
+            "language": "en",
+            "content_type": "tactics",
+            "narration": "The board must explain the sentence.",
+            "visual_mode": "storyboard",
+            "visualStoryboardSource": "ai_router",
+        }
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
+            youtube_publisher, "upload_video", side_effect=AssertionError("must not upload without visual QA")
+        ) as upload_mock:
+            with self.assertRaises(youtube_publisher.YouTubePublisherError) as context:
+                youtube_publisher.publish_video(
+                    video.name,
+                    job,
+                    policy_path=POLICY,
+                    playlists_path=PLAYLISTS,
+                    service=service,
+                )
+        self.assertIn("visual QA gate failed", str(context.exception))
+        upload_mock.assert_not_called()
+
     def test_stale_playlist_is_replaced_without_reupload(self):
         service = FakeService()
         service.playlists_api.stale = True
