@@ -77,3 +77,7 @@ The render emitted a warning that installed Remotion packages are split between 
 ## Pinned Remotion acceptance render
 
 After pinning `remotion`, `@remotion/cli`, and `@remotion/media-utils` to `4.0.509` and installing the matching Chrome Headless Shell, the corrected acceptance still rendered successfully at 1080x1920. Visual inspection shows the same correct river gap, central palaces, intersection placement, standard pieces, and river labels. The earlier 4.0.508/4.0.509 warning is resolved in the clean install path.
+
+## Thumbnail acceptance
+
+The non-publishing thumbnail test produced both `thumbnail_en.jpg` and `thumbnail_zh.jpg` at 1280x720 and well under the 2MB limit. Visual inspection confirms that the clean board card uses the corrected 9x10 board with the visible river and centered palaces, while the English and Chinese headlines remain legible. The English file is the default YouTube thumbnail; the Chinese file is retained as the localized Studio variant.
