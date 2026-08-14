@@ -130,6 +130,7 @@ jobs:
           grep -q 'Pre-publish thumbnail gate failed' python/run_pipeline.py
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
           grep -q 'validate_move_sequence' python/director.py
+          grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
 
       - name: Reconcile public videos with pending playlist associations
         if: env.XIANGQI_PRODUCTION_FREEZE != '1'

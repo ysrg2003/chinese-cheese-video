@@ -18,7 +18,7 @@ A deliberate visual simplification can disable the English teaching-cue layer by
 
 ## Thumbnail automation
 
-The pipeline renders a clean board frame, builds `thumbnail_en.jpg` at 1280×720, validates JPEG format, dimensions, readability, and the 2 MB limit, then calls the YouTube `thumbnails.set` endpoint automatically after the video upload and playlist association. YouTube's official API documentation defines `thumbnails.set` as the method that uploads and sets a custom video thumbnail, with a 2 MB maximum file size.[1]
+The pipeline renders a clean board frame, builds `thumbnail_en.jpg` at 1280×720, validates JPEG format, dimensions, readability, and the 2 MB limit, then calls the YouTube `thumbnails.set` endpoint automatically after the video upload and playlist association. The publisher explicitly requests both `https://www.googleapis.com/auth/youtube.upload` and `https://www.googleapis.com/auth/youtube.force-ssl` in `python/youtube_publisher.py`; the latter is covered by a unit test and a production preflight grep gate. YouTube's official API documentation defines `thumbnails.set` as the method that uploads and sets a custom video thumbnail, with a 2 MB maximum file size.[1]
 
 No Chinese thumbnail is generated, validated, stored, or uploaded. The English thumbnail is the sole thumbnail policy for this channel. This avoids an unnecessary Studio-only localization step and keeps every future production run fully unattended.
 
@@ -39,6 +39,8 @@ Before `upload_video()` is called, the workflow must have valid English teaching
 ## Verification of the change
 
 Commit `620ad32` passed local Python tests (61 tests), Python compilation, and TypeScript checking. The later legal-destination implementation and policy correction are tracked on the current `master`; the final GitHub quality-gate run is recorded below.
+
+The live production proof for video `NYhJlCD49hw` recorded a successful `youtube#thumbnailSetResponse`, including the returned `maxresdefault.jpg` URL. Therefore the scope was not merely documented: it was effective during the actual upload.
  Its artifact contains `thumbnail_en.jpg` and no `thumbnail_zh.jpg`; `thumbnail-smoke.json` reports `width=1280`, `height=720`, `default_language=en`, and `localized_thumbnail_status=disabled_by_policy`. The smoke explicitly performs no production upload or YouTube mutation.
 
 ## Legacy video cleanup proof

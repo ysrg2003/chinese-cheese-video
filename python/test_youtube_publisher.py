@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
-from youtube_publisher import _reusable_existing_video_id, build_metadata, load_playlists, load_policy
+from youtube_publisher import SCOPES, _reusable_existing_video_id, build_metadata, load_playlists, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "youtube_metadata_policy.json"
@@ -14,6 +14,10 @@ PLAYLISTS = ROOT / "config" / "youtube_playlists.json"
 
 
 class YouTubePublisherLocalTests(unittest.TestCase):
+    def test_oauth_scopes_include_thumbnail_upload_scope(self) -> None:
+        self.assertIn("https://www.googleapis.com/auth/youtube.force-ssl", SCOPES)
+        self.assertIn("https://www.googleapis.com/auth/youtube.upload", SCOPES)
+
     def test_english_metadata_maps_to_tactics_playlist(self) -> None:
         metadata = build_metadata(
             {
