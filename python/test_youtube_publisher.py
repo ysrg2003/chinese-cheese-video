@@ -84,6 +84,14 @@ class YouTubePublisherLocalTests(unittest.TestCase):
             _reusable_existing_video_id({"status": "published", "video_id": "published-video"}),
             "published-video",
         )
+        self.assertEqual(
+            _reusable_existing_video_id({"status": "published_thumbnail_pending", "video_id": "thumbnail-video"}),
+            "thumbnail-video",
+        )
+        self.assertEqual(
+            _reusable_existing_video_id({"status": "published_localization_pending", "video_id": "localization-video"}),
+            "localization-video",
+        )
 
     def test_publication_replacement_preserves_remediation_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -141,6 +149,38 @@ class YouTubePublisherLocalTests(unittest.TestCase):
             self.assertEqual(video["captions_source"], "english_captions_disabled_in_video")
             self.assertEqual(len(catalog["video_playlists"]), 1)
             self.assertEqual(catalog["video_playlists"][0]["youtube_playlist_id"], "catalog-playlist")
+
+    def test_thumbnail_pending_state_preserves_public_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalStore(Path(directory) / "thumbnail-pending.db")
+            store.upsert_youtube_publication(
+                "thumbnail-pending-en",
+                "en",
+                "tactics",
+                "published_thumbnail_pending",
+                video_id="video-thumbnail",
+                video_url="https://www.youtube.com/watch?v=video-thumbnail",
+                playlist_id="playlist-thumbnail",
+                playlist_url="https://www.youtube.com/playlist?list=playlist-thumbnail",
+                metadata={"title": "Thumbnail Pending"},
+                error_message="uploadRateLimitExceeded",
+            )
+            pending = store.get_youtube_publication("thumbnail-pending-en")
+            self.assertEqual(pending["status"], "published_thumbnail_pending")
+            self.assertEqual(pending["video_id"], "video-thumbnail")
+            self.assertEqual(pending["playlist_id"], "playlist-thumbnail")
+            store.upsert_youtube_publication(
+                "thumbnail-pending-en",
+                "en",
+                "tactics",
+                "published",
+                video_id="video-thumbnail",
+                metadata={"title": "Thumbnail Pending"},
+            )
+            completed = store.get_youtube_publication("thumbnail-pending-en")
+            self.assertEqual(completed["status"], "published")
+            self.assertEqual(completed["video_id"], "video-thumbnail")
+            self.assertEqual(completed["playlist_id"], "playlist-thumbnail")
 
     def test_publication_state_is_persistent_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

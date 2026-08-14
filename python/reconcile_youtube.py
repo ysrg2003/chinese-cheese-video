@@ -25,7 +25,7 @@ def main() -> int:
             SELECT job_id, language, content_type, status, video_id, video_url, playlist_id,
                    playlist_url, metadata_json, error_message
             FROM youtube_publications
-            WHERE video_id IS NOT NULL AND status IN ('failed', 'uploaded_playlist_pending')
+            WHERE video_id IS NOT NULL AND status IN ('failed', 'uploaded_playlist_pending', 'published_localization_pending', 'published_thumbnail_pending')
             ORDER BY updated_at ASC
             LIMIT 20
             """

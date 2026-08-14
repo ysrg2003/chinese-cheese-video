@@ -16,7 +16,7 @@ from local_store import LocalStore
 from supabase_store import SupabaseStore
 from tts import align_narration_segments_to_cues, captions_from_narration, captions_from_narration_segments, captions_from_word_cues, synthesize
 from timing import finalize_timing
-from youtube_publisher import load_policy, publish_video
+from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES, load_policy, publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
 from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
@@ -308,13 +308,14 @@ def main() -> int:
                         video_path=output_path,
                     )
                     if publication.get("status") != "published":
-                        raise RuntimeError(publication.get("error_message") or "YouTube playlist association is pending")
+                        raise RuntimeError(publication.get("error_message") or "YouTube publication is pending reconciliation")
                 except Exception as publish_exc:
+                    preserved_status = publication.get("status") if publication.get("status") in RESUMABLE_PUBLICATION_STATUSES else "failed"
                     publication_store.upsert_youtube_publication(
                         job_id,
                         job["language"],
                         content_type,
-                        "failed",
+                        preserved_status,
                         video_id=publication.get("video_id"),
                         video_url=publication.get("video_url"),
                         playlist_id=publication.get("playlist_id"),
@@ -322,7 +323,7 @@ def main() -> int:
                         metadata=publication.get("metadata", {"job_id": job_id, "title": job.get("title")}),
                         error_message=str(publish_exc),
                     )
-                    publication["status"] = "failed"
+                    publication["status"] = preserved_status
                     publication["error_message"] = str(publish_exc)
                     publication_store.upsert_youtube_catalog(
                         job,

@@ -19,6 +19,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube.force-ssl",
 ]
 RETRIABLE_STATUS_CODES = {500, 502, 503, 504}
+RESUMABLE_PUBLICATION_STATUSES = {
+    "uploaded_playlist_pending",
+    "published_localization_pending",
+    "published_thumbnail_pending",
+}
 
 
 class YouTubePublisherError(RuntimeError):
@@ -308,6 +313,16 @@ def ensure_playlist(
     return str(response["id"]), True
 
 
+def _is_thumbnail_rate_limit_error(exc: Exception) -> bool:
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    message = str(exc).lower()
+    return status == 429 and (
+        "thumbnail" in message
+        or "uploadratelimitexceeded" in message
+        or "too many thumbnails" in message
+    )
+
+
 def _is_playlist_not_found(exc: Exception) -> bool:
     status = getattr(getattr(exc, "resp", None), "status", None)
     message = str(exc)
@@ -344,7 +359,14 @@ def add_to_playlist(service: Any, playlist_id: str, video_id: str) -> dict[str, 
     )
 
 
-REUSABLE_EXISTING_PUBLICATION_STATUSES = {"published", "failed", "uploaded_playlist_pending", "publishing"}
+REUSABLE_EXISTING_PUBLICATION_STATUSES = {
+    "published",
+    "failed",
+    "uploaded_playlist_pending",
+    "published_localization_pending",
+    "published_thumbnail_pending",
+    "publishing",
+}
 
 
 def _reusable_existing_video_id(existing_publication: dict[str, Any] | None) -> str:
@@ -492,7 +514,26 @@ def publish_video(
                 "localized_thumbnail_status": "disabled_by_policy",
             }
         except Exception as exc:
-            raise YouTubePublisherError(f"Post-upload localization application failed: {exc}") from exc
+            # The video and usually its playlist entry already exist at this point.
+            # Preserve that public identity and let reconciliation retry only the
+            # incomplete post-upload operation; never turn an existing public video
+            # into a fresh upload on the next run.
+            status = "published_thumbnail_pending" if _is_thumbnail_rate_limit_error(exc) else "published_localization_pending"
+            partial_localization = dict(localization)
+            partial_localization["status"] = status
+            partial_localization["error"] = str(exc)
+            return {
+                "status": status,
+                "video_id": video_id,
+                "video_url": f"https://www.youtube.com/watch?v={video_id}",
+                "playlist_id": playlist_id,
+                "playlist_url": f"https://www.youtube.com/playlist?list={playlist_id}" if playlist_id else None,
+                "playlist_created": playlist_created,
+                "playlist_item": playlist_response,
+                "metadata": metadata,
+                "localization": partial_localization,
+                "error_message": str(exc),
+            }
     publication_metadata = dict(metadata)
     publication_metadata["localization"] = localization
     return {

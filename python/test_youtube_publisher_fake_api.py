@@ -79,6 +79,21 @@ class FakeService:
     def playlistItems(self):
         return self.playlist_items_api
 
+    def captions(self):
+        return object()
+
+    def videos(self):
+        return object()
+
+    def thumbnails(self):
+        return object()
+
+
+class FakeThumbnailRateLimitError(Exception):
+    def __init__(self):
+        super().__init__("The user has uploaded too many thumbnails recently: uploadRateLimitExceeded")
+        self.resp = type("Response", (), {"status": 429})()
+
 
 class YouTubePublisherFakeApiTests(unittest.TestCase):
     def test_publish_uploads_and_associates_playlist(self):
@@ -161,6 +176,65 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
         self.assertEqual(len(service.playlists_api.created), 1)
         resource = service.playlist_items_api.inserted[0]["body"]["snippet"]["resourceId"]
         self.assertEqual(resource["videoId"], "video-existing")
+
+    def test_thumbnail_rate_limit_preserves_public_video_and_retry_does_not_reupload(self):
+        service = FakeService()
+        job = {
+            "id": "job-thumbnail-pending",
+            "title": "Thumbnail Retry",
+            "language": "en",
+            "content_type": "tactics",
+            "narration": "Explain the pressure, effect, and rule around the move.",
+        }
+        localization_assets = {"zh": {"title": "缩略图重试", "description": "测试"}, "en": {"title": "Thumbnail Retry"}}
+        thumbnail_assets = {"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
+            youtube_publisher, "upload_video", return_value={"id": "video-thumbnail-pending"}
+        ) as upload_mock, patch("localization.generate_localization_assets", return_value=localization_assets), patch(
+            "localization.validate_localization_assets", return_value=[]
+        ), patch("thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets), patch(
+            "thumbnail.validate_thumbnail_assets", return_value=[]
+        ), patch("localization.upload_caption_tracks", return_value={"zh": {"status": "completed"}}), patch(
+            "localization.update_localized_metadata", return_value={"ok": True}
+        ), patch("localization.set_thumbnail", side_effect=FakeThumbnailRateLimitError()):
+            first = youtube_publisher.publish_video(
+                video.name,
+                job,
+                policy_path=POLICY,
+                playlists_path=PLAYLISTS,
+                service=service,
+            )
+        self.assertEqual(first["status"], "published_thumbnail_pending")
+        self.assertEqual(first["video_id"], "video-thumbnail-pending")
+        self.assertEqual(first["playlist_id"], "playlist-001")
+        self.assertEqual(upload_mock.call_count, 1)
+
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
+            youtube_publisher, "upload_video", side_effect=AssertionError("must not re-upload an existing public video")
+        ) as retry_upload, patch("localization.generate_localization_assets", return_value=localization_assets), patch(
+            "localization.validate_localization_assets", return_value=[]
+        ), patch("thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets), patch(
+            "thumbnail.validate_thumbnail_assets", return_value=[]
+        ), patch("localization.upload_caption_tracks", return_value={"zh": {"status": "completed"}}), patch(
+            "localization.update_localized_metadata", return_value={"ok": True}
+        ), patch("localization.set_thumbnail", return_value={"ok": True}):
+            second = youtube_publisher.publish_video(
+                None,
+                job,
+                policy_path=POLICY,
+                playlists_path=PLAYLISTS,
+                service=service,
+                existing_publication={
+                    "status": "published_thumbnail_pending",
+                    "video_id": "video-thumbnail-pending",
+                    "video_url": "https://www.youtube.com/watch?v=video-thumbnail-pending",
+                    "playlist_id": "playlist-001",
+                    "playlist_url": "https://www.youtube.com/playlist?list=playlist-001",
+                },
+            )
+        self.assertEqual(second["status"], "published")
+        self.assertEqual(second["video_id"], "video-thumbnail-pending")
+        retry_upload.assert_not_called()
 
     def test_retry_reuses_existing_video_id(self):
         service = FakeService()

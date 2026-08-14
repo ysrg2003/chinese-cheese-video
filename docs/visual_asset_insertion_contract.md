@@ -37,3 +37,9 @@ Every production job follows this sequence:
 | YouTube upload is protected | `publish_video()` requires `visualQA.ok == true` for a new storyboard upload |
 
 The quality-gate workflow runs the same CLI against a rendered semantic proof. The production workflow also runs the gate inside `run_pipeline.py`, so scheduled execution does not depend on a Manus review or a manually opened image.
+
+## Publication-state contract
+
+Visual QA and rendering can succeed while a later YouTube mutation fails. The publisher therefore treats post-upload operations as resumable state transitions. If `upload_video()` has returned a video ID and a later playlist, caption, metadata, or thumbnail operation fails, the publisher preserves that video ID and playlist identity in SQLite and returns a resumable status such as `uploaded_playlist_pending`, `published_localization_pending`, or `published_thumbnail_pending`.
+
+A thumbnail rate-limit response from `thumbnails.set` is specifically classified as `published_thumbnail_pending`. The next reconciliation run selects that row and calls `publish_video(None, ..., existing_publication=...)`; `_reusable_existing_video_id()` accepts the status, so YouTube receives only the missing thumbnail request and never receives a second `videos.insert` upload. The catalog may remain pending until all required post-upload policy steps complete, but the public identity is never discarded and cannot be duplicated by a retry.
