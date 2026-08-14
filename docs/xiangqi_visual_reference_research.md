@@ -85,3 +85,11 @@ The non-publishing thumbnail test produced both `thumbnail_en.jpg` and `thumbnai
 ## GitHub Actions acceptance artifact
 
 Run `31769123910` succeeded on commit `1c3420a`. Its downloaded `clean-board.png` is 1080x1920 and visually matches the local acceptance frame: standard 32-piece placement on intersections, central palace diagonals, and a full-width river band separating the armies. The smoke workflow also produced and validated both 1280x720 thumbnails. The artifact contains `no-publish.txt`, confirming that this run performed no YouTube mutation.
+
+## Public YouTube proof
+
+The successful production run uploaded `D-o77HngwOU`. A public YouTube navigation to `https://www.youtube.com/watch?v=D-o77HngwOU` returned the title `What Is Xiangqi?`, channel `Xiangqi Lab | 中国象棋实验室`, the English description, and public watch-page metadata. The sandbox player itself showed YouTube's sign-in/anti-bot interstitial, so visual frame verification remains based on the downloaded GitHub artifact rather than assuming the browser player rendered.
+
+### Artifact visual inspection — production proof 31769865009
+
+The downloaded `prepublish_thumbnails/clean_board.png` is 1080x1920 and visibly shows all pieces centered on grid intersections, a full-width river gap between the fifth and sixth ranks, and palace X diagonals in the central three files for both sides. The clean-board frame is the source for the validated 1280x720 English and Chinese thumbnails; explanatory labels/highlights are layered by the video scenes rather than baked into this clean source frame.
