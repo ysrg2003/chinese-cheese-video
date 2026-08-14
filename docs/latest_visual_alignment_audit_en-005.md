@@ -39,3 +39,9 @@ The `River And Palaces` frame is now directly explanatory: the river band, both 
 ## Points and paths fix
 
 The first points/paths sample exposed a renderer gate bug: the semantic SVG container did not activate for `piece_anchor`, `legal_destinations`, or `path_lines` alone. After adding those primitives to the container condition and selecting a deterministic red pawn focus, the final frame visibly shows the red pawn at `[0,6]` with a gold origin ring, a blue legal destination at `[0,5]`, and the connecting path. The displayed destination is produced by `legalDestinationsForPiece`, not an invented coordinate.
+
+## Follow-up: production artifact en-006 and AI-path hardening
+
+The first production-equivalent en-006 artifact proved that the initial semantic director worked for explicit technical sentences, but it also exposed a gap in the AI storyboard path: phrases such as “river separates territories,” “general and advisors,” “palace entry points,” and “predict which routes are open, restricted, or impossible” could inherit broad AI plans such as `river_palaces` or `intersections` without the corresponding renderer primitives.
+
+The hardening change makes the deterministic contract authoritative after AI normalization. It maps those sentences to `territory_split`, `palace_piece_anchor`, `palace_entry_points`, and `route_constraints`, respectively, and rejects unknown `board_overlay` primitives before rendering. The Remotion layer now draws each primitive on the canonical 9×10 intersection board. A local corrected en-006 render was inspected at 2, 7, 13, 18, and 33 seconds; the river, territory tint, palace anchors, entry points, central files, and palace boundaries all appeared in the intended scenes.

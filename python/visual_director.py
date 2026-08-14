@@ -10,6 +10,18 @@ from timing import estimate_content_duration
 
 FOUNDATION_VISUAL_MODES = {"foundation_storyboard", "board_introduction", "setup_overview"}
 DISABLED_VISUAL_MODES = {"none", "disabled", "off"}
+SUPPORTED_BOARD_PRIMITIVES = {
+    "files", "ranks", "all_intersections", "piece_anchor", "legal_destinations", "path_lines",
+    "dim_square_interiors", "brighten_lines", "river_band", "palace_x", "central_files",
+    "intersection_pulse", "territory_split", "palace_piece_anchor", "palace_entry_points", "route_constraints",
+    "chariot_open_file", "cannon_screen", "horse_leg", "source_piece", "legal_path", "played_destination",
+    "cannon_target", "legal_l_targets",
+    "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
+    "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
+    "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
+    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight",
+}
+
 ALL_VISUAL_KINDS = {
     "battlefield",
     "two_armies",
@@ -124,7 +136,7 @@ VISUAL_DIRECTOR_INSTRUCTIONS = """
 You are the visual director for an autonomous Xiangqi video pipeline. Return valid JSON only:
 {"scenes":[{"index":1,"segmentIndex":1,"movePly":null,"narration":"natural spoken text when requested","caption":"short cue","visualKind":"one permitted kind","headline":"2 to 6 words","visualInstruction":"one concrete renderer-supported visual action","semanticTags":["specific concept"],"visualPlan":{"mode":"board_overlay","focus":"what the viewer must see","primitives":["renderer primitive"]}}]}
 
-Create exactly one scene for every supplied narration segment. Every scene must make the current spoken idea visible through a board change, highlight, path, arrow, before/after comparison, question, or result marker. Do not add decorative motion with no teaching purpose. Do not invent a game or move that is absent from the supplied data. Keep move scenes tied to the supplied movePly and coordinates. Keep captions short. Never write commands addressed to an animator as spoken narration. Use only the requested language and never Arabic.
+Create exactly one scene for every supplied narration segment. Every scene must make the current spoken idea visible through a board change, highlight, path, arrow, before/after comparison, question, or result marker. Do not add decorative motion with no teaching purpose. Do not invent a game or move that is absent from the supplied data. Keep move scenes tied to the supplied movePly and coordinates. Keep captions short. Never write commands addressed to an animator as spoken narration. Use only the requested language and never Arabic. Use only renderer-supported primitives; if the sentence is about the river, palaces, pieces, paths, or route limits, choose the matching deterministic board primitives rather than a generic decorative scene.
 
 Permitted visualKind values: battlefield, two_armies, generals_goal, intersections, river_palaces, cannon_geometry, learning_roadmap, board_overview, army_setup, piece_movement, move_path, attack_line, defense_zone, threat_marker, capture_sequence, cannon_screen, before_after, comparison_split, game_phase, question_reveal, result_summary, history_timeline, cultural_heritage, board_identity, rule_focus, coordinate_map, piece_spotlight.
 """.strip()
@@ -318,10 +330,18 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
         return contract("piece_movement", "Points And Paths", "Select one real red pawn on an intersection, pulse its origin, and show its legal destination points along the board lines.", ["intersections", "piece_anchor", "paths", "legal_destinations"], ["piece_anchor", "legal_destinations", "path_lines"], "pawn", focus_side="red")
     if "river" in text and ("palace" in text or "central files" in text or "divides" in text):
         return contract("river_palaces", "River And Palaces", "Shade the river band, outline both central 3-by-3 palaces with their X diagonals, and brighten the three central files.", ["river", "palaces", "central_files"], ["river_band", "palace_x", "central_files"])
-    if ("route map" in text or "routes" in text) and ("square" in text or "enclosed" in text or "grid" in text):
-        return contract("board_identity", "Board As Route Map", "Dim square interiors and brighten the intersection network so the board reads as routes, not enclosed squares.", ["route_map", "intersections", "lines", "not_squares"], ["dim_square_interiors", "brighten_lines", "pulse_intersections"])
+    if "river" in text and any(marker in text for marker in ("separat", "territor", "soldier", "elephant", "divid")):
+        return contract("river_palaces", "River Separates Territories", "Shade the river band, tint the Black and Red territories on opposite sides, and keep the river crossing visible without inventing a move.", ["river", "territories", "soldier", "elephant", "board_geometry"], ["river_band", "territory_split"])
+    if "palace" in text and any(marker in text for marker in ("three-by-three", "general", "advisor", "adviser", "zone", "remain")):
+        return contract("river_palaces", "Palace: General And Advisors", "Outline both 3-by-3 palaces with their X diagonals and ring the Generals and Advisors that must remain inside them.", ["palace", "general", "advisors", "three_by_three", "palace_limits"], ["palace_x", "palace_piece_anchor"])
+    if "palace" in text and any(marker in text for marker in ("entry", "diagonal", "direct-line", "direct line", "danger", "safe corner")):
+        return contract("rule_focus", "Palace Entry And Direct Lines", "Highlight the palace X diagonals, the central-file entry points, and the direct lines that make palace access narrow; show no unprovided move.", ["palace", "entry_points", "protected_diagonals", "direct_lines", "legal_geometry"], ["palace_x", "central_files", "palace_entry_points"])
     if "chariot" in text and "cannon" in text and ("horse" in text or "leg" in text):
         return contract("rule_focus", "Three Movement Constraints", "Show three short legal demonstrations: a chariot ray on an open file, a cannon with exactly one screen, and a horse with its leg clear versus blocked.", ["chariot", "cannon", "screen", "horse", "leg"], ["chariot_open_file", "cannon_screen", "horse_leg"])
+    if any(marker in text for marker in ("route", "routes", "open", "restricted", "impossible", "predict")) and any(marker in text for marker in ("region", "regions", "palace", "river", "file", "line")):
+        return contract("rule_focus", "Region-Based Route Limits", "Keep the river and palaces visible, brighten the central route lanes, and mark the region boundaries that make a route open, restricted, or impossible to evaluate.", ["routes", "open", "restricted", "impossible", "regions", "legal_geometry"], ["river_band", "palace_x", "central_files", "route_constraints"])
+    if ("route map" in text or "routes" in text) and ("square" in text or "enclosed" in text or "grid" in text):
+        return contract("board_identity", "Board As Route Map", "Dim square interiors and brighten the intersection network so the board reads as routes, not enclosed squares.", ["route_map", "intersections", "lines", "not_squares"], ["dim_square_interiors", "brighten_lines", "all_intersections"])
     if "file" in text or "rank" in text or "coordinate" in text:
         return contract("coordinate_map", "Read The Board Map", "Label the files and ranks around the actual board and pulse the intersections named in the narration.", ["files", "ranks", "coordinates"], ["files", "ranks", "intersection_pulse"])
     if "intersection" in text or "point" in text or "crossing" in text:
@@ -575,6 +595,11 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             errors.append(f"scene_{index} has no valid visualPlan")
         elif strict_semantic_contract and (not str(plan.get("focus") or "").strip() or not isinstance(plan.get("primitives"), list) or not plan.get("primitives")):
             errors.append(f"scene_{index} visualPlan is not actionable")
+        if strict_semantic_contract and isinstance(plan, dict) and str(plan.get("mode") or "") == "board_overlay":
+            unknown_primitives = sorted({str(primitive) for primitive in plan.get("primitives", []) if str(primitive) not in SUPPORTED_BOARD_PRIMITIVES})
+            if unknown_primitives:
+                errors.append(f"scene_{index} visualPlan has unsupported primitives={unknown_primitives}")
+
         if strict_semantic_contract and (not isinstance(scene.get("semanticTags"), list) or not scene.get("semanticTags")):
             errors.append(f"scene_{index} has no semanticTags")
         asset = scene.get("generatedAsset")
