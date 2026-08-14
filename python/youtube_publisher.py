@@ -344,6 +344,22 @@ def add_to_playlist(service: Any, playlist_id: str, video_id: str) -> dict[str, 
     )
 
 
+REUSABLE_EXISTING_PUBLICATION_STATUSES = {"published", "failed", "uploaded_playlist_pending", "publishing"}
+
+
+def _reusable_existing_video_id(existing_publication: dict[str, Any] | None) -> str:
+    if not existing_publication:
+        return ""
+    status = str(existing_publication.get("status") or "").strip().lower()
+    # Older local rows may predate the status column contract; treat a non-empty
+    # legacy video_id as a resumable upload, but never override explicit quarantine states.
+    if not status:
+        status = "uploaded_playlist_pending"
+    if status not in REUSABLE_EXISTING_PUBLICATION_STATUSES:
+        return ""
+    return str(existing_publication.get("video_id") or "").strip()
+
+
 def publish_video(
     video_path: str | Path,
     job: dict[str, Any],
@@ -358,7 +374,7 @@ def publish_video(
     if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() not in {"1", "true", "yes"}:
         return {"status": "disabled", "metadata": metadata}
     service = service or build_service()
-    existing_video_id = str((existing_publication or {}).get("video_id") or "").strip()
+    existing_video_id = _reusable_existing_video_id(existing_publication)
     if existing_video_id:
         video_id = existing_video_id
     else:

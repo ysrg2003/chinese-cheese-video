@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
-from youtube_publisher import build_metadata, load_playlists, load_policy
+from youtube_publisher import _reusable_existing_video_id, build_metadata, load_playlists, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "youtube_metadata_policy.json"
@@ -62,6 +62,24 @@ class YouTubePublisherLocalTests(unittest.TestCase):
         self.assertEqual(metadata["playlist_key"], "zh-endgames")
         self.assertIn("#中国象棋", metadata["hashtags"])
         self.assertNotIn("#Xiangqi", metadata["hashtags"])
+
+    def test_deleted_publication_id_is_never_reused_for_retry(self) -> None:
+        self.assertEqual(
+            _reusable_existing_video_id({"status": "deleted_invalid_content", "video_id": "deleted-video"}),
+            "",
+        )
+        self.assertEqual(
+            _reusable_existing_video_id({"status": "blocked_invalid_content", "video_id": "blocked-video"}),
+            "",
+        )
+        self.assertEqual(
+            _reusable_existing_video_id({"status": "uploaded_playlist_pending", "video_id": "retry-video"}),
+            "retry-video",
+        )
+        self.assertEqual(
+            _reusable_existing_video_id({"status": "published", "video_id": "published-video"}),
+            "published-video",
+        )
 
     def test_youtube_catalog_tracks_channel_playlists_video_and_association(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
