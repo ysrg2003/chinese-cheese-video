@@ -36,6 +36,8 @@ The production workflow keeps one run alive for a bounded reconciliation window.
 
 The continuation carries `daily_count`, `languages`, `discovery_limit`, and `reconcile_only` forward. It never changes the content identity, never clears a pending publication, and never turns a post-upload retry into a new upload.
 
+The first deployment of this loop exposed and fixed a CLI wiring defect: the workflow passed `--output`, while the Python entry point expected `output_path`. The corrected parser now maps the CLI flag explicitly, and a regression test covers this exact failure mode. Production is gated on the successful completion of the reconciliation step, so it cannot proceed after a broken or incomplete reconciliation invocation.
+
 ## References
 
 [1]: https://docs.github.com/actions/using-workflows/triggering-a-workflow "GitHub Docs: Triggering a workflow"

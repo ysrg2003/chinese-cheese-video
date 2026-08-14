@@ -1,12 +1,18 @@
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from continuous_reconcile import reconcile_until_complete
+from continuous_reconcile import parse_args, reconcile_until_complete
 
 
 class ContinuousReconcileTests(unittest.TestCase):
+    def test_output_cli_argument_maps_to_output_path(self) -> None:
+        with patch.object(sys, "argv", ["continuous_reconcile.py", "--output", "custom.json"]):
+            self.assertEqual(parse_args().output_path, "custom.json")
+
     def test_retries_until_publication_is_complete(self) -> None:
         reports = iter(
             [

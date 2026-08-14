@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--initial-delay-seconds", type=int, default=int(os.getenv("RECONCILIATION_INITIAL_DELAY_SECONDS", "60")))
     parser.add_argument("--max-delay-seconds", type=int, default=int(os.getenv("RECONCILIATION_MAX_DELAY_SECONDS", "1800")))
     parser.add_argument("--max-runtime-minutes", type=int, default=int(os.getenv("RECONCILIATION_MAX_RUNTIME_MINUTES", "330")))
-    parser.add_argument("--output", default=os.getenv("RECONCILIATION_OUTPUT", "continuous-reconcile.json"))
+    parser.add_argument("--output", dest="output_path", default=os.getenv("RECONCILIATION_OUTPUT", "continuous-reconcile.json"))
     return parser.parse_args()
 
 
