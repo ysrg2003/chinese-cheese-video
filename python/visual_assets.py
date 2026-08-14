@@ -237,6 +237,64 @@ def _validate_and_write_image(content: bytes, preferred_extension: str, destinat
     return path, {"width": width, "height": height, "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()}
 
 
+def validate_and_annotate_visual_assets(job: dict[str, Any], public_root: Path | None = None) -> list[str]:
+    """Validate every attached visual asset and record its real render window."""
+    public_root = public_root or (ROOT / "public")
+    metadata = job.get("visualAssets") if isinstance(job.get("visualAssets"), dict) else {}
+    assets = metadata.get("assets") if isinstance(metadata.get("assets"), list) else []
+    scenes = {int(scene.get("index")): scene for scene in job.get("visualStoryboard", []) if isinstance(scene, dict) and scene.get("index") is not None}
+    segments = [segment for segment in job.get("narrationSegments", []) if isinstance(segment, dict)]
+    errors: list[str] = []
+    manifest: list[dict[str, Any]] = []
+    for ordinal, asset in enumerate(assets, start=1):
+        if not isinstance(asset, dict):
+            errors.append(f"asset_{ordinal} is not an object")
+            continue
+        src = str(asset.get("src") or "")
+        scene_index = _positive_int(asset.get("sceneIndex"), 0)
+        if not src.startswith("generated/") or ".." in src:
+            errors.append(f"asset_{ordinal} has unsafe source")
+            continue
+        path = public_root / src
+        if not path.is_file():
+            errors.append(f"asset_{ordinal} missing file: {src}")
+            continue
+        try:
+            content = path.read_bytes()
+            with Image.open(io.BytesIO(content)) as image:
+                image.verify()
+            with Image.open(io.BytesIO(content)) as image:
+                width, height = image.size
+        except Exception as exc:
+            errors.append(f"asset_{ordinal} unreadable: {src}: {exc}")
+            continue
+        actual_hash = hashlib.sha256(content).hexdigest()
+        if asset.get("sha256") and str(asset["sha256"]) != actual_hash:
+            errors.append(f"asset_{ordinal} sha256 mismatch: {src}")
+        scene = scenes.get(scene_index)
+        if scene is None or not isinstance(scene.get("generatedAsset"), dict) or scene["generatedAsset"].get("src") != src:
+            errors.append(f"asset_{ordinal} is not attached to scene_{scene_index}")
+        matching = [segment for segment in segments if int(segment.get("sceneId", -1)) == scene_index and segment.get("startSec") is not None and segment.get("endSec") is not None]
+        if not matching:
+            errors.append(f"asset_{ordinal} has no timed segment for scene_{scene_index}")
+            continue
+        start = min(float(segment.get("startSec", 0.0)) for segment in matching)
+        end = max(float(segment.get("endSec", start)) for segment in matching)
+        if end - start < 0.75:
+            errors.append(f"asset_{ordinal} scene_{scene_index} visibility window is too short: {end - start:.2f}s")
+        asset["width"] = width
+        asset["height"] = height
+        asset["sha256"] = actual_hash
+        asset["visibleStartSec"] = start
+        asset["visibleEndSec"] = end
+        asset["visibilityDurationSec"] = round(end - start, 3)
+        manifest.append({key: asset.get(key) for key in ("sceneIndex", "src", "assetRole", "width", "height", "sha256", "visibleStartSec", "visibleEndSec", "visibilityDurationSec")})
+    metadata["manifest"] = manifest
+    metadata["contract"] = "durable_file_hash_scene_timing_v1"
+    job["visualAssets"] = metadata
+    return errors
+
+
 def add_generated_visual_assets(job: dict[str, Any], puzzle: dict[str, Any], stage_dir: Path, public_dir: Path) -> dict[str, Any]:
     """Plan and obtain optional assets; always preserve the deterministic board fallback."""
     maximum = _positive_int(os.getenv("VISUAL_ASSET_MAX_PER_VIDEO"), MAX_ASSETS_DEFAULT)

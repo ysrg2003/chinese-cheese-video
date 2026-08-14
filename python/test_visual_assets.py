@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from visual_assets import _normalise_asset_plan, _validate_and_write_image, add_generated_visual_assets
+from visual_assets import _normalise_asset_plan, _validate_and_write_image, add_generated_visual_assets, validate_and_annotate_visual_assets
 
 
 class VisualAssetPipelineTests(unittest.TestCase):
@@ -48,6 +48,34 @@ class VisualAssetPipelineTests(unittest.TestCase):
             result = add_generated_visual_assets(self.job.copy(), {}, Path(directory) / "stage", Path(directory) / "public")
         self.assertEqual(result["visualAssets"]["reason"], "disabled_or_missing_service_credentials")
         self.assertEqual(result["visualAssets"]["assets"], [])
+
+    def test_asset_contract_requires_durable_file_scene_mapping_and_timing(self):
+        image = Image.new("RGB", (720, 1280), color=(125, 53, 31))
+        with tempfile.TemporaryDirectory() as directory:
+            public_root = Path(directory) / "public"
+            asset_path = public_root / "generated" / "contract-test" / "assets" / "scene-01.png"
+            asset_path.parent.mkdir(parents=True, exist_ok=True)
+            image.save(asset_path, format="PNG")
+            job = {
+                "id": "contract-test",
+                "visualStoryboard": [{"index": 1, "visualKind": "river_palaces", "generatedAsset": {"src": "generated/contract-test/assets/scene-01.png", "assetRole": "editorial_backdrop"}}],
+                "narrationSegments": [{"sceneId": 1, "startSec": 0.0, "endSec": 2.0}],
+                "visualAssets": {"assets": [{"sceneIndex": 1, "src": "generated/contract-test/assets/scene-01.png", "assetRole": "editorial_backdrop"}]},
+            }
+            errors = validate_and_annotate_visual_assets(job, public_root=public_root)
+            self.assertEqual(errors, [])
+            self.assertEqual(job["visualAssets"]["contract"], "durable_file_hash_scene_timing_v1")
+            self.assertEqual(job["visualAssets"]["manifest"][0]["visibilityDurationSec"], 2.0)
+
+    def test_asset_contract_rejects_missing_file(self):
+        job = {
+            "id": "missing-test",
+            "visualStoryboard": [{"index": 1, "visualKind": "river_palaces", "generatedAsset": {"src": "generated/missing/assets/scene.png", "assetRole": "editorial_backdrop"}}],
+            "narrationSegments": [{"sceneId": 1, "startSec": 0.0, "endSec": 2.0}],
+            "visualAssets": {"assets": [{"sceneIndex": 1, "src": "generated/missing/assets/scene.png", "assetRole": "editorial_backdrop"}]},
+        }
+        errors = validate_and_annotate_visual_assets(job, public_root=Path(tempfile.mkdtemp()))
+        self.assertTrue(any("missing file" in error for error in errors))
 
     def test_valid_asset_is_saved_and_attached_only_to_static_scene(self):
         image = Image.new("RGB", (720, 1280), color=(125, 53, 31))

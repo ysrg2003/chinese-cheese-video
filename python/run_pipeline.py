@@ -18,7 +18,7 @@ from tts import align_narration_segments_to_cues, captions_from_narration, capti
 from timing import finalize_timing
 from youtube_publisher import publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
-from visual_assets import add_generated_visual_assets
+from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
 from xiangqi_rules import validate_move_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -204,6 +204,9 @@ def main() -> int:
             audio_duration=audio_duration,
             requested_duration=float(puzzle["durationInSeconds"]) if puzzle.get("durationInSeconds") else None,
         )
+        asset_errors = validate_and_annotate_visual_assets(job, public_root=ROOT / "public")
+        if asset_errors:
+            raise RuntimeError("Visual asset contract failed: " + "; ".join(asset_errors))
         storyboard_errors = validate_visual_storyboard(job, audio_duration=audio_duration)
         if storyboard_errors:
             raise RuntimeError("Visual storyboard validation failed: " + "; ".join(storyboard_errors))

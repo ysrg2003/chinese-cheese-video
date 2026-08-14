@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_WIDTH = 1080
 REFERENCE_HEIGHT = 1920
 REFERENCE_FPS = 30
-BOARD_X, BOARD_Y, CELL = 70, 390, 104
+BOARD_X, BOARD_Y, CELL, BOARD_PADDING = 70, 390, 104, 26
+GRID_X, GRID_Y = BOARD_X + BOARD_PADDING, BOARD_Y + BOARD_PADDING
 
 
 def _mask_for_scene(scene_kind: str) -> Image.Image:
@@ -23,12 +24,12 @@ def _mask_for_scene(scene_kind: str) -> Image.Image:
     draw = ImageDraw.Draw(mask)
     if scene_kind == "river_palaces":
         draw.rectangle(
-            (BOARD_X + 28, BOARD_Y + 28 + 4 * CELL, BOARD_X + 28 + 8 * CELL, BOARD_Y + 28 + 5 * CELL),
+            (GRID_X, GRID_Y + 4 * CELL, GRID_X + 8 * CELL, GRID_Y + 5 * CELL),
             fill=(0, 0, 0, 0),
         )
     elif scene_kind in {"generals_goal", "rule_focus"}:
-        for top in (BOARD_Y + 28, BOARD_Y + 28 + 7 * CELL):
-            draw.rectangle((BOARD_X + 28, top, BOARD_X + 28 + 2 * CELL, top + 2 * CELL), fill=(0, 0, 0, 0))
+        for top in (GRID_Y, GRID_Y + 7 * CELL):
+            draw.rectangle((GRID_X + 3 * CELL, top, GRID_X + 5 * CELL, top + 2 * CELL), fill=(0, 0, 0, 0))
     else:
         raise ValueError(f"scene kind does not have a safe localized mask: {scene_kind}")
     return mask
