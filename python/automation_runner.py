@@ -14,6 +14,7 @@ from typing import Any
 from content_discovery import discover_all
 from local_store import LocalStore, normalize_topic_key
 from xiangqi_rules import validate_move_sequence
+from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -140,6 +141,10 @@ class PermanentContentError(RuntimeError):
     """A candidate is blocked until its source payload is corrected."""
 
 
+class PublicationPendingError(RuntimeError):
+    """A public video exists but still needs post-upload reconciliation."""
+
+
 
 def _validate_stored_job_or_raise(job: dict[str, Any], job_id: str) -> None:
     result = validate_move_sequence(str(job.get("fen") or ""), job.get("moves") or [])
@@ -157,6 +162,12 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
         if stored_job:
             _validate_stored_job_or_raise(stored_job, job_id)
         return job_id
+    if existing_publication and existing_publication.get("status") in RESUMABLE_PUBLICATION_STATUSES:
+        status = str(existing_publication.get("status"))
+        video_id = str(existing_publication.get("video_id") or "unknown")
+        raise PublicationPendingError(
+            f"Public video {video_id} remains in {status}; reconciliation must complete before production retry"
+        )
     payload = build_input(candidate, language)
     with tempfile.NamedTemporaryFile("w", suffix=".json", dir=ROOT / "output", delete=False, encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
