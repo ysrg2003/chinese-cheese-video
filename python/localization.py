@@ -173,8 +173,12 @@ def _vtt_time(seconds: float) -> str:
 
 
 def generate_localization_assets(job: dict[str, Any], english_metadata: dict[str, Any], output_dir: str | Path) -> dict[str, Any]:
+    if output_dir is None:
+        raise LocalizationError("Localization output directory is required")
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
+    if not _english_segments(job):
+        raise LocalizationError("English narration is missing; cannot create Chinese audio or captions")
     zh = translate_job_to_chinese(job, english_metadata)
     zh_job = dict(job)
     zh_job["language"] = "zh"

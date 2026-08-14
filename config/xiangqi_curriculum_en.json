@@ -248,9 +248,9 @@
       "format": "lesson",
       "target_seconds": 75,
       "title": "The General: The Piece You Must Never Expose",
-      "objective": "Teach general movement, palace restriction, check, and safety.",
-      "hook": "Your strongest piece is also the most restricted.",
-      "analysis_focus": "Explain a defensive general move and the opponent’s attempt to open a direct line.",
+      "objective": "Teach general movement, palace restriction, the flying-general prohibition, check, and safe defensive choices.",
+      "hook": "Your strongest piece is also the most restricted: one illegal line can lose the game.",
+      "analysis_focus": "Show a legal general move inside the palace, a legal reply that does not create a facing-general position, and a diagonal advisor move; explicitly distinguish the forbidden flying-general line from a legal defensive plan.",
       "position_template": "palace-defense",
       "prerequisites": [
         "en-008-xiangqi-coordinates"

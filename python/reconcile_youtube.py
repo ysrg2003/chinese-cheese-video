@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from local_store import LocalStore
+from xiangqi_rules import validate_move_sequence
 from youtube_publisher import publish_video
 
 
@@ -35,17 +36,47 @@ def main() -> int:
         publication = dict(row)
         metadata: dict[str, Any] = json.loads(publication.pop("metadata_json") or "{}")
         language = str(row["language"] or "en")
-        job: dict[str, Any] = {
-            "id": row["job_id"],
-            "title": metadata.get("title") or row["job_id"],
-            "language": language,
-            "content_type": row["content_type"] or "definition",
-            "source_url": metadata.get("source_url"),
-            "source_kind": metadata.get("source_kind", "reconciled_publication"),
-            "topic_key": metadata.get("topic_key"),
-            "narration": metadata.get("narration", ""),
-            "captions": metadata.get("captions", []),
-        }
+        stored_job = store.get_video_job_payload(row["job_id"])
+        if stored_job:
+            job = dict(stored_job)
+            job["id"] = row["job_id"]
+            job["language"] = language
+            job.setdefault("title", metadata.get("title") or row["job_id"])
+            job.setdefault("content_type", row["content_type"] or "definition")
+        else:
+            job = {
+                "id": row["job_id"],
+                "title": metadata.get("title") or row["job_id"],
+                "language": language,
+                "content_type": row["content_type"] or "definition",
+                "source_url": metadata.get("source_url"),
+                "source_kind": metadata.get("source_kind", "reconciled_publication"),
+                "topic_key": metadata.get("topic_key"),
+                "narration": metadata.get("narration", ""),
+                "captions": metadata.get("captions", []),
+            }
+        legal = validate_move_sequence(str(job.get("fen") or ""), job.get("moves") or [])
+        if not legal["ok"]:
+            blocked_metadata = dict(metadata)
+            blocked_metadata["quality_gate"] = {
+                "status": "blocked_invalid_content",
+                "errors": legal["errors"],
+                "plies_checked": legal.get("plies_checked", 0),
+            }
+            store.upsert_youtube_publication(
+                row["job_id"], language, row["content_type"] or "definition", "blocked_invalid_content",
+                video_id=row["video_id"], video_url=row["video_url"], playlist_id=row["playlist_id"],
+                playlist_url=row["playlist_url"], metadata=blocked_metadata,
+                error_message="Stored publication failed deterministic Xiangqi legal-move validation",
+            )
+            candidate_id = str(row["job_id"])
+            suffix = f"-{language}"
+            if candidate_id.endswith(suffix):
+                candidate_id = candidate_id[: -len(suffix)]
+            store.update_candidate(candidate_id, "blocked")
+            metrics["failed"] += 1
+            metrics["items"].append({"job_id": row["job_id"], "video_id": row["video_id"], "status": "blocked_invalid_content", "errors": legal["errors"]})
+            continue
         try:
             result = publish_video(None, job, existing_publication=publication)
             store.upsert_youtube_publication(

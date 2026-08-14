@@ -13,6 +13,7 @@ from typing import Any
 
 from content_discovery import discover_all
 from local_store import LocalStore, normalize_topic_key
+from xiangqi_rules import validate_move_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,7 +54,7 @@ def select_diverse_candidates(store: LocalStore, *, language: str, limit: int) -
                 ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
                 ["1,9-2,7", "1,0-2,2", "1,7-1,4"],
                 ["1,7-1,4", "2,3-2,4", "7,9-6,7"],
-                ["0,9-0,5", "0,0-0,4", "2,6-2,5"],
+                ["0,9-0,8", "0,0-0,1", "2,6-2,5"],
                 ["3,9-4,8", "3,0-4,1", "7,7-7,4"],
             ]
             payload["moves"] = variants[variant_index]
@@ -135,12 +136,26 @@ def build_input(candidate: dict[str, Any], language: str) -> dict[str, Any]:
     return payload
 
 
+class PermanentContentError(RuntimeError):
+    """A candidate is blocked until its source payload is corrected."""
+
+
+
+def _validate_stored_job_or_raise(job: dict[str, Any], job_id: str) -> None:
+    result = validate_move_sequence(str(job.get("fen") or ""), job.get("moves") or [])
+    if not result["ok"]:
+        raise PermanentContentError(f"Stored job {job_id} failed Xiangqi legal-move validation: {'; '.join(result['errors'])}")
+
+
 def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id: str) -> str:
     # Stable identity is essential: a retry must resume the same YouTube publication,
     # not create a new video with a new run timestamp.
     job_id = f"{candidate['id'][:60]}-{language}".replace("/", "-")
     existing_publication = store.get_youtube_publication(job_id)
     if existing_publication and existing_publication.get("status") == "published":
+        stored_job = store.get_video_job_payload(job_id)
+        if stored_job:
+            _validate_stored_job_or_raise(stored_job, job_id)
         return job_id
     payload = build_input(candidate, language)
     with tempfile.NamedTemporaryFile("w", suffix=".json", dir=ROOT / "output", delete=False, encoding="utf-8") as handle:
@@ -225,13 +240,21 @@ def main() -> int:
                     )
                 metrics["completed"] += 1
             except Exception as exc:
-                store.update_candidate(candidate["id"], "discovered")
-                if lesson_key:
-                    store.update_curriculum_episode(
-                        lesson_key, selection_language, "retry", candidate_id=candidate["id"], error_message=str(exc)
-                    )
+                if isinstance(exc, PermanentContentError):
+                    store.update_candidate(candidate["id"], "blocked")
+                    if lesson_key:
+                        store.update_curriculum_episode(
+                            lesson_key, selection_language, "blocked", candidate_id=candidate["id"], error_message=str(exc)
+                        )
+                else:
+                    store.update_candidate(candidate["id"], "discovered")
+                    if lesson_key:
+                        store.update_curriculum_episode(
+                            lesson_key, selection_language, "retry", candidate_id=candidate["id"], error_message=str(exc)
+                        )
                 metrics["failed"] += 1
-                print(f"Candidate failed and will be retried: {candidate['id']}: {exc}", file=sys.stderr)
+                action = "blocked" if isinstance(exc, PermanentContentError) else "will be retried"
+                print(f"Candidate failed and {action}: {candidate['id']}: {exc}", file=sys.stderr)
         store.finish_run(run_id, "completed" if metrics["failed"] == 0 else "partial", metrics)
         store.checkpoint()
         print(json.dumps(metrics, ensure_ascii=False, indent=2))

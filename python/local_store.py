@@ -920,6 +920,20 @@ class LocalStore:
             "video_playlists": [dict(row) for row in association_rows],
         }
 
+    def get_video_job_payload(self, job_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT input_payload_json FROM video_jobs WHERE id = ? LIMIT 1",
+                (job_id,),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            payload = json.loads(row["input_payload_json"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
     def get_youtube_publication(self, job_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(

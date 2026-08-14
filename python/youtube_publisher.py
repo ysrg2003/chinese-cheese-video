@@ -419,7 +419,11 @@ def publish_video(
                 from localization import generate_localization_assets, set_thumbnail, update_localized_metadata, upload_caption_tracks
                 from thumbnail import generate_thumbnail_assets
 
-                localization_root = Path(localization_dir or Path(video_path).parent / "localization")
+                if localization_dir:
+                    localization_root = Path(localization_dir)
+                else:
+                    base_dir = Path(video_path).parent if video_path else Path("output") / "jobs" / str(job.get("id") or video_id)
+                    localization_root = base_dir / "localization"
                 assets = generate_localization_assets(job, metadata, localization_root)
                 caption_results = upload_caption_tracks(service, video_id, assets)
                 metadata_result = update_localized_metadata(service, video_id, metadata, assets["zh"])

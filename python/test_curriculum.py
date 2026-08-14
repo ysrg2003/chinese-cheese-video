@@ -4,7 +4,8 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
-from curriculum import candidate_from_lesson, load_curriculum
+from curriculum import DEFAULT_FEN, candidate_from_lesson, load_curriculum
+from xiangqi_rules import validate_move_sequence
 
 
 class CurriculumStoreTests(unittest.TestCase):
@@ -61,6 +62,8 @@ class CurriculumStoreTests(unittest.TestCase):
         self.assertEqual(payload.get("visual_mode"), None)
         self.assertEqual(len(payload["moves"]), 3)
         self.assertTrue(all("piece" in move and "label" in move for move in payload["moves"]))
+        legal = validate_move_sequence(DEFAULT_FEN, payload["moves"])
+        self.assertTrue(legal["ok"], legal["errors"])
 
 
 if __name__ == "__main__":

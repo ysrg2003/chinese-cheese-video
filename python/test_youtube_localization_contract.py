@@ -88,14 +88,14 @@ class YouTubeLocalizationContractTests(unittest.TestCase):
             "content_type": "rules",
             "narration": "This is a legal Xiangqi defense.",
         }
-        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
+        with patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
             youtube_publisher, "upload_video", return_value={"id": "video-localized"}
         ), patch("localization.generate_localization_assets", return_value=assets), patch(
             "localization.upload_caption_tracks", return_value={"en": {"id": "en-caption"}, "zh-Hans": {"id": "zh-caption"}}
         ), patch("localization.update_localized_metadata", return_value={"id": "video-localized"}), patch(
             "thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets
         ), patch("localization.set_thumbnail", return_value={"items": []}):
-            result = youtube_publisher.publish_video(video.name, job, service=service)
+            result = youtube_publisher.publish_video(None, job, service=service)
         self.assertEqual(result["status"], "published")
         self.assertEqual(result["localization"]["status"], "completed")
         self.assertEqual(result["video_id"], "video-localized")

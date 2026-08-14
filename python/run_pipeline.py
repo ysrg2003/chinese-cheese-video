@@ -19,6 +19,7 @@ from timing import finalize_timing
 from youtube_publisher import publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets
+from xiangqi_rules import validate_move_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -130,6 +131,11 @@ def main() -> int:
         publication_store = store if hasattr(store, "get_youtube_publication") else LocalStore(args.db_path)
     existing_publication = publication_store.get_youtube_publication(job_id) if publication_store else None
     if existing_publication and existing_publication.get("status") == "published":
+        stored_job = publication_store.get_video_job_payload(job_id) if publication_store and hasattr(publication_store, "get_video_job_payload") else None
+        if stored_job:
+            legal = validate_move_sequence(str(stored_job.get("fen") or ""), stored_job.get("moves") or [])
+            if not legal["ok"]:
+                raise RuntimeError("Stored published job failed Xiangqi legal-move validation: " + "; ".join(legal["errors"]))
         result = {
             "job_id": job_id,
             "status": "already_published",

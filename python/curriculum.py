@@ -17,9 +17,9 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"from": [1, 7], "to": [1, 4], "piece": "cannon", "side": "red", "label": "Use the new line"},
     ],
     "palace-defense": [
-        {"from": [4, 9], "to": [4, 8], "piece": "king", "side": "red", "label": "Protect the palace"},
-        {"from": [4, 0], "to": [4, 1], "piece": "king", "side": "black", "label": "Answer the line"},
-        {"from": [3, 9], "to": [4, 8], "piece": "advisor", "side": "red", "label": "Close the escape square"},
+        {"from": [3, 9], "to": [4, 8], "piece": "advisor", "side": "red", "label": "Reinforce the palace diagonally"},
+        {"from": [2, 3], "to": [2, 4], "piece": "pawn", "side": "black", "label": "Make a legal reply without facing"},
+        {"from": [4, 9], "to": [3, 9], "piece": "king", "side": "red", "label": "Move safely inside the palace"},
     ],
     "horse-development": [
         {"from": [1, 9], "to": [2, 7], "piece": "knight", "side": "red", "label": "Develop the horse"},
