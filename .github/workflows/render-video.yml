@@ -65,8 +65,8 @@ jobs:
       VISUAL_ASSET_ENABLED: ${{ vars.VISUAL_ASSET_ENABLED || '1' }}
       VISUAL_ASSET_MAX_PER_VIDEO: ${{ vars.VISUAL_ASSET_MAX_PER_VIDEO || '2' }}
       VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
-      # Fail closed while the deterministic Xiangqi rules validator is being repaired.
-      XIANGQI_PRODUCTION_FREEZE: "1"
+      # Optional emergency stop; the legal-move validator remains mandatory in production.
+      XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '0' }}
 
     steps:
       - name: Checkout repository and persistent SQLite catalog
