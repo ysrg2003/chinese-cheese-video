@@ -10,6 +10,7 @@ import requests
 
 from ai_router_bridge import load_router
 from timing import clamp_captions, estimate_content_duration, retime_moves
+from xiangqi_rules import parse_fen, validate_move_sequence
 
 SUPPORTED_LANGUAGES = ("en", "zh")
 DEFAULT_LANGUAGE = "en"
@@ -114,7 +115,7 @@ DEFAULT_MOVE_VARIANTS = [
     ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
     ["1,9-2,7", "1,0-2,2", "1,7-1,4"],
     ["1,7-1,4", "2,3-2,4", "7,9-6,7"],
-    ["0,9-0,5", "0,0-0,4", "2,6-2,5"],
+    ["0,9-0,8", "0,0-0,1", "2,6-2,5"],
     ["3,9-4,8", "3,0-4,1", "7,7-7,4"],
 ]
 
@@ -326,18 +327,29 @@ def _request_ollama(puzzle: dict[str, Any], language: str) -> dict[str, Any] | N
     return json.loads(response.json()["message"]["content"])
 
 
-def _parse_move_token(token: str, ply: int, language: str) -> dict[str, Any]:
+def _parse_move_token(token: str, ply: int, language: str, fen: str | None = None) -> dict[str, Any]:
     match = re.match(r"\s*([0-8])\s*,?\s*([0-9])\s*(?:-|>|:)\s*([0-8])\s*,?\s*([0-9])\s*", token)
     if not match:
         raise ValueError(f"Unsupported move token: {token}")
     x1, y1, x2, y2 = [int(value) for value in match.groups()]
     label = FALLBACKS[language]["labels"][min(ply - 1, 2)]
+    piece = "pawn"
+    side = "red" if ply % 2 else "black"
+    if fen:
+        try:
+            board, _ = parse_fen(fen)
+            actual = board.get((x1, y1))
+            if actual:
+                piece = actual.type
+                side = actual.side
+        except Exception:
+            pass
     return {
         "ply": ply,
         "from": [x1, y1],
         "to": [x2, y2],
-        "piece": "pawn",
-        "side": "red" if ply % 2 else "black",
+        "piece": piece,
+        "side": side,
         "startSec": 0.0,
         "endSec": 0.0,
         "label": label,
@@ -369,7 +381,7 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
             move.setdefault("side", "red" if index % 2 else "black")
             move.setdefault("label", FALLBACKS[language]["labels"][min(index - 1, 2)])
         else:
-            move = _parse_move_token(str(raw_move), index, language)
+            move = _parse_move_token(str(raw_move), index, language, str(puzzle.get("fen") or ""))
         moves.append(move)
 
     fallback = FALLBACKS[language]
@@ -407,6 +419,26 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     return {"title": title, "narration": narration, "moves": moves, "captions": captions, "narrationSegments": narration_segments, "durationInSeconds": duration}
 
 
+def _normalise_move_entries(raw_moves: Any, language: str, puzzle: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(raw_moves, list):
+        return []
+    normalised: list[dict[str, Any]] = []
+    fen = str(puzzle.get("fen") or "")
+    for index, raw_move in enumerate(raw_moves, start=1):
+        if isinstance(raw_move, dict):
+            move = dict(raw_move)
+            move.setdefault("ply", index)
+            move.setdefault("startSec", 1.8 + (index - 1) * 1.7)
+            move.setdefault("endSec", move["startSec"] + 1.0)
+            move.setdefault("piece", "pawn")
+            move.setdefault("side", "red" if index % 2 else "black")
+            move.setdefault("label", FALLBACKS[language]["labels"][min(index - 1, 2)])
+        else:
+            move = _parse_move_token(str(raw_move), index, language, fen)
+        normalised.append(move)
+    return normalised
+
+
 def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[str, Any]) -> dict[str, Any]:
     fallback = _fallback(puzzle, language)
     result = dict(data)
@@ -433,10 +465,12 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     raw_captions = result.get("captions")
     if not isinstance(raw_captions, list) or any(_text_is_invalid(cue.get("text", ""), language) for cue in raw_captions if isinstance(cue, dict)):
         result["captions"] = fallback["captions"]
-    result["moves"] = result.get("moves") if isinstance(result.get("moves"), list) else fallback["moves"]
+    result["moves"] = _normalise_move_entries(
+        result.get("moves") if isinstance(result.get("moves"), list) else fallback["moves"],
+        language,
+        puzzle,
+    )
     for move in result["moves"]:
-        if not isinstance(move, dict):
-            continue
         for field in ("purpose", "opponentReply", "effect", "label"):
             if contains_arabic(move.get(field, "")) or (language == "en" and CJK_RE.search(str(move.get(field, "")))):
                 move.pop(field, None)
@@ -493,6 +527,14 @@ def generate_director_data(puzzle: dict[str, Any], store: Any | None = None, ope
 def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any]) -> dict[str, Any]:
     language = normalize_language(puzzle.get("language"))
     clean_data = _sanitize_director_data(director_data, language, puzzle)
+    move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
+    if not move_validation["ok"]:
+        raise ValueError("Xiangqi legal-move validation failed: " + "; ".join(move_validation["errors"]))
+    canonical_moves = move_validation["moves"]
+    for raw_move, canonical_move in zip(clean_data.get("moves", []), canonical_moves):
+        raw_move["piece"] = canonical_move["piece"]
+        raw_move["side"] = canonical_move["side"]
+        raw_move["captured"] = canonical_move["captured"]
     duration = float(clean_data.get("durationInSeconds") or estimate_content_duration(clean_data.get("narration", ""), clean_data.get("moves", []), language))
     return {
         "id": job_id,

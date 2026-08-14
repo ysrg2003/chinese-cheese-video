@@ -51,7 +51,8 @@ jobs:
       HF_MODELS: ${{ vars.HF_MODELS || 'openai/gpt-oss-120b:fastest' }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_OAUTH_TOKEN_JSON: ${{ secrets.YOUTUBE_OAUTH_TOKEN_JSON }}
-      YOUTUBE_PUBLISH_ENABLED: ${{ vars.YOUTUBE_PUBLISH_ENABLED || '0' }}
+      YOUTUBE_PUBLISH_ENABLED: ${{ vars.YOUTUBE_PUBLISH_ENABLED || '1' }}
+      YOUTUBE_LOCALIZATION_ENABLED: ${{ vars.YOUTUBE_LOCALIZATION_ENABLED || '1' }}
       YOUTUBE_PUBLISH_MODE: ${{ vars.YOUTUBE_PUBLISH_MODE || 'public' }}
       YOUTUBE_AUTO_CREATE_PLAYLISTS: ${{ vars.YOUTUBE_AUTO_CREATE_PLAYLISTS || '1' }}
       DISCOVERY_RSS_QUERY: ${{ vars.DISCOVERY_RSS_QUERY || 'xiangqi OR "Chinese chess" OR 象棋' }}
@@ -150,6 +151,7 @@ jobs:
             data/ai_router.db
             output/jobs/**/job.json
             output/jobs/**/references/**
+            output/jobs/**/localization/**
             output/jobs/**/*.mp4
             public/generated/**/job.json
             public/generated/**/voice.mp3

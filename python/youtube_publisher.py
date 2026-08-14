@@ -352,6 +352,7 @@ def publish_video(
     playlists_path: str | Path = DEFAULT_PLAYLISTS_PATH,
     service: Any | None = None,
     existing_publication: dict[str, Any] | None = None,
+    localization_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     metadata = build_metadata(job, policy=load_policy(policy_path), playlists=load_playlists(playlists_path))
     if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() not in {"1", "true", "yes"}:
@@ -406,6 +407,48 @@ def publish_video(
             "metadata": metadata,
             "error_message": str(exc),
         }
+    localization: dict[str, Any] = {"status": "disabled"}
+    if os.getenv("YOUTUBE_LOCALIZATION_ENABLED", "1").lower() in {"1", "true", "yes"}:
+        if not all(hasattr(service, name) for name in ("captions", "videos")):
+            localization = {
+                "status": "pending_studio_or_real_service",
+                "message": "The configured service does not expose caption/video APIs; the English publication remains complete.",
+            }
+        else:
+            try:
+                from localization import generate_localization_assets, set_thumbnail, update_localized_metadata, upload_caption_tracks
+                from thumbnail import generate_thumbnail_assets
+
+                localization_root = Path(localization_dir or Path(video_path).parent / "localization")
+                assets = generate_localization_assets(job, metadata, localization_root)
+                caption_results = upload_caption_tracks(service, video_id, assets)
+                metadata_result = update_localized_metadata(service, video_id, metadata, assets["zh"])
+                thumbnail_assets = generate_thumbnail_assets(
+                    video_path,
+                    job,
+                    localization_root / "thumbnails",
+                    zh_title=assets["zh"].get("title"),
+                )
+                thumbnail_result = None
+                if hasattr(service, "thumbnails"):
+                    thumbnail_result = set_thumbnail(service, video_id, thumbnail_assets["default"])
+                    thumbnail_assets["default_upload"] = thumbnail_result
+                    thumbnail_assets["default_upload_status"] = "completed"
+                else:
+                    thumbnail_assets["default_upload_status"] = "pending_real_service"
+                localization = {
+                    "status": "completed",
+                    "assets": assets,
+                    "captions": caption_results,
+                    "metadata_update": metadata_result,
+                    "audio_track_status": assets["zh"].get("audio_track_status"),
+                    "thumbnail": thumbnail_assets,
+                    "localized_thumbnail_status": "studio_upload_required",
+                }
+            except Exception as exc:
+                localization = {"status": "failed_pending_retry", "error": str(exc)}
+    publication_metadata = dict(metadata)
+    publication_metadata["localization"] = localization
     return {
         "status": "published",
         "video_id": video_id,
@@ -414,7 +457,8 @@ def publish_video(
         "playlist_url": f"https://www.youtube.com/playlist?list={playlist_id}",
         "playlist_created": playlist_created,
         "playlist_item": playlist_response,
-        "metadata": metadata,
+        "metadata": publication_metadata,
+        "localization": localization,
     }
 
 

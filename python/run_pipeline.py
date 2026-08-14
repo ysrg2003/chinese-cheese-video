@@ -227,6 +227,7 @@ def main() -> int:
                         output_path,
                         job,
                         existing_publication=existing_publication,
+                        localization_dir=stage_dir / "localization",
                     )
                     result["youtube"] = publication
                     publication_store.upsert_youtube_publication(
