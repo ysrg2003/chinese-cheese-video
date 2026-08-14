@@ -45,6 +45,23 @@ class CaptionTranscriptTests(unittest.TestCase):
         self.assertEqual(captions[-1]["endSec"], 2.2)
         self.assertTrue(all(caption["source"] == "edge_tts_word_boundaries" for caption in captions))
 
+    def test_move_action_sentence_separates_purpose_naturally(self) -> None:
+        moves = [{
+            "ply": 1,
+            "from": [1, 9],
+            "to": [2, 7],
+            "piece": "knight",
+            "side": "red",
+            "purpose": "Red develops their knight to a strong central position",
+            "opponentReply": "Black will restrict the knight's leg",
+            "effect": "the knight loses a route",
+        }]
+        narration, segments = build_narration_segments("Introduce the horse.", moves, "en", "rules")
+        self.assertNotIn(" to red develops", narration.lower())
+        action = next(segment for segment in segments if segment.get("movePhase") == "action")
+        self.assertIn("file 2, rank 10 to file 3, rank 8. Red develops", action["text"])
+        self.assertTrue(action["text"].endswith("position."))
+
     def test_move_narration_segments_are_short_and_aligned_to_audio(self) -> None:
         moves = [
             {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "label": "Advance"},

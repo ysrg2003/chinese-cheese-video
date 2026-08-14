@@ -199,9 +199,10 @@ def _move_spoken_text(
         caption = f"第{ply}步：{piece}{source}到{target}——{purpose}。"
     else:
         reply_sentence = f"The likely reply is to {opponent_reply}." if not opponent_reply.startswith(("the ", "a ", "an ", "black ", "red ", "they ", "it ")) else f"The likely reply is {opponent_reply}."
+        purpose_sentence = purpose[:1].upper() + purpose[1:] if purpose else "The move improves the position"
         spoken = (
-            f"Move {ply}. {side.title()} {piece} moves from {source} to {target} to {purpose}. "
-            f"{reply_sentence} That changes the position: {effect}. "
+            f"Move {ply}. {side.title()} {piece} moves from {source} to {target}. "
+            f"{purpose_sentence}. {reply_sentence} That changes the position: {effect}. "
             f"Next, watch {focus}."
         )
         caption = f"Move {ply}: {piece.title()} {source} → {target}. {purpose.capitalize()}."
@@ -235,7 +236,8 @@ def _move_beats(move: dict[str, Any], language: str, content_type: str, analysis
         effect_caption = _short_caption(effect, "变化")
         constraint_caption = _short_caption(focus, "规则")
     else:
-        action_text = f"Move {ply}. {side.title()} {piece} moves from {source} to {target} to {purpose}."
+        purpose_sentence = purpose[:1].upper() + purpose[1:] if purpose else "The move improves the position"
+        action_text = f"Move {ply}. {side.title()} {piece} moves from {source} to {target}. {purpose_sentence}."
         reply_text = f"Now watch the reply. The likely response is to {reply}."
         effect_text = f"After that response, the position changes: {effect}."
         constraint_text = f"The rule to remember is {focus}."
