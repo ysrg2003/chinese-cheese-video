@@ -1,0 +1,58 @@
+name: Remove legacy redundant English caption
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "YouTube video ID whose manual English transcript track should be removed"
+        required: true
+        default: "D-o77HngwOU"
+        type: string
+      confirmation:
+        description: "Type DELETE_MANUAL_ENGLISH_TRANSCRIPT to authorize the targeted deletion"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  remove:
+    if: inputs.confirmation == 'DELETE_MANUAL_ENGLISH_TRANSCRIPT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      YOUTUBE_OAUTH_TOKEN_JSON: ${{ secrets.YOUTUBE_OAUTH_TOKEN_JSON }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install YouTube API dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r python/requirements.txt
+
+      - name: Validate OAuth configuration
+        run: test -n "$YOUTUBE_OAUTH_TOKEN_JSON"
+
+      - name: Dry-run targeted match
+        env:
+          PYTHONPATH: python
+        run: python python/remove_redundant_english_caption.py --video-id "${{ inputs.video_id }}" --dry-run | tee caption-cleanup-dry-run.json
+
+      - name: Delete only the targeted manual English transcript
+        env:
+          PYTHONPATH: python
+        run: python python/remove_redundant_english_caption.py --video-id "${{ inputs.video_id }}" | tee caption-cleanup-result.json
+
+      - name: Upload cleanup audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: caption-cleanup-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            caption-cleanup-dry-run.json
+            caption-cleanup-result.json
