@@ -118,6 +118,10 @@ jobs:
 
       - name: Enforce autonomous preflight contracts
         if: env.XIANGQI_PRODUCTION_FREEZE != '1'
+        env:
+          # Unit tests must exercise deterministic fallback visuals, not the live AI planner.
+          AI_ROUTER_REQUIRE_KEYS: "0"
+          VISUAL_ASSET_ENABLED: "0"
         run: |
           npx tsc --noEmit
           PYTHONPATH=python python -m unittest discover -s python -p 'test_*.py'
