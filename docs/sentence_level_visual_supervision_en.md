@@ -101,7 +101,7 @@ The fallback also preserves specialized existing visual kinds. For example, a hi
 
 `expand_narration_segments()` is idempotent. If the job already contains `sentenceVisualSupervision`, a second call returns the job unchanged. This prevents repeated workflow stages, retries, and remediation runs from multiplying narration segments.
 
-When a source segment has no final audio timing, the planner estimates each sentence window proportionally to word count. If a source segment already has timing, the estimate is distributed across its sentences. TTS word alignment remains authoritative later in the pipeline, so these estimates are only planning values.
+When a source segment has no final audio timing, the planner estimates each sentence window proportionally to word count and carries a cumulative cursor across all source segments. This cumulative cursor is important for the four move beats: action, reply, effect, and constraint must not all start at zero, otherwise Remotion would keep selecting the first overlapping scene and the rendered MP4 could show the wrong visual treatment. If a source segment already has timing, the estimate is distributed across its sentences. TTS word alignment remains authoritative later in the pipeline, so these estimates are only planning values.
 
 ## Validation rules
 

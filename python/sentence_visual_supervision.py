@@ -83,6 +83,7 @@ def expand_narration_segments(job: dict[str, Any]) -> dict[str, Any]:
         source = [{"kind": "intro", "text": str(job.get("narration") or ""), "captionPosition": "bottom"}]
     expanded: list[dict[str, Any]] = []
     intents: list[dict[str, Any]] = []
+    global_cursor = 0.0
     for segment_index, original in enumerate(source, start=1):
         if not isinstance(original, dict):
             continue
@@ -91,6 +92,8 @@ def expand_narration_segments(job: dict[str, Any]) -> dict[str, Any]:
             continue
         raw_start = float(original.get("startSec") or 0.0)
         raw_end = float(original.get("endSec") or 0.0)
+        if raw_end <= raw_start:
+            raw_start = max(global_cursor, raw_start)
         weights = [max(1, len(sentence.split())) for sentence in sentences]
         total = float(sum(weights)) or 1.0
         cursor = raw_start
@@ -123,6 +126,7 @@ def expand_narration_segments(job: dict[str, Any]) -> dict[str, Any]:
                 "endSec": child["endSec"],
             })
             cursor = end
+        global_cursor = max(global_cursor, cursor)
     job["narrationSegments"] = expanded
     job["sentenceVisualIntents"] = intents
     job["sentenceVisualSupervision"] = {

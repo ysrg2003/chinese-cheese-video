@@ -41,6 +41,21 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         self.assertEqual(expanded["narrationSegments"][0]["visualIntent"]["visualTreatment"], "region_split")
         self.assertEqual(expanded["narrationSegments"][1]["visualIntent"]["visualTreatment"], "piece_spotlight")
 
+    def test_expansion_keeps_global_timing_across_untimed_source_segments(self) -> None:
+        job = {
+            "language": "en",
+            "narrationSegments": [
+                {"kind": "move", "movePhase": "action", "text": "Move the elephant."},
+                {"kind": "move_reply", "movePhase": "reply", "text": "Now block the eye."},
+                {"kind": "move_effect", "movePhase": "effect", "text": "The route changes."},
+            ],
+        }
+        expanded = expand_narration_segments(job)
+        windows = [(item["startSec"], item["endSec"]) for item in expanded["narrationSegments"]]
+        self.assertEqual(len(windows), 3)
+        for previous, current in zip(windows, windows[1:]):
+            self.assertGreaterEqual(current[0], previous[1])
+
     def test_expansion_is_idempotent(self) -> None:
         job = {
             "language": "en",
