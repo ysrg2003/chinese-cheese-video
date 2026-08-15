@@ -43,6 +43,11 @@
       "en": {"series_name": "Start Here", "title_prefix": "What Is Xiangqi?", "secondary_keywords": ["xiangqi rules", "Chinese chess basics", "learn xiangqi"], "hashtags": ["#XiangqiBasics"]},
       "zh": {"series_name": "象棋入门", "title_prefix": "什么是中国象棋？", "secondary_keywords": ["象棋规则", "象棋入门", "学象棋"], "hashtags": ["#象棋入门"]}
     },
+    "board_setup": {
+      "playlist_key": {"en": "en-board-setup", "zh": "zh-piece-academy"},
+      "en": {"series_name": "Board, Setup, and Notation", "title_prefix": "Xiangqi Board", "secondary_keywords": ["xiangqi board", "xiangqi setup", "Chinese chess board"], "hashtags": ["#XiangqiBoard"]},
+      "zh": {"series_name": "棋盘、布局与记谱", "title_prefix": "象棋棋盘", "secondary_keywords": ["象棋棋盘", "象棋布局", "中国象棋棋盘"], "hashtags": ["#象棋棋盘"]}
+    },
     "rules": {
       "playlist_key": {"en": "en-piece-academy", "zh": "zh-piece-academy"},
       "en": {"series_name": "Piece Academy", "title_prefix": "Xiangqi Rules", "secondary_keywords": ["xiangqi pieces", "xiangqi board", "Chinese chess rules"], "hashtags": ["#XiangqiRules"]},
