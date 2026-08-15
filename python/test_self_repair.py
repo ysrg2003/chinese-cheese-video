@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from self_repair import (
+    _safe_scene_repairs_from_evidence,
     apply_director_patch,
     classify_failure,
     repair_failure,
@@ -161,6 +162,36 @@ class SelfRepairTests(unittest.TestCase):
         self.assertEqual(plan["patch_type"], "visual_scene_patch")
         self.assertEqual(plan["disposition"], "apply_patch")
         self.assertEqual(plan["patch"]["scene_repairs"][0]["sceneId"], 4)
+
+    def test_bounded_visual_adapter_builds_safe_repair_from_rejected_ai_scene(self):
+        evidence = {
+            "review_context": {
+                "discarded_unsafe_repairs": [{
+                    "repair": {
+                        "sceneId": 6,
+                        "visualKind": "legal_moves",
+                        "visualInstruction": "Highlight the rook and its legal paths.",
+                        "visualPlan": {"mode": "board_overlay", "focus": "file 1 rook routes", "primitives": ["highlight_file_0", "piece_anchor", "legal_destinations"]},
+                    }
+                }]
+            },
+            "job_context": {
+                "scenes": [{
+                    "index": 6,
+                    "movePly": 2,
+                    "movePhase": "action",
+                    "visualKind": "board_overview",
+                    "visualPlan": {"focus": "board overview"},
+                    "move": {"ply": 2, "piece": "rook", "side": "black"},
+                }]
+            },
+        }
+        repairs = _safe_scene_repairs_from_evidence(evidence, {"failure_class": "visual_storyboard"})
+        self.assertEqual(len(repairs), 1)
+        self.assertEqual(repairs[0]["visualKind"], "move_path")
+        self.assertEqual(repairs[0]["visualPlan"]["focusPiece"], "rook")
+        self.assertEqual(repairs[0]["visualPlan"]["focusSide"], "black")
+        self.assertNotIn("highlight_file_0", repairs[0]["visualPlan"]["primitives"])
 
     def test_visual_scene_patch_is_written_as_separate_override(self):
         diagnosis_response = {

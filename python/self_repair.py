@@ -134,6 +134,39 @@ def collect_failure_evidence(
             files.append({"path": str(path.relative_to(root)), "size": path.stat().st_size, "sha256": _file_hash(path)})
         except OSError:
             continue
+    review_context: dict[str, Any] = {}
+    job_context: dict[str, Any] = {}
+    review_path = job_dir / "creative-review.json"
+    job_path = job_dir / "job.json"
+    for path, target in ((review_path, "review_context"), (job_path, "job_context")):
+        if path.exists():
+            try:
+                parsed = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(parsed, dict):
+                    if target == "review_context":
+                        review_context = {
+                            "decision": parsed.get("decision"),
+                            "checks": parsed.get("checks"),
+                            "errors": parsed.get("errors"),
+                            "discarded_unsafe_repairs": parsed.get("discarded_unsafe_repairs"),
+                        }
+                    else:
+                        moves_by_ply = {str(move.get("ply")): move for move in parsed.get("moves", []) if isinstance(move, dict)}
+                        job_context = {
+                            "scenes": [
+                                {
+                                    "index": scene.get("index"),
+                                    "movePly": scene.get("movePly"),
+                                    "visualKind": scene.get("visualKind"),
+                                    "visualPlan": scene.get("visualPlan"),
+                                    "movePhase": next((segment.get("movePhase") for segment in parsed.get("narrationSegments", []) if isinstance(segment, dict) and segment.get("sceneId") == scene.get("index")), None),
+                                    "move": moves_by_ply.get(str(scene.get("movePly"))),
+                                }
+                                for scene in parsed.get("visualStoryboard", []) if isinstance(scene, dict)
+                            ]
+                        }
+            except (OSError, json.JSONDecodeError):
+                continue
     evidence = {
         "schema": "xiangqi_failure_evidence_v1",
         "job_id": job_id,
@@ -143,6 +176,8 @@ def collect_failure_evidence(
         "failure_class": classify_failure(error_text, stage),
         "error": _bounded_text(error_text, 8000),
         "candidate_payload": copy.deepcopy(candidate_payload),
+        "review_context": review_context,
+        "job_context": job_context,
         "files": files,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -263,7 +298,69 @@ def validate_plan(plan: dict[str, Any], diagnosis: dict[str, Any]) -> tuple[bool
     return not errors, errors
 
 
-def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, Any]) -> dict[str, Any]:
+def _safe_scene_repairs_from_evidence(evidence: dict[str, Any], diagnosis: dict[str, Any]) -> list[dict[str, Any]]:
+    review = evidence.get("review_context") if isinstance(evidence.get("review_context"), dict) else {}
+    discarded = review.get("discarded_unsafe_repairs") if isinstance(review.get("discarded_unsafe_repairs"), list) else []
+    contexts = {str(scene.get("index")): scene for scene in (evidence.get("job_context", {}).get("scenes", []) if isinstance(evidence.get("job_context"), dict) else []) if isinstance(scene, dict)}
+    repairs: list[dict[str, Any]] = []
+    phase_defaults = {
+        "action": ("move_path", ["piece_anchor", "legal_destinations"]),
+        "reply": ("threat_marker", ["piece_anchor", "threat_marker"]),
+        "effect": ("before_after", ["played_destination", "effect_after"]),
+        "constraint": ("rule_focus", ["rule_focus", "constraint_boundary"]),
+    }
+    primitive_aliases = {
+        "line_highlight": "attack_line",
+        "path_highlight": "path_lines",
+        "square_highlight": "square_contrast",
+        "influence_zone": "defense_zone",
+        "show_all_legal_moves": "legal_destinations",
+        "highlight_file": "central_files",
+        "file_brighten": "central_files",
+    }
+    for item in discarded:
+        if not isinstance(item, dict) or not isinstance(item.get("repair"), dict):
+            continue
+        raw = dict(item["repair"])
+        scene_id = raw.get("sceneId")
+        if scene_id is None:
+            continue
+        context = contexts.get(str(scene_id), {})
+        phase = str(context.get("movePhase") or "action")
+        default_kind, default_primitives = phase_defaults.get(phase, ("board_overview", ["concept_focus"]))
+        visual_kind = str(raw.get("visualKind") or context.get("visualKind") or default_kind)
+        if visual_kind not in ALL_VISUAL_KINDS:
+            visual_kind = default_kind
+        source_plan = raw.get("visualPlan") if isinstance(raw.get("visualPlan"), dict) else {}
+        context_plan = context.get("visualPlan") if isinstance(context.get("visualPlan"), dict) else {}
+        primitives = [primitive_aliases.get(str(value), str(value)) for value in source_plan.get("primitives", [])]
+        primitives = [value for value in primitives if value in SUPPORTED_BOARD_PRIMITIVES]
+        if not primitives:
+            primitives = list(default_primitives)
+        plan = {
+            "mode": "board_overlay",
+            "focus": str(source_plan.get("focus") or context_plan.get("focus") or f"scene {scene_id} teaching focus"),
+            "primitives": list(dict.fromkeys(primitives)),
+        }
+        move = context.get("move") if isinstance(context.get("move"), dict) else {}
+        piece = str(move.get("piece") or "")
+        side = str(move.get("side") or "")
+        if piece in {"king", "advisor", "bishop", "knight", "rook", "cannon", "pawn"}:
+            plan["focusPiece"] = piece
+        if side in {"red", "black"}:
+            plan["focusSide"] = side
+        repairs.append({
+            "sceneId": scene_id,
+            "headline": str(raw.get("headline") or context.get("visualKind") or "Focused Xiangqi visual"),
+            "visualInstruction": str(raw.get("visualInstruction") or "Highlight the specific board relationship named by the narration."),
+            "visualKind": visual_kind,
+            "semanticTags": raw.get("semanticTags") if isinstance(raw.get("semanticTags"), list) and raw.get("semanticTags") else [phase, "self_repaired"],
+            "visualPlan": plan,
+        })
+    return repairs
+
+
+def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, Any], evidence: dict[str, Any] | None = None) -> dict[str, Any]:
     """Convert common AI wrapper shapes into the protected v1 repair contract."""
     if isinstance(raw.get("plan"), list):
         scene_repairs: list[dict[str, Any]] = []
@@ -299,6 +396,18 @@ def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, An
                 "resume_stage": str(raw.get("resume_stage") or diagnosis.get("affected_stage") or "director"),
                 "patch": {"replace_top_level_fields": director_patches[0]},
             }
+    if str(raw.get("patch_type") or "") == "no_safe_repair" and str(diagnosis.get("failure_class") or "") == "visual_storyboard" and evidence is not None:
+        safe_repairs = _safe_scene_repairs_from_evidence(evidence, diagnosis)
+        if safe_repairs:
+            return {
+                "schema": REPAIR_SCHEMA,
+                "disposition": "apply_patch",
+                "failure_class": "visual_storyboard",
+                "patch_type": "visual_scene_patch",
+                "resume_stage": "storyboard",
+                "patch": {"scene_repairs": safe_repairs},
+                "source": "bounded_visual_contract_adapter",
+            }
     return dict(raw)
 
 
@@ -315,7 +424,7 @@ def propose_repair_plan(evidence: dict[str, Any], diagnosis: dict[str, Any], rou
     raw = _router_complete_json(REPAIR_INSTRUCTIONS, payload, f"self_repair:plan:{evidence.get('job_id')}:{evidence.get('attempt')}", router_factory)
     if raw is None:
         return {"schema": REPAIR_SCHEMA, "disposition": "quarantine", "failure_class": diagnosis.get("failure_class", "unknown"), "patch_type": "no_safe_repair", "resume_stage": diagnosis.get("affected_stage", "director"), "reason": "AI repair planner unavailable"}
-    plan = _normalise_repair_plan_response(raw, diagnosis)
+    plan = _normalise_repair_plan_response(raw, diagnosis, evidence)
     plan.setdefault("schema", REPAIR_SCHEMA)
     plan.setdefault("failure_class", diagnosis.get("failure_class", "unknown"))
     plan.setdefault("resume_stage", diagnosis.get("affected_stage", "director"))
