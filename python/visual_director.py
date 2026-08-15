@@ -181,7 +181,7 @@ def _segment_payload(job: dict[str, Any]) -> list[dict[str, Any]]:
             "movePly": move_ply,
             "text": str(segment.get("text") or ""),
             "captionText": str(segment.get("captionText") or ""),
-            "move": {key: move.get(key) for key in ("from", "to", "piece", "side", "purpose", "opponentReply", "effect") if move and key in move},
+            "move": {key: move.get(key) for key in ("from", "to", "piece", "side", "purpose", "opponentReply", "effect", "claims") if move and key in move},
         })
     if not payload:
         payload.append({"segmentIndex": 1, "kind": "intro", "movePly": None, "text": str(job.get("narration") or ""), "captionText": "", "move": {}})
@@ -325,12 +325,23 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
                 "confident": True,
             }
         if phase == "constraint":
-            is_elephant = piece == "bishop" or any(marker in text for marker in ("elephant", "bishop", "eye", "river"))
-            if is_elephant:
+            move_claims = move.get("claims") if isinstance(move.get("claims"), list) else []
+            claim_types = {str(claim.get("claimType") or "") for claim in move_claims if isinstance(claim, dict)}
+            if claim_types.intersection({"horse_leg_block", "horse_leg_open"}):
+                primitives = ["piece_anchor", "horse_leg", "legal_destinations"]
+                kind = "rule_focus"
+                tags = ["constraint", "horse", "horse_leg", "legal_geometry"]
+                focus = f"verified Horse Leg relation after move {segment.get('movePly')}"
+            elif claim_types.intersection({"elephant_eye_block", "elephant_eye_open", "river_limit"}) or piece == "bishop" or any(marker in text for marker in ("elephant", "bishop", "eye", "river")):
                 primitives = ["piece_anchor", "elephant_eye", "river_limit"]
                 kind = "rule_focus"
                 tags = ["constraint", "elephant", "eye", "river_limit"]
-                focus = f"elephant eye and river limit after move {segment.get('movePly')}"
+                focus = f"verified Elephant Eye or river limit after move {segment.get('movePly')}"
+            elif "cannon_screen" in claim_types:
+                primitives = ["piece_anchor", "cannon_screen", "cannon_target"]
+                kind = "rule_focus"
+                tags = ["constraint", "cannon", "screen", "legal_geometry"]
+                focus = f"verified Cannon Screen relation after move {segment.get('movePly')}"
             else:
                 primitives = ["piece_anchor", "constraint_boundary", "legal_destinations"]
                 kind = "defense_zone"
@@ -341,7 +352,7 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
                 "headline": f"{base_headline} • Rule" if language == "en" else f"{base_headline} • 规则",
                 "visualInstruction": "Show the exact piece-specific limitation that explains the spoken consequence, without inventing a move or leaving a generic rule ring.",
                 "semanticTags": tags,
-                "visualPlan": {"mode": "board_overlay", "focus": focus, "primitives": primitives, "focusPiece": "bishop" if is_elephant else focus_piece, "focusSide": move.get("side")},
+                "visualPlan": {"mode": "board_overlay", "focus": focus, "primitives": primitives, "focusPiece": "bishop" if "elephant_eye" in primitives else focus_piece, "focusSide": move.get("side")},
                 "confident": True,
             }
         primitives = ["source_piece", "legal_path", "played_destination"]
@@ -475,6 +486,8 @@ def _request_ai_storyboard(puzzle: dict[str, Any], job: dict[str, Any], store: A
         "objective": puzzle.get("objective") or job.get("objective"),
         "hook": puzzle.get("hook") or job.get("hook"),
         "analysis_focus": puzzle.get("analysis_focus") or job.get("analysis_focus"),
+        "researchBundle": job.get("researchBundle") or puzzle.get("researchBundle") or {},
+        "claimProof": job.get("claimProof") or {},
         "segments": _segment_payload(job),
     }
     try:

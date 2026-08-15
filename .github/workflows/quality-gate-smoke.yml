@@ -15,6 +15,9 @@ jobs:
       TTS_VOICE_ZH: zh-CN-YunjianNeural
       YOUTUBE_LOCALIZATION_ENABLED: "1"
       XIANGQI_PRODUCTION_FREEZE: "1"
+      XIANGQI_RESEARCH_REQUIRED: "0"
+      GOOGLE_GROUNDING_ENABLED: "0"
+      GOOGLE_GROUNDING_REQUIRED: "0"
       PYTHONPATH: python
     steps:
       - name: Checkout repository
@@ -113,6 +116,12 @@ jobs:
       - name: Verify production remains fail-closed in this smoke
         run: |
           grep -q 'XIANGQI_PRODUCTION_FREEZE' python/run_pipeline.py
+          test -f python/research_grounding.py
+          test -f python/xiangqi_claims.py
+          test -f docs/grounded_script_generation_contract.md
+          grep -q 'XIANGQI_RESEARCH_REQUIRED' python/run_pipeline.py
+          grep -q 'claimProof' python/director.py
+          grep -q 'horse_leg' python/visual_director.py
           test -f python/creative_critic.py
           grep -q 'Pre-publish creative review failed' python/run_pipeline.py
           grep -q 'verify_rendered_visuals' python/run_pipeline.py

@@ -1,0 +1,34 @@
+{
+  "cache_contract": "xiangqi_grounding_cache_v1",
+  "retrieved_at": "2026-08-15T04:48:00Z",
+  "sources": [
+    {
+      "id": "wxf_rules_index",
+      "title": "World Xiangqi Federation — World Xiangqi Rules",
+      "url": "https://www.wxf-xiangqi.org/index.php?option=com_content&view=article&id=269&Itemid=291&lang=en",
+      "authority": "primary_rules_provenance",
+      "excerpt": "The World Xiangqi Federation publishes the World Xiangqi Rules as a unified international rules publication based on the Asian Xiangqi Federation rules, with an English rules PDF linked by the federation."
+    },
+    {
+      "id": "wxf_rules_pdf",
+      "title": "World Xiangqi Rules — English PDF",
+      "url": "https://www.wxf-xiangqi.org/images/wxf-rules/2018_World_XiangQi_Rules_English2018.pdf",
+      "authority": "primary_rules_document",
+      "excerpt": "Primary English rules document linked by the World Xiangqi Federation."
+    },
+    {
+      "id": "xiangqi_com_pieces",
+      "title": "Xiangqi.com — Learning the Xiangqi Pieces and Moves",
+      "url": "https://www.xiangqi.com/help/pieces-and-moves",
+      "authority": "specialist_reference",
+      "excerpt": "Xiangqi pieces stand on intersections. A Horse moves one orthogonal point and then one diagonal point; an intervening piece blocks that direction and blocks the Horse's leg. A Cannon captures by jumping over exactly one intervening screen or mount. An Elephant moves two points diagonally, cannot pass a blocking piece, and cannot cross the river. An Advisor moves one diagonal point inside the palace. A General moves one orthogonal point inside the palace and the Generals cannot face one another on an empty file. Soldiers gain sideways movement after crossing the river."
+    },
+    {
+      "id": "chess_com_xiangqi",
+      "title": "Chess.com — How To Play Chinese Chess (Xiangqi)",
+      "url": "https://www.chess.com/blog/SamCopeland/how-to-play-chinese-chess",
+      "authority": "secondary_reference",
+      "excerpt": "Xiangqi pieces are placed on intersections and the board is divided by a river. Horses cannot jump: a piece on the intervening point blocks the Horse in that direction. Elephants move two diagonal points, cannot cross the river, and are blocked by a piece in their path. Cannons capture after jumping over one piece. Advisors and Generals are restricted to the palace, and Generals may not face each other directly."
+    }
+  ]
+}

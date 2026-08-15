@@ -11,6 +11,8 @@ import requests
 from ai_router_bridge import load_router
 from timing import clamp_captions, estimate_content_duration, retime_moves
 from xiangqi_rules import parse_fen, validate_move_sequence
+from xiangqi_claims import suspicious_claim_language, verify_claims
+from research_grounding import research_required
 
 SUPPORTED_LANGUAGES = ("en", "zh")
 DEFAULT_LANGUAGE = "en"
@@ -22,12 +24,12 @@ You are the director of short Xiangqi Chinese-chess videos. Return valid JSON on
   "title": "short, compelling title",
   "narration": "natural English introduction and bridge only; per-move explanations belong in the move purpose/opponentReply/effect fields",
   "moves": [
-    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 2.0, "endSec": 3.0, "label": "move description", "purpose": "why this move is played", "opponentReply": "the likely reply", "effect": "what changed after the reply"}
+    {"ply": 1, "from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "startSec": 2.0, "endSec": 3.0, "label": "move description", "purpose": "why this move is played", "opponentReply": "the likely reply", "effect": "what changed after the reply", "claims": [{"claimType": "legal_move", "ply": 1, "position": "after", "statement": "source-backed or mechanically verified claim"}]}
   ],
   "captions": [{"startSec": 0.0, "endSec": 2.0, "text": "short English caption"}],
   "durationInSeconds": 0
 }
-Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only king, advisor, bishop, knight, rook, cannon, pawn and red or black. For every move, write a natural spoken explanation that includes what the move tries to do, the opponent's likely reply, what changed after that reply, and the next plan. Do not merely list coordinates. Keep each move explanation concise enough for one or two caption lines. Do not force a fixed short duration; the rendering pipeline calculates the final duration from narration, audio, captions, and move count. Do not output Markdown or any text outside JSON. Never output Arabic.
+Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only king, advisor, bishop, knight, rook, cannon, pawn and red or black. The supplied researchBundle is mandatory evidence: use it before writing the script and cite source ids in claims. Every causal or rule statement must have at least one structured claim. Allowed claimType values are legal_move, horse_leg_block, horse_leg_open, elephant_eye_block, elephant_eye_open, cannon_screen, river_limit, flying_general, and legal_destinations. A claim must specify ply, position, subject.at when relevant, target or blocker when relevant, and a precise statement. Do not use words such as blocks, blocked, Horse Eye, opens, unblocks, screen, mount, cannot, or river limit unless the corresponding claim is mechanically true in the supplied board trace. For every move, write a natural spoken explanation that includes what the move tries to do, the opponent's likely reply, what changed after that reply, and the next plan. Do not merely list coordinates. Keep each move explanation concise enough for one or two caption lines. Do not force a fixed short duration; the rendering pipeline calculates the final duration from narration, audio, captions, and move count. Do not output Markdown or any text outside JSON. Never output Arabic.
 """.strip(),
     "zh": """
 你是中国象棋短视频导演。只能返回有效 JSON，格式如下：
@@ -40,7 +42,7 @@ Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only ki
   "captions": [{"startSec": 0.0, "endSec": 2.0, "text": "简短中文字幕"}],
   "durationInSeconds": 0
 }
-规则：列坐标为 0..8，行坐标为 0..9，从棋盘顶部开始计算。棋子类型只能使用 king、advisor、bishop、knight、rook、cannon、pawn，阵营只能使用 red 或 black。每一步都要自然说明走法目的、对手可能的回应、回应后的变化和下一步计划，不要只报坐标。每个走法说明应足够简短，适合一到两行字幕。不要强制使用固定的短时长，最终时长将由渲染系统根据解说、音频、字幕和步数计算。不要输出 Markdown 或 JSON 之外的任何内容。绝不输出阿拉伯语。
+规则：列坐标为 0..8，行坐标为 0..9，从棋盘顶部开始计算。棋子类型只能使用 king、advisor、bishop、knight、rook、cannon、pawn，阵营只能使用 red 或 black。必须先使用 researchBundle 中的来源证据，再写脚本；每个规则或因果陈述都必须有结构化 claim 和精确坐标。马使用 Horse Leg 的概念，不得把马的阻挡称为 Horse Eye。不要输出 Markdown 或 JSON 之外的任何内容。绝不输出阿拉伯语。
 """.strip(),
 }
 
@@ -331,7 +333,7 @@ def _request_ai(puzzle: dict[str, Any], language: str, store: Any | None = None,
     router = load_router()
     if router is None:
         return None
-    prompt = f"{DIRECTOR_INSTRUCTIONS[language]}\n\nPuzzle data:\n{json.dumps(puzzle, ensure_ascii=False)}"
+    prompt = f"{DIRECTOR_INSTRUCTIONS[language]}\n\nMANDATORY RESEARCH AND GROUNDING BUNDLE:\n{json.dumps(puzzle.get('researchBundle') or {}, ensure_ascii=False)}\n\nPuzzle data:\n{json.dumps(puzzle, ensure_ascii=False)}"
     try:
         return router.complete_json(
             chain=os.getenv("AI_ROUTER_CHAIN", "default"),
@@ -559,6 +561,8 @@ def generate_director_data(puzzle: dict[str, Any], store: Any | None = None, ope
                 return _sanitize_director_data(result, language, puzzle)
         except Exception as exc:
             print(f"Director provider failed: {exc}")
+    if research_required() and str(os.getenv("YOUTUBE_PUBLISH_ENABLED", "0")).lower() in {"1", "true", "yes"}:
+        raise RuntimeError("Grounded production requires an available AI director; refusing ungrounded fallback")
     return _fallback(puzzle, language)
 
 
@@ -584,17 +588,33 @@ def _deterministic_legal_fallback(puzzle: dict[str, Any], language: str) -> dict
 def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any]) -> dict[str, Any]:
     language = normalize_language(puzzle.get("language"))
     clean_data = _sanitize_director_data(director_data, language, puzzle)
+    research_bundle = puzzle.get("researchBundle") if isinstance(puzzle.get("researchBundle"), dict) else {}
+    if os.getenv("XIANGQI_RESEARCH_REQUIRED", "1").lower() in {"1", "true", "yes"} and research_bundle.get("status") != "grounded":
+        raise ValueError("Xiangqi research grounding is required before script acceptance")
     move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
-    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle):
+    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle) and not research_required():
         clean_data = _deterministic_legal_fallback(puzzle, language)
         move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
     if not move_validation["ok"]:
         raise ValueError("Xiangqi legal-move validation failed: " + "; ".join(move_validation["errors"]))
     canonical_moves = move_validation["moves"]
+    claims_by_ply: dict[int, list[dict[str, Any]]] = {}
     for raw_move, canonical_move in zip(clean_data.get("moves", []), canonical_moves):
         raw_move["piece"] = canonical_move["piece"]
         raw_move["side"] = canonical_move["side"]
         raw_move["captured"] = canonical_move["captured"]
+        ply = int(canonical_move["ply"])
+        raw_claims = raw_move.get("claims") if isinstance(raw_move.get("claims"), list) else []
+        if suspicious_claim_language(raw_move) and not raw_claims:
+            raise ValueError(f"ply {ply}: causal/rule language requires structured Xiangqi claims")
+        claims_by_ply[ply] = [dict(claim) for claim in raw_claims if isinstance(claim, dict)]
+        if not claims_by_ply[ply]:
+            claims_by_ply[ply] = [{"claimType": "legal_move", "ply": ply, "position": "after", "statement": "validated legal move"}]
+    claim_proof = verify_claims(str(puzzle.get("fen") or ""), canonical_moves, claims_by_ply)
+    if not claim_proof.get("ok"):
+        raise ValueError("Xiangqi causal claim verification failed: " + "; ".join(claim_proof.get("errors") or []))
+    clean_data["claimProof"] = claim_proof
+    clean_data["claimsByPly"] = claims_by_ply
     duration = float(clean_data.get("durationInSeconds") or estimate_content_duration(clean_data.get("narration", ""), clean_data.get("moves", []), language))
     return {
         "id": job_id,
@@ -605,12 +625,16 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
         "moves": clean_data.get("moves", []),
         "captions": clean_data.get("captions", []),
         "narrationSegments": clean_data.get("narrationSegments", []),
+        "claimProof": clean_data.get("claimProof"),
+        "claimsByPly": clean_data.get("claimsByPly", {}),
         "audioSrc": "",
         "durationInSeconds": duration,
         "theme": puzzle.get("theme", "wood"),
         "content_type": puzzle.get("content_type", "definition"),
         "source_url": puzzle.get("source_url"),
         "source_kind": puzzle.get("source_kind", "generated"),
+        "researchBundle": puzzle.get("researchBundle"),
+        "groundingStatus": puzzle.get("groundingStatus"),
         "topic_key": puzzle.get("topic_key"),
         "hook": puzzle.get("hook"),
         "objective": puzzle.get("objective"),

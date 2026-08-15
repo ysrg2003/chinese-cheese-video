@@ -24,6 +24,7 @@ from visual_assets import add_generated_visual_assets, validate_and_annotate_vis
 from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
 from visual_qa import verify_rendered_visuals
 from xiangqi_rules import validate_move_sequence
+from research_grounding import attach_research_bundle, research_required
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -197,6 +198,8 @@ def main() -> int:
         for text_field in ("title", "narration", "captions"):
             puzzle.pop(text_field, None)
     puzzle["language"] = target_language
+    if research_required():
+        puzzle = attach_research_bundle(puzzle)
     job_id = args.job_id or f"xiangqi-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     stage_dir = ROOT / "output" / "jobs" / job_id
     public_dir = ROOT / "public" / "generated" / job_id

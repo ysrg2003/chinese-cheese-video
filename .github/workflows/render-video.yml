@@ -79,6 +79,12 @@ jobs:
       VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
       PREPUBLISH_CRITIC_REQUIRED: "1"
       PREPUBLISH_CRITIC_MAX_ITERATIONS: "2"
+      XIANGQI_RESEARCH_REQUIRED: "1"
+      RESEARCH_SOURCE_TIMEOUT_SECONDS: "25"
+      GOOGLE_GROUNDING_ENABLED: ${{ vars.GOOGLE_GROUNDING_ENABLED || '1' }}
+      GOOGLE_GROUNDING_REQUIRED: ${{ vars.GOOGLE_GROUNDING_REQUIRED || '1' }}
+      GOOGLE_GROUNDING_API_KEY: ${{ secrets.GOOGLE_GROUNDING_API_KEY || secrets.GEMINI_API_KEY_1 }}
+      GOOGLE_GROUNDING_MODEL: ${{ vars.GOOGLE_GROUNDING_MODEL || 'gemini-2.5-flash' }}
       # The repository default is autonomous production; set the repository variable to 1 for an emergency freeze.
       XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '0' }}
 
@@ -136,8 +142,16 @@ jobs:
           # Unit tests must exercise deterministic fallback visuals, not the live AI planner.
           AI_ROUTER_REQUIRE_KEYS: "0"
           PREPUBLISH_CRITIC_REQUIRED: "0"
+          XIANGQI_RESEARCH_REQUIRED: "0"
+          GOOGLE_GROUNDING_ENABLED: "0"
+          GOOGLE_GROUNDING_REQUIRED: "0"
           VISUAL_ASSET_ENABLED: "0"
         run: |
+          test -f python/research_grounding.py
+          test -f python/xiangqi_claims.py
+          grep -q "XIANGQI_RESEARCH_REQUIRED" python/run_pipeline.py
+          grep -q "claimProof" python/director.py
+          grep -q "horse_leg" python/visual_director.py
           npx tsc --noEmit
           PYTHONPATH=python python -m unittest discover -s python -p 'test_*.py'
           python -m py_compile python/*.py

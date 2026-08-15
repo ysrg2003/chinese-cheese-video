@@ -9,6 +9,7 @@ from typing import Any
 from ai_router_bridge import load_router
 from visual_director import ALL_VISUAL_KINDS, SUPPORTED_BOARD_PRIMITIVES
 from xiangqi_rules import validate_move_sequence
+from xiangqi_claims import CLAIM_TYPES, suspicious_claim_language, verify_claims
 
 
 CRITIC_CONTRACT = "prepublish_creative_critic_v1"
@@ -48,7 +49,7 @@ and whether every move has distinct action, reply, effect, and constraint treatm
 coordinate, piece position, capture, rule, historical claim, or visual primitive. Never change narration,
 caption text, move coordinates, move phase, FEN, or piece geometry. If a scene needs improvement, request a
 small scene-only repair. Approve only when the video is publishable as an educational Xiangqi lesson.
-Never use Arabic. English is required for English jobs and Chinese is required for Chinese jobs.
+Never use Arabic. English is required for English jobs and Chinese is required for Chinese jobs. Treat claimProof and researchBundle as mandatory evidence. Never approve a causal rule statement when the mechanical claim proof is absent or false.
 """.strip()
 
 
@@ -127,6 +128,23 @@ def _deterministic_review(job: dict[str, Any], visual_qa: dict[str, Any] | None,
         legal = {"ok": False, "errors": [f"legal validator failed: {exc}"]}
     if not legal.get("ok"):
         errors.extend([f"illegal move sequence: {error}" for error in legal.get("errors") or ["unknown legal error"]])
+    claim_proof = job.get("claimProof") if isinstance(job.get("claimProof"), dict) else {}
+    claims_by_ply = job.get("claimsByPly") if isinstance(job.get("claimsByPly"), dict) else {}
+    if job.get("moves") and not claim_proof:
+        errors.append("mechanical Xiangqi claim proof is missing")
+    elif claim_proof and claim_proof.get("ok") is not True:
+        errors.extend([f"claim proof failed: {error}" for error in claim_proof.get("errors") or ["claim proof is not ok"]])
+    for move in job.get("moves") or []:
+        try:
+            ply = int(move.get("ply"))
+        except (TypeError, ValueError):
+            continue
+        claims = claims_by_ply.get(str(ply), claims_by_ply.get(ply, []))
+        if suspicious_claim_language(move) and not claims:
+            errors.append(f"ply={ply} has causal language without structured claim")
+        for claim in claims or []:
+            if str(claim.get("claimType") or "") not in CLAIM_TYPES:
+                errors.append(f"ply={ply} has unsupported claim type")
 
     scenes = _scene_map(job)
     segments = _segment_map(job)
@@ -152,6 +170,22 @@ def _deterministic_review(job: dict[str, Any], visual_qa: dict[str, Any] | None,
             errors.append(f"scene_{scene_id} has no narration segment")
         if scene.get("movePly") is not None and scene.get("generatedAsset") is not None:
             errors.append(f"scene_{scene_id} attaches generated asset to a move")
+        move_ply = scene.get("movePly")
+        move = next((item for item in job.get("moves") or [] if isinstance(item, dict) and item.get("ply") == move_ply), None)
+        if isinstance(move, dict):
+            claim_types = {str(claim.get("claimType") or "") for claim in move.get("claims") or [] if isinstance(claim, dict)}
+            required_by_claim = {
+                "horse_leg_block": "horse_leg",
+                "horse_leg_open": "horse_leg",
+                "elephant_eye_block": "elephant_eye",
+                "elephant_eye_open": "elephant_eye",
+                "river_limit": "river_limit",
+                "cannon_screen": "cannon_screen",
+            }
+            planned = {str(item) for item in primitives}
+            for claim_type, required_primitive in required_by_claim.items():
+                if claim_type in claim_types and required_primitive not in planned:
+                    errors.append(f"scene_{scene_id} claim {claim_type} lacks required primitive {required_primitive}")
 
     move_groups: dict[int, list[dict[str, Any]]] = {}
     for scene_id, scene_segments in segments.items():
@@ -227,6 +261,8 @@ def _critic_payload(job: dict[str, Any], puzzle: dict[str, Any], visual_qa: dict
         "scenes": scenes,
         "deterministicReview": deterministic,
         "renderEvidence": _frame_evidence(visual_qa),
+        "claimProof": job.get("claimProof") or {},
+        "researchBundle": job.get("researchBundle") or puzzle.get("researchBundle") or {},
     }
 
 
