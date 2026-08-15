@@ -304,10 +304,20 @@ def _normalise_ai_review(raw: dict[str, Any], deterministic: dict[str, Any]) -> 
         "scene_repairs": repairs,
         "deterministic": deterministic,
     }
+    failed_ai_checks = sorted(
+        str(name)
+        for name, value in result["checks"].items()
+        if isinstance(value, dict) and value.get("ok") is False
+    )
+    if failed_ai_checks:
+        result["decision"] = "repair"
+        result["score"] = min(result["score"], 79)
+        result["ai_failed_checks"] = failed_ai_checks
+        result.setdefault("errors", []).extend([f"AI creative check failed: {name}" for name in failed_ai_checks])
     if deterministic.get("errors"):
         result["decision"] = "reject" if any("illegal" in error or "Arabic" in error for error in deterministic["errors"]) else "repair"
         result["score"] = min(result["score"], 79)
-        result["errors"] = list(deterministic["errors"])
+        result["errors"] = list(result.get("errors") or []) + list(deterministic["errors"])
     return result
 
 
@@ -316,10 +326,8 @@ def _filter_unsafe_repairs(job: dict[str, Any], review: dict[str, Any]) -> dict[
     repairs = review.get("scene_repairs") or []
     deterministic = review.get("deterministic") if isinstance(review.get("deterministic"), dict) else {}
     if not repairs:
-        if str(review.get("decision") or "").lower() == "repair" and not deterministic.get("errors"):
-            review["decision"] = "approve"
-            review["score"] = max(int(review.get("score") or 0), MIN_APPROVAL_SCORE)
-            review["summary"] = "AI requested a repair without an actionable scene specification; deterministic contract passed, so no unsafe change was applied."
+        if str(review.get("decision") or "").lower() == "repair":
+            review.setdefault("errors", []).append("AI requested repair but supplied no actionable protected scene repair")
             review["discarded_unsafe_repairs"] = [{"errors": ["AI repair decision contained no scene_repairs"]}]
         return review
     scenes = _scene_map(job)
@@ -346,10 +354,11 @@ def _filter_unsafe_repairs(job: dict[str, Any], review: dict[str, Any]) -> dict[
     review["scene_repairs"] = safe
     if discarded:
         review["discarded_unsafe_repairs"] = discarded
-    if discarded and not safe and not deterministic.get("errors"):
-        review["decision"] = "approve"
-        review["score"] = max(int(review.get("score") or 0), MIN_APPROVAL_SCORE)
-        review["summary"] = "AI repair proposals were discarded because they violated the protected visual contract; deterministic review passed."
+    if discarded and not safe:
+        review["decision"] = "repair"
+        review["score"] = min(int(review.get("score") or 0), 79)
+        review.setdefault("errors", []).append("All AI scene repairs were discarded by the protected visual contract")
+        review["summary"] = "AI repair proposals were discarded by the protected visual contract; a new safe repair is required."
     return review
 
 

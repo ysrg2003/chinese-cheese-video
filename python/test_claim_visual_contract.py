@@ -46,9 +46,10 @@ class ClaimVisualContractTests(unittest.TestCase):
             "deterministic": {"errors": []},
         }
         result = _filter_unsafe_repairs({}, review)
-        self.assertEqual(result["decision"], "approve")
-        self.assertGreaterEqual(result["score"], 82)
+        self.assertEqual(result["decision"], "repair")
+        self.assertLessEqual(result["score"], 79)
         self.assertIn("discarded_unsafe_repairs", result)
+        self.assertTrue(any("no actionable" in error for error in result.get("errors", [])))
 
     def test_critic_rejects_scene_without_claim_primitive(self) -> None:
         job = {

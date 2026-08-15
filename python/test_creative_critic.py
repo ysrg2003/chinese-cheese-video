@@ -36,6 +36,31 @@ def valid_job() -> dict:
 
 
 class CreativeCriticTests(unittest.TestCase):
+    def test_ai_failed_creative_checks_cannot_be_promoted_to_approval(self):
+        class FakeRouter:
+            def complete_json(self, **kwargs):
+                return {
+                    "decision": "approve",
+                    "score": 95,
+                    "summary": "Looks good",
+                    "checks": {
+                        "legal_accuracy": {"ok": True},
+                        "spoken_visual_alignment": {"ok": False, "reason": "Scene is generic"},
+                        "teaching_value": {"ok": False, "reason": "Beat is vague"},
+                    },
+                    "scene_repairs": [{"sceneId": 1, "visualPlan": {"mode": "board_overlay", "focus": "unsafe", "primitives": ["unsupported_primitive"]}}],
+                }
+
+            def close(self):
+                return None
+
+        with patch("creative_critic.load_router", return_value=FakeRouter()):
+            result = review_job(valid_job(), {}, require_ai=True)
+        self.assertEqual(result["decision"], "repair")
+        self.assertLessEqual(result["score"], 79)
+        self.assertIn("spoken_visual_alignment", result["ai_failed_checks"])
+        self.assertTrue(any("protected visual contract" in error for error in result["errors"]))
+
     def test_storyboard_preflight_approves_valid_job_without_mp4(self):
         result = review_job(valid_job(), {}, require_ai=False)
         self.assertEqual(result["decision"], "approve")

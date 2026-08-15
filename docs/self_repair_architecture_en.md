@@ -72,6 +72,10 @@ A repair checkpoint is written before every AI request and after every patch. It
 
 The maximum automatic repair budget is bounded per job and per workflow run. A job may receive a small number of repair attempts, and a failed repair cannot recursively create unlimited AI calls. When the budget is exhausted, the candidate is returned to the existing retry or quarantine policy with a complete diagnostic report.
 
+## Creative-review boundary
+
+The AI creative critic is also fail-closed. An `approve` response cannot override an explicit `false` check for spoken-visual alignment, teaching value, beat distinctness, or asset integration. If the AI proposes a scene repair and every proposal is discarded by the protected visual contract, the review remains `repair` and the self-repair lane receives the failure evidence. It never promotes the artifact to approval merely because the deterministic contract passed.
+
 ## Publication boundary
 
 The repair lane ends before YouTube publication. Only the original publisher may create or update a YouTube publication record. The candidate is marked published only after the existing public-upload, localization, playlist, and reconciliation contracts succeed. Review-only runs can produce and inspect repaired MP4 artifacts but cannot advance curriculum state or create public publication records.
