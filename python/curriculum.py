@@ -22,9 +22,18 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"from": [4, 9], "to": [3, 9], "piece": "king", "side": "red", "label": "Move safely inside the palace"},
     ],
     "horse-development": [
-        {"from": [1, 9], "to": [2, 7], "piece": "knight", "side": "red", "label": "Develop the horse"},
-        {"from": [1, 0], "to": [2, 2], "piece": "knight", "side": "black", "label": "Mirror the pressure"},
-        {"from": [2, 6], "to": [2, 5], "piece": "pawn", "side": "red", "label": "Control the horse eye"},
+        {"from": [1, 9], "to": [2, 7], "piece": "knight", "side": "red", "label": "Develop the Horse"},
+        {"from": [1, 0], "to": [2, 2], "piece": "knight", "side": "black", "label": "Develop the opposing Horse"},
+        {"from": [2, 6], "to": [2, 5], "piece": "pawn", "side": "red", "label": "Advance the Pawn"},
+    ],
+    "horse-leg-block": [
+        {"from": [1, 9], "to": [2, 7], "piece": "knight", "side": "red", "label": "Develop the Horse"},
+        {"from": [1, 0], "to": [2, 2], "piece": "knight", "side": "black", "label": "Develop the opposing Horse"},
+        {"from": [2, 6], "to": [2, 5], "piece": "pawn", "side": "red", "label": "Advance the Pawn"},
+        {"from": [6, 3], "to": [6, 4], "piece": "pawn", "side": "black", "label": "Make a waiting reply"},
+        {"from": [2, 5], "to": [2, 4], "piece": "pawn", "side": "red", "label": "Advance again"},
+        {"from": [6, 4], "to": [6, 5], "piece": "pawn", "side": "black", "label": "Keep the reply legal"},
+        {"from": [2, 4], "to": [2, 3], "piece": "pawn", "side": "red", "label": "Occupy the Horse Leg"},
     ],
     "rook-file": [
         {"from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "label": "Clear the file"},

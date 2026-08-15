@@ -301,11 +301,11 @@
       "difficulty": "beginner",
       "format": "lesson",
       "target_seconds": 75,
-      "title": "The Horse and the Blocked Eye",
-      "objective": "Teach horse movement and why it cannot jump through a blocked leg.",
-      "hook": "A Xiangqi horse does not jump like a chess knight.",
-      "analysis_focus": "Show the horse’s intended route, the blocking point, and how the opponent benefits from closing it.",
-      "position_template": "horse-development",
+      "title": "The Horse and the Horse Leg",
+      "objective": "Teach Horse movement and why it cannot move through an occupied Horse Leg.",
+      "hook": "A Xiangqi Horse does not jump through every route like a chess knight.",
+      "analysis_focus": "Show the Horse’s intended route, the exact Horse Leg coordinate, and how an occupied Leg removes that destination.",
+      "position_template": "horse-leg-block",
       "prerequisites": [
         "en-012-elephants-and-the-river"
       ]
@@ -679,11 +679,11 @@
       "difficulty": "beginner",
       "format": "short",
       "target_seconds": 60,
-      "title": "The Horse Eye Tactic",
-      "objective": "Teach attack and defense through the horse-leg block.",
-      "hook": "You do not capture the horse; sometimes you capture its eye.",
-      "analysis_focus": "Explain the intended horse route, the blocking reply, and the strategic consequence.",
-      "position_template": "horse-development",
+      "title": "The Horse-Leg Block Tactic",
+      "objective": "Teach attack and defense through a mechanically verified Horse Leg block.",
+      "hook": "You do not capture the Horse; you remove the route it needs.",
+      "analysis_focus": "Explain the intended Horse route, the exact blocking Leg, and the verified strategic consequence.",
+      "position_template": "horse-leg-block",
       "prerequisites": [
         "en-033-the-cannon-screen"
       ]

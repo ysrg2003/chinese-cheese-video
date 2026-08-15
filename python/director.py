@@ -74,6 +74,18 @@ FALLBACKS = {
 
 ARABIC_RE = re.compile(r"[\u0600-\u06ff]")
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
+HORSE_EYE_RE = re.compile(r"\bhorse(?:['’]s)?\s+eye\b|\bblocked\s+eye\b", re.IGNORECASE)
+
+
+def _canonicalize_xiangqi_terms(value: Any) -> Any:
+    """Replace the deprecated Horse terminology throughout director payload text."""
+    if isinstance(value, str):
+        return HORSE_EYE_RE.sub("Horse Leg", value)
+    if isinstance(value, list):
+        return [_canonicalize_xiangqi_terms(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _canonicalize_xiangqi_terms(item) for key, item in value.items()}
+    return value
 CURRICULUM_INTROS = {
     "en-001-what-is-xiangqi": "Xiangqi, often called Chinese chess, is a two-player strategy game played by two armies on a battlefield of nine files and ten ranks. The goal is to checkmate the opposing general, but the path to that goal is shaped by a river, two palaces, open lines, and the special geometry of the cannon. In this first lesson, nothing moves yet. Take a moment to read the starting position: two mirrored armies face one another, each with a general at the center of a palace. The pieces are not placed inside squares; they stand on intersections. That single detail changes how lines, attacks, and defenses work. We will first learn the board, the river, the palaces, the complete setup, and every piece movement. Only after that foundation will we play training positions, opening ideas, tactics, full games, and advanced puzzles.",
     "en-003-a-short-history-of-xiangqi": "Xiangqi has a long Chinese tradition and remains a living strategy game played casually, competitively, and online. Its familiar vocabulary is part of its identity: generals command from palaces, soldiers cross a river, and cannons use a screen to capture. Historians discuss the game’s development across different periods, so we will avoid reducing that history to one unsupported origin story. Instead, notice how the board itself preserves a battlefield language. The two sides begin in mirror formation, the river separates their territories, and the palace gives the generals a protected but restricted home. In the next lessons, we will turn that visual language into practical knowledge: first the board, then the setup, then the movement of each piece.",
@@ -459,6 +471,50 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     return {"title": title, "narration": narration, "moves": moves, "captions": captions, "narrationSegments": narration_segments, "durationInSeconds": duration}
 
 
+def _apply_horse_leg_template_contract(result: dict[str, Any], puzzle: dict[str, Any]) -> dict[str, Any]:
+    """Use a fixed, mechanically verified Horse Leg teaching line for curriculum lessons."""
+    if str(puzzle.get("position_template") or "") != "horse-leg-block":
+        return result
+    from curriculum import TEMPLATES
+
+    template_moves = [dict(item) for item in TEMPLATES["horse-leg-block"]]
+    safe_text = [
+        ("Develop the Horse", "continue developing a piece", "the position opens a new Horse route"),
+        ("Develop the opposing Horse", "answer the development", "both Horses now have a visible route"),
+        ("Advance the Pawn", "keep the reply legal", "the Pawn moves closer to the Horse Leg"),
+        ("Make a waiting reply", "continue development elsewhere", "the Horse Leg remains open for now"),
+        ("Advance again", "keep the reply legal", "the Pawn reaches the file beside the Horse route"),
+        ("Keep the reply legal", "continue development elsewhere", "the position is ready for the blocking demonstration"),
+        ("Occupy the Horse Leg", "try to continue the Horse route", "the red Pawn occupies the Horse Leg at file 3, rank 4 and removes the Black Horse destination at file 4, rank 5"),
+    ]
+    for index, move in enumerate(template_moves, start=1):
+        purpose, reply, effect = safe_text[index - 1]
+        move.update({
+            "ply": index,
+            "purpose": purpose,
+            "opponentReply": reply,
+            "effect": effect,
+            "label": purpose,
+            "claims": [{
+                "claimType": "legal_move",
+                "ply": index,
+                "position": "after",
+                "statement": f"The supplied move at ply {index} is legal in the traced position.",
+            }],
+        })
+    template_moves[-1]["claims"].append({
+        "claimType": "horse_leg_block",
+        "ply": 7,
+        "position": "after",
+        "subject": {"at": [2, 2]},
+        "target": [3, 4],
+        "blocker": {"at": [2, 3]},
+        "statement": "The red Pawn occupies the Horse Leg at file 3, rank 4, so the Black Horse at file 3, rank 3 cannot reach file 4, rank 5.",
+    })
+    result["moves"] = template_moves
+    return result
+
+
 def _normalise_move_entries(raw_moves: Any, language: str, puzzle: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(raw_moves, list):
         return []
@@ -481,7 +537,7 @@ def _normalise_move_entries(raw_moves: Any, language: str, puzzle: dict[str, Any
 
 def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[str, Any]) -> dict[str, Any]:
     fallback = _fallback(puzzle, language)
-    result = dict(data)
+    result = _canonicalize_xiangqi_terms(dict(data))
     static_visual = str(puzzle.get("visual_mode") or "") in {"static_board", "foundation_storyboard", "board_introduction", "setup_overview"}
     if static_visual:
         result["moves"] = []
@@ -514,6 +570,7 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
         for field in ("purpose", "opponentReply", "effect", "label"):
             if contains_arabic(move.get(field, "")) or (language == "en" and CJK_RE.search(str(move.get(field, "")))):
                 move.pop(field, None)
+    result = _apply_horse_leg_template_contract(result, puzzle)
     analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
     existing_segments = result.get("narrationSegments") if isinstance(result.get("narrationSegments"), list) else []
     intro_source = next(

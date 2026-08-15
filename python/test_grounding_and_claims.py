@@ -4,7 +4,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from director import make_job
+from director import _fallback, _sanitize_director_data, make_job
+from curriculum import DEFAULT_FEN, TEMPLATES
 from research_grounding import ResearchGroundingError, attach_research_bundle
 from xiangqi_claims import build_position_trace, verify_claims
 
@@ -45,6 +46,27 @@ class GroundingAndClaimsTests(unittest.TestCase):
         result = verify_claims(STANDARD_FEN, HORSE_LESSON_MOVES, wrong_claims)
         self.assertFalse(result["ok"])
         self.assertTrue(any("Horse Leg is not blocked" in error for error in result["errors"]))
+
+    def test_horse_leg_curriculum_template_is_mechanically_grounded(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "moves": TEMPLATES["horse-leg-block"],
+            "title": "The Horse and the Horse Leg",
+            "content_type": "rules",
+            "position_template": "horse-leg-block",
+            "curriculum_lesson_key": "en-013-the-horse-and-blocked-eye",
+            "durationInSeconds": 90,
+            "analysis_focus": "Show the exact Horse Leg coordinate and the blocked destination.",
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        clean = _sanitize_director_data(_fallback(puzzle, "en"), "en", puzzle)
+        job = make_job("horse-leg-template-test", puzzle, clean)
+        self.assertEqual(len(job["moves"]), 7)
+        self.assertTrue(job["claimProof"]["ok"], job["claimProof"].get("errors"))
+        self.assertEqual(job["claimsByPly"][7][-1]["claimType"], "horse_leg_block")
+        self.assertEqual(job["claimsByPly"][7][-1]["subject"]["at"], [2, 2])
+        self.assertNotIn("horse eye", str(job).lower())
 
     def test_legal_move_claim_can_pass_without_inventing_causal_effect(self) -> None:
         claims = {

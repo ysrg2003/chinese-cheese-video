@@ -237,21 +237,54 @@ def _topic_evidence(sources: list[dict[str, Any]], topics: list[str]) -> dict[st
     return result
 
 
-def _gemini_key() -> str | None:
-    candidates = [os.getenv("GOOGLE_GROUNDING_API_KEY"), os.getenv("GEMINI_API_KEY"), os.getenv("GOOGLE_API_KEY")]
+def _gemini_keys() -> list[str]:
+    """Load ordered Gemini keys from dedicated and AI Router pools without logging secrets."""
+    candidates: list[str] = []
+
+    def add(value: Any) -> None:
+        if isinstance(value, str):
+            for item in re.split(r"[,\n]+", value):
+                clean = item.strip()
+                if clean:
+                    candidates.append(clean)
+        elif isinstance(value, dict):
+            for key_name in ("key", "api_key", "token", "secret", "value"):
+                if value.get(key_name):
+                    add(str(value[key_name]))
+                    return
+            for wrapper in ("keys", "items", "entries", "data"):
+                if wrapper in value:
+                    add(value[wrapper])
+                    return
+        elif isinstance(value, list):
+            for item in value:
+                add(item)
+
+    for raw in (
+        os.getenv("GOOGLE_GROUNDING_API_KEY"),
+        os.getenv("GEMINI_API_KEY"),
+        os.getenv("GOOGLE_API_KEY"),
+        os.getenv("GEMINI_API_KEYS"),
+        os.getenv("GOOGLE_API_KEYS"),
+    ):
+        add(raw)
     for raw in (os.getenv("GEMINI_KEYS_JSON"), os.getenv("AI_ROUTER_GEMINI_KEYS_JSON")):
         if raw:
             try:
-                values = json.loads(raw)
-                if isinstance(values, list):
-                    for value in values:
-                        if isinstance(value, str):
-                            candidates.append(value)
-                        elif isinstance(value, dict) and value.get("key"):
-                            candidates.append(str(value["key"]))
+                add(json.loads(raw))
             except json.JSONDecodeError:
-                pass
-    return next((str(value).strip() for value in candidates if str(value or "").strip()), None)
+                add(raw)
+    unique: list[str] = []
+    seen: set[str] = set()
+    for value in candidates:
+        if value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return unique
+
+
+def _gemini_key() -> str | None:
+    return next(iter(_gemini_keys()), None)
 
 
 def _native_google_grounding(puzzle: dict[str, Any], topics: list[str]) -> dict[str, Any] | None:
@@ -261,8 +294,8 @@ def _native_google_grounding(puzzle: dict[str, Any], topics: list[str]) -> dict[
         if required:
             raise ResearchGroundingError("GOOGLE_GROUNDING_REQUIRED=1 but GOOGLE_GROUNDING_ENABLED=0")
         return None
-    key = _gemini_key()
-    if not key:
+    keys = _gemini_keys()
+    if not keys:
         if required:
             raise ResearchGroundingError("Google Search grounding is required but no Gemini grounding key is configured")
         return None
@@ -277,26 +310,33 @@ def _native_google_grounding(puzzle: dict[str, Any], topics: list[str]) -> dict[
         "input": prompt,
         "tools": [{"type": "google_search"}, {"type": "url_context"}],
     }
-    try:
-        response = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/interactions",
-            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-            json=payload,
-            timeout=max(30, int(os.getenv("GOOGLE_GROUNDING_TIMEOUT_SECONDS", "90"))),
-        )
-        response.raise_for_status()
-        body = response.json()
-        return {
-            "provider": "gemini_google_search",
-            "model": model,
-            "status": "retrieved",
-            "response": body,
-            "response_sha256": hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest(),
-        }
-    except Exception as exc:
-        if required:
-            raise ResearchGroundingError(f"Google Search grounding failed: {exc}") from exc
-        return {"provider": "gemini_google_search", "status": "failed", "error": str(exc)[:500]}
+    errors: list[str] = []
+    for index, key in enumerate(keys, start=1):
+        try:
+            response = requests.post(
+                "https://generativelanguage.googleapis.com/v1beta/interactions",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload,
+                timeout=max(30, int(os.getenv("GOOGLE_GROUNDING_TIMEOUT_SECONDS", "90"))),
+            )
+            response.raise_for_status()
+            body = response.json()
+            return {
+                "provider": "gemini_google_search",
+                "model": model,
+                "status": "retrieved",
+                "key_index": index,
+                "response": body,
+                "response_sha256": hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest(),
+            }
+        except Exception as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            errors.append(f"key_{index}_status_{status or 'unknown'}:{str(exc)[:180]}")
+            continue
+    message = "Google Search grounding failed after ordered key pool: " + " | ".join(errors[:6])
+    if required:
+        raise ResearchGroundingError(message)
+    return {"provider": "gemini_google_search", "status": "failed", "error": message[:1000]}
 
 
 def build_research_bundle(puzzle: dict[str, Any]) -> dict[str, Any]:
