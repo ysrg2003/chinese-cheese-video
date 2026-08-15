@@ -137,12 +137,12 @@ def _reviewed_render(job: dict[str, Any], puzzle: dict[str, Any], stage_dir: Pat
     for iteration in range(max_iterations + 1):
         job["creativeReviewIteration"] = iteration
         pre_review = run_prepublication_review(job, puzzle, final_artifact=False)
-        history.append({"phase": "storyboard", "iteration": iteration, "review": pre_review})
+        history.append({"phase": "storyboard", "iteration": iteration, "review": deepcopy(pre_review)})
         if pre_review.get("decision") != "approve" or int(pre_review.get("score") or 0) < MIN_APPROVAL_SCORE:
             repair_errors = apply_repairs(job, pre_review)
             if repair_errors or iteration >= max_iterations:
                 pre_review["repair_errors"] = repair_errors
-                pre_review["history"] = history
+                pre_review["history"] = deepcopy(history)
                 write_review(pre_review, stage_dir)
                 raise RuntimeError("Pre-publish creative review failed before render: " + "; ".join(repair_errors or [str(pre_review.get("summary") or "critic did not approve")]))
             sync_repaired_scenes(job)
