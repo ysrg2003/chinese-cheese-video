@@ -159,7 +159,11 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
     review_only = os.getenv("XIANGQI_REVIEW_ONLY", "0").lower() in {"1", "true", "yes"}
     history_reader = getattr(store, "get_publication_reset_history", None)
     quarantined = history_reader(job_id) if history_reader else None
-    if quarantined and not review_only:
+    # Full-channel deletion has already verified that the old identity is absent.
+    # Individual remediation resets remain quarantined to prevent duplicate uploads.
+    reset_group = str((quarantined or {}).get("reset_group") or "")
+    full_channel_restart = reset_group.startswith("full_channel_restart_")
+    if quarantined and not review_only and not full_channel_restart:
         raise PublicationPendingError(
             f"Public video {quarantined['original_video_id']} is quarantined for review-only replacement; "
             "ordinary production is blocked until the replacement is explicitly approved"
