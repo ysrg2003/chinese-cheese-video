@@ -45,6 +45,18 @@ def _role(text: str, segment: dict[str, Any]) -> str:
 
 def _intent_for(text: str, segment: dict[str, Any]) -> dict[str, Any]:
     lowered = text.lower()
+    if "initiative" in lowered and "exchange" in lowered and ("after" in lowered or "shift" in lowered):
+        return {
+            "concept": text[:80].strip(),
+            "semanticRole": _role(text, segment),
+            "visualTreatment": "causal_bridge",
+            "evidenceMode": "editorial_bridge",
+            "coverage": "bridge_only",
+            "confidence": "editorial",
+            "visualKind": "comparison_split",
+            "primitives": ["causal_bridge"],
+            "bridgeLabels": ["BASELINE", "EXCHANGE", "INITIATIVE SHIFTS"],
+        }
     for markers, treatment, visual_kind, primitives, evidence in KNOWN_TREATMENTS:
         if any(marker in lowered for marker in markers):
             concept = text[:80].strip() if treatment == "strategic_bridge" else treatment

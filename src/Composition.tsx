@@ -7,6 +7,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { Fragment } from "react";
 import type { BoardPiece, BoardPoint, Move, PieceType, VideoJob, VisualStoryboardScene } from "./types";
 import { activeMoveAtSecond, boardAtSecond, legalDestinationsForPiece } from "./xq";
 
@@ -223,6 +224,9 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const plan = active.visualPlan;
   const primitives = new Set<string>(Array.isArray(plan?.primitives) ? plan.primitives : []);
   const bridgeLabels = plan?.bridgeLabels && plan.bridgeLabels.length >= 2 ? plan.bridgeLabels : ["QUIET IDEA", "FORCING IDEA"];
+  const bridgeStages = primitives.has("causal_bridge") ? bridgeLabels.slice(0, 3) : bridgeLabels.slice(0, 2);
+  const bridgeCardWidth = primitives.has("causal_bridge") ? 280 : 378;
+  const bridgeLefts = primitives.has("causal_bridge") ? [76, 400, 724] : [94, 608];
   const inferredType = inferPieceType(`${active.headline || ""} ${active.text || ""}`) || plan?.focusPiece;
   const inferredPiece = inferredType ? legalBoard.find((piece) => piece.type === inferredType && (!plan?.focusSide || piece.side === plan.focusSide)) || legalBoard.find((piece) => piece.type === inferredType) : undefined;
   const fallbackTeachingPiece = kind === "piece_movement" ? legalBoard.find((piece) => piece.type === "pawn" && piece.side === "red") : undefined;
@@ -361,17 +365,18 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
       <Marker left={target.x} top={target.y - 112} opacity={opacity} tone="red">THREAT</Marker>
     </>}
 
-    {(kind === "before_after" || kind === "comparison_split") && !primitives.has("concept_bridge") && <>
+    {(kind === "before_after" || kind === "comparison_split") && !primitives.has("concept_bridge") && !primitives.has("causal_bridge") && <>
       <div style={{ position: "absolute", left: board.x + 48, top: board.y + 48, width: board.width - 96, height: board.height - 96, border: "5px dashed rgba(255,241,182,.85)", borderRadius: 20, opacity, zIndex: 4 }} />
       <Marker left={board.x + 180} top={board.y + board.height - 34} opacity={opacity} tone="black">BEFORE</Marker>
       <Marker left={board.x + board.width - 180} top={board.y + board.height - 34} opacity={opacity} tone="red">AFTER</Marker>
     </>}
 
-    {primitives.has("concept_bridge") && <>
+    {(primitives.has("concept_bridge") || primitives.has("causal_bridge")) && <>
       <Marker left={board.x + board.width / 2} top={board.y + board.height + 34} opacity={opacity} tone="gold">EDITORIAL MODEL · NOT A MOVE</Marker>
-      <div style={{ position: "absolute", left: 94, top: 1430, width: 378, height: 122, borderRadius: 18, background: "rgba(48, 42, 38, .92)", border: "3px solid #f5ce74", color: "#fff8e9", opacity, zIndex: 7, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, boxShadow: "0 10px 22px rgba(45, 24, 9, .24)" }}><div style={{ fontSize: 16, letterSpacing: 1.2, color: "#f5ce74", fontWeight: 900 }}>STATE A</div><div style={{ fontSize: 22, fontWeight: 900 }}>{bridgeLabels[0]}</div></div>
-      <div style={{ position: "absolute", left: 608, top: 1430, width: 378, height: 122, borderRadius: 18, background: "rgba(148, 39, 31, .92)", border: "3px solid #ffd1b6", color: "#fff8e9", opacity, zIndex: 7, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, boxShadow: "0 10px 22px rgba(45, 24, 9, .24)" }}><div style={{ fontSize: 16, letterSpacing: 1.2, color: "#ffd1b6", fontWeight: 900 }}>STATE B</div><div style={{ fontSize: 22, fontWeight: 900 }}>{bridgeLabels[1]}</div></div>
-      <div style={{ position: "absolute", left: 504, top: 1470, width: 72, textAlign: "center", color: "#b63c2f", opacity, zIndex: 8, fontSize: 34, fontWeight: 900 }}>→</div>
+      {bridgeStages.map((label, index) => <Fragment key={`bridge-stage-${label}`}>
+        <div style={{ position: "absolute", left: bridgeLefts[index], top: 1430, width: bridgeCardWidth, height: 122, borderRadius: 18, background: index === bridgeStages.length - 1 ? "rgba(148, 39, 31, .92)" : index === 0 ? "rgba(48, 42, 38, .92)" : "rgba(111, 70, 20, .92)", border: `3px solid ${index === bridgeStages.length - 1 ? "#ffd1b6" : "#f5ce74"}`, color: "#fff8e9", opacity, zIndex: 7, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, boxShadow: "0 10px 22px rgba(45, 24, 9, .24)" }}><div style={{ fontSize: 16, letterSpacing: 1.2, color: index === bridgeStages.length - 1 ? "#ffd1b6" : "#f5ce74", fontWeight: 900 }}>{primitives.has("causal_bridge") ? `STAGE ${index + 1}` : `STATE ${index === 0 ? "A" : "B"}`}</div><div style={{ fontSize: primitives.has("causal_bridge") ? 19 : 22, fontWeight: 900, textAlign: "center" }}>{label}</div></div>
+        {index < bridgeStages.length - 1 && <div style={{ position: "absolute", left: bridgeLefts[index] + bridgeCardWidth + 8, top: 1470, width: bridgeLefts[index + 1] - bridgeLefts[index] - bridgeCardWidth - 16, textAlign: "center", color: "#b63c2f", opacity, zIndex: 8, fontSize: 34, fontWeight: 900 }}>→</div>}
+      </Fragment>)}
     </>}
 
     {kind === "game_phase" && <>

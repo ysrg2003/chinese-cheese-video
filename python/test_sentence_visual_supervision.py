@@ -24,17 +24,17 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         self.assertEqual(intent["primitives"], ["concept_focus"])
         self.assertEqual(validate_sentence_visual_coverage(expanded), [])
 
-    def test_strategic_abstract_language_gets_controlled_editorial_bridge(self) -> None:
+    def test_causal_abstract_language_gets_three_stage_editorial_bridge(self) -> None:
         job = {
             "language": "en",
             "narrationSegments": [{"kind": "intro", "text": "A tempo shift changes initiative after an exchange."}],
         }
         expanded = expand_narration_segments(job)
         intent = expanded["sentenceVisualIntents"][0]
-        self.assertEqual(intent["visualTreatment"], "strategic_bridge")
+        self.assertEqual(intent["visualTreatment"], "causal_bridge")
         self.assertEqual(intent["confidence"], "editorial")
         self.assertEqual(intent["coverage"], "bridge_only")
-        self.assertEqual(intent["bridgeLabels"], ["QUIET TEMPO", "FORCING TEMPO"])
+        self.assertEqual(intent["bridgeLabels"], ["BASELINE", "EXCHANGE", "INITIATIVE SHIFTS"])
         self.assertEqual(validate_sentence_visual_coverage(expanded), [])
 
     def test_multiple_sentences_receive_distinct_ids_and_intents(self) -> None:

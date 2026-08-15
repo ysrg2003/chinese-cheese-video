@@ -21,7 +21,7 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
     "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
     "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
-    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "concept_bridge",
+    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "concept_bridge", "causal_bridge",
 }
 
 ALL_VISUAL_KINDS = {
@@ -421,17 +421,20 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
         return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
     intent = segment.get("visualIntent") if isinstance(segment.get("visualIntent"), dict) else {}
     intent_treatment = str(intent.get("visualTreatment") or "").strip()
-    if intent_treatment == "strategic_bridge":
-        labels = intent.get("bridgeLabels") if isinstance(intent.get("bridgeLabels"), list) else ["QUIET IDEA", "FORCING IDEA"]
-        labels = [str(label).strip()[:24] for label in labels[:2] if str(label).strip()]
-        while len(labels) < 2:
-            labels.append("FORCING IDEA" if len(labels) == 1 else "QUIET IDEA")
+    if intent_treatment in {"strategic_bridge", "causal_bridge"}:
+        default_labels = ["QUIET IDEA", "FORCING IDEA"] if intent_treatment == "strategic_bridge" else ["BASELINE", "EXCHANGE", "INITIATIVE SHIFTS"]
+        labels = intent.get("bridgeLabels") if isinstance(intent.get("bridgeLabels"), list) else default_labels
+        labels = [str(label).strip()[:24] for label in labels[:3] if str(label).strip()]
+        while len(labels) < len(default_labels):
+            labels.append(default_labels[len(labels)])
+        primitive = "causal_bridge" if intent_treatment == "causal_bridge" else "concept_bridge"
+        headline = "Causal Initiative Shift" if intent_treatment == "causal_bridge" else "Strategic Contrast"
         return {
             "visualKind": "comparison_split",
-            "headline": "Strategic Contrast",
-            "visualInstruction": "Show a controlled editorial contrast between two labeled strategic ideas while keeping the canonical board unchanged; explicitly label it as a model, not a played move.",
-            "semanticTags": ["abstract_concept", "strategic_bridge", "editorial_model", "not_a_move"],
-            "visualPlan": {"mode": "board_overlay", "focus": str(intent.get("concept") or "strategic contrast"), "primitives": ["concept_bridge"], "bridgeLabels": labels},
+            "headline": headline,
+            "visualInstruction": "Show a controlled editorial model that mirrors the spoken causal sequence while keeping the canonical board unchanged; explicitly label it as not a played move.",
+            "semanticTags": ["abstract_concept", intent_treatment, "editorial_model", "not_a_move"],
+            "visualPlan": {"mode": "board_overlay", "focus": str(intent.get("concept") or headline), "primitives": [primitive], "bridgeLabels": labels},
             "confident": True,
         }
     fallback_profile = str(segment.get("_fallbackProfile") or "").strip()
