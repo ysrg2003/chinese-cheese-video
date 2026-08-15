@@ -958,6 +958,24 @@ class LocalStore:
         value["metadata"] = json.loads(value.pop("metadata_json") or "{}")
         return value
 
+    def get_publication_reset_history(self, job_id: str) -> dict[str, Any] | None:
+        """Return an audit record for a quarantined public identity, if present."""
+        with self._connect() as connection:
+            table = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'publication_reset_history' LIMIT 1"
+            ).fetchone()
+            if not table:
+                return None
+            row = connection.execute(
+                """SELECT reset_group, job_id, original_video_id, verification_run_id,
+                          reason, reset_at
+                   FROM publication_reset_history
+                   WHERE job_id = ?
+                   ORDER BY id DESC LIMIT 1""",
+                (job_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
     def upsert_youtube_publication(self, job_id: str, language: str, content_type: str, status: str, **fields: Any) -> None:
         now = datetime.now(timezone.utc).isoformat()
         metadata = dict(fields.get("metadata") or {})

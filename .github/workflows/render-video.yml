@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      review_only:
+        description: "Generate and validate the MP4 without YouTube upload or publication-state advancement"
+        required: false
+        default: false
+        type: boolean
       continuation_depth:
         description: "Internal continuation counter used when a pending publication needs another workflow run"
         required: false
@@ -63,7 +68,8 @@ jobs:
       HF_MODELS: ${{ vars.HF_MODELS || 'openai/gpt-oss-120b:fastest' }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_OAUTH_TOKEN_JSON: ${{ secrets.YOUTUBE_OAUTH_TOKEN_JSON }}
-      YOUTUBE_PUBLISH_ENABLED: ${{ vars.YOUTUBE_PUBLISH_ENABLED || '1' }}
+      YOUTUBE_PUBLISH_ENABLED: ${{ inputs.review_only == true && '0' || vars.YOUTUBE_PUBLISH_ENABLED || '1' }}
+      XIANGQI_REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       YOUTUBE_LOCALIZATION_ENABLED: ${{ vars.YOUTUBE_LOCALIZATION_ENABLED || '1' }}
       YOUTUBE_PUBLISH_MODE: ${{ vars.YOUTUBE_PUBLISH_MODE || 'public' }}
       YOUTUBE_AUTO_CREATE_PLAYLISTS: ${{ vars.YOUTUBE_AUTO_CREATE_PLAYLISTS || '1' }}
@@ -170,7 +176,7 @@ jobs:
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
 
       - name: Continuously reconcile public publications before production
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1'
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1'
         id: continuous_reconcile
         continue-on-error: true
         env:
@@ -183,7 +189,7 @@ jobs:
         run: python python/continuous_reconcile.py --output continuous-reconcile.json | tee continuous-reconcile.log
 
       - name: Classify reconciliation completion state
-        if: always()
+        if: always() && env.REVIEW_ONLY != '1'
         id: reconciliation_state
         run: |
           if [ ! -f continuous-reconcile.json ]; then
@@ -199,7 +205,7 @@ jobs:
           fi
 
       - name: Queue another completion run when a transient retry window expires
-        if: steps.reconciliation_state.outputs.state == 'retry_window_exhausted' && env.XIANGQI_PRODUCTION_FREEZE != '1'
+        if: steps.reconciliation_state.outputs.state == 'retry_window_exhausted' && env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONTINUATION_DELAY_SECONDS: "180"
@@ -230,13 +236,14 @@ jobs:
             -f "inputs[continuation_depth]=${NEXT_DEPTH}"
 
       - name: Run autonomous discovery and production until the current item completes
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && steps.reconciliation_state.outputs.state == 'complete'
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && (env.REVIEW_ONLY == '1' || steps.reconciliation_state.outputs.state == 'complete')
         id: autonomous_run
         continue-on-error: true
         env:
           RUN_DAILY_COUNT: ${{ inputs.daily_count }}
           RUN_LANGUAGES: ${{ inputs.languages }}
           RUN_DISCOVERY_LIMIT: ${{ inputs.discovery_limit }}
+          XIANGQI_REVIEW_ONLY: ${{ env.XIANGQI_REVIEW_ONLY }}
         run: |
           set +e
           COUNT="${RUN_DAILY_COUNT:-1}"

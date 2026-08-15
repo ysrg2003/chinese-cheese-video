@@ -156,6 +156,14 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
     # Stable identity is essential: a retry must resume the same YouTube publication,
     # not create a new video with a new run timestamp.
     job_id = f"{candidate['id'][:60]}-{language}".replace("/", "-")
+    review_only = os.getenv("XIANGQI_REVIEW_ONLY", "0").lower() in {"1", "true", "yes"}
+    history_reader = getattr(store, "get_publication_reset_history", None)
+    quarantined = history_reader(job_id) if history_reader else None
+    if quarantined and not review_only:
+        raise PublicationPendingError(
+            f"Public video {quarantined['original_video_id']} is quarantined for review-only replacement; "
+            "ordinary production is blocked until the replacement is explicitly approved"
+        )
     existing_publication = store.get_youtube_publication(job_id)
     if existing_publication and existing_publication.get("status") == "published":
         stored_job = store.get_video_job_payload(job_id)
@@ -255,12 +263,29 @@ def main() -> int:
                     metrics["completed"] += 1
                     continue
                 completed_jobs = [run_one(candidate, language, store, run_id) for language in languages]
-                store.update_candidate(candidate["id"], "published", ",".join(completed_jobs))
-                if lesson_key:
-                    store.update_curriculum_episode(
-                        lesson_key, selection_language, "published", candidate_id=candidate["id"], job_id=completed_jobs[0] if completed_jobs else None
-                    )
-                metrics["completed"] += 1
+                review_only = os.getenv("XIANGQI_REVIEW_ONLY", "0").lower() in {"1", "true", "yes"}
+                if review_only:
+                    # The MP4 is intentionally available for human review, but it
+                    # is not a YouTube publication and must not advance the lesson.
+                    store.update_candidate(candidate["id"], "blocked")
+                    if lesson_key:
+                        store.update_curriculum_episode(
+                            lesson_key,
+                            selection_language,
+                            "blocked",
+                            candidate_id=candidate["id"],
+                            job_id=completed_jobs[0] if completed_jobs else None,
+                            error_message="Review artifact generated; public replacement requires explicit approval",
+                        )
+                    metrics["review_ready"] = int(metrics.get("review_ready", 0)) + 1
+                    metrics.setdefault("review_jobs", []).extend(completed_jobs)
+                else:
+                    store.update_candidate(candidate["id"], "published", ",".join(completed_jobs))
+                    if lesson_key:
+                        store.update_curriculum_episode(
+                            lesson_key, selection_language, "published", candidate_id=candidate["id"], job_id=completed_jobs[0] if completed_jobs else None
+                        )
+                    metrics["completed"] += 1
             except PublicationPendingError as exc:
                 # A public video already exists. Leave its curriculum entry retryable
                 # for the next reconciliation pass, but do not fail the content run
