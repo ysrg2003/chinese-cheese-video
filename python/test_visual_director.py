@@ -103,12 +103,14 @@ class VisualDirectorTests(unittest.TestCase):
             ],
         }
         result = add_visual_storyboard(dict(job), {"visualStoryboard": []})
-        self.assertEqual([segment["movePhase"] for segment in result["narrationSegments"]], ["action", "reply", "effect", "constraint"])
-        self.assertEqual([scene["visualKind"] for scene in result["visualStoryboard"]], ["move_path", "threat_marker", "before_after", "rule_focus"])
+        self.assertEqual([segment["movePhase"] for segment in result["narrationSegments"]], ["action", "action", "reply", "reply", "effect", "constraint"])
+        self.assertEqual([scene["visualKind"] for scene in result["visualStoryboard"]], ["move_path", "move_path", "threat_marker", "threat_marker", "before_after", "rule_focus"])
         self.assertEqual(result["visualStoryboard"][0]["visualPlan"]["primitives"], ["source_piece", "legal_path", "played_destination"])
-        self.assertIn("pressure_marker", result["visualStoryboard"][1]["visualPlan"]["primitives"])
-        self.assertIn("effect_after", result["visualStoryboard"][2]["visualPlan"]["primitives"])
-        self.assertEqual(result["visualStoryboard"][3]["visualPlan"]["primitives"], ["piece_anchor", "elephant_eye", "river_limit"])
+        self.assertEqual(result["visualStoryboard"][1]["visualPlan"]["primitives"], ["source_piece", "legal_path", "played_destination"])
+        self.assertIn("pressure_marker", result["visualStoryboard"][2]["visualPlan"]["primitives"])
+        self.assertIn("pressure_marker", result["visualStoryboard"][3]["visualPlan"]["primitives"])
+        self.assertIn("effect_after", result["visualStoryboard"][4]["visualPlan"]["primitives"])
+        self.assertEqual(result["visualStoryboard"][5]["visualPlan"]["primitives"], ["piece_anchor", "elephant_eye", "river_limit"])
 
     def test_storyboard_validation_requires_all_move_explanation_beats(self) -> None:
         base_scene = {"index": 1, "visualKind": "move_path", "headline": "Move", "visualInstruction": "Show the legal move.", "semanticTags": ["move"], "visualPlan": {"mode": "board_overlay", "focus": "move", "primitives": ["source_piece"]}}

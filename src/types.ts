@@ -89,6 +89,15 @@ export type VisualPlan = {
   focusSide?: Side;
 };
 
+export type VisualIntent = {
+  concept?: string;
+  semanticRole?: string;
+  visualTreatment?: string;
+  evidenceMode?: "claim_proof" | "board_state" | "research_bundle" | "editorial_bridge";
+  coverage?: "covered" | "bridge_only";
+  confidence?: "verified" | "inferred" | "editorial" | "unresolved";
+};
+
 export type VisualStoryboardScene = {
   index: number;
   segmentIndex?: number;
@@ -100,6 +109,8 @@ export type VisualStoryboardScene = {
   visualInstruction?: string;
   semanticTags?: string[];
   visualPlan?: VisualPlan;
+  sentenceId?: string;
+  visualIntent?: VisualIntent;
   generatedAsset?: GeneratedVisualAsset;
 };
 
@@ -119,6 +130,8 @@ export type NarrationSegment = {
   visualInstruction?: string;
   semanticTags?: string[];
   visualPlan?: VisualPlan;
+  sentenceId?: string;
+  visualIntent?: VisualIntent;
 };
 
 export type VideoJob = {
@@ -147,6 +160,14 @@ export type VideoJob = {
   referenceMode?: boolean;
   visualStoryboard?: VisualStoryboardScene[];
   visualStoryboardSource?: "ai_router" | "provided_ai" | "fallback";
+  sentenceVisualIntents?: Array<Record<string, unknown>>;
+  sentenceVisualSupervision?: {
+    version: string;
+    status: string;
+    sourceSegmentCount: number;
+    sentenceCount: number;
+    unresolvedCount: number;
+  };
 };
 
 export const BOARD_COLUMNS = 9;

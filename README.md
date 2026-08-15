@@ -19,6 +19,10 @@
 
 إذا وصل للنظام نص عربي من لغز قديم أو من استجابة نموذج، يرفضه منطق التحقق ويستخدم النص الاحتياطي باللغة المحددة بدلاً منه.
 
+## Sentence-Level Visual Supervision
+
+Every non-foundation narration sentence receives a stable `sentenceId`, a `visualIntent`, and a renderer-safe storyboard scene before rendering. Known Xiangqi concepts use verified treatments such as `horse_leg`, `elephant_eye`, `cannon_screen`, river and palace overlays, and legal paths. New concepts receive the flexible `concept_focus` treatment instead of being dropped or assigned an invented move. See [`docs/sentence_level_visual_supervision_en.md`](docs/sentence_level_visual_supervision_en.md) for the data contract, validation gates, fallback behavior, and test commands.
+
 ## مكونات النظام
 
 | المكوّن | الوظيفة | مكان الإعداد |

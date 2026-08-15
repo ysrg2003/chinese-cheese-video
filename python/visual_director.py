@@ -7,6 +7,7 @@ from typing import Any
 
 from ai_router_bridge import load_router
 from timing import estimate_content_duration
+from sentence_visual_supervision import expand_narration_segments, validate_sentence_visual_coverage
 
 FOUNDATION_VISUAL_MODES = {"foundation_storyboard", "board_introduction", "setup_overview"}
 DISABLED_VISUAL_MODES = {"none", "disabled", "off"}
@@ -20,7 +21,7 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
     "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
     "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
-    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight",
+    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus",
 }
 
 ALL_VISUAL_KINDS = {
@@ -182,6 +183,8 @@ def _segment_payload(job: dict[str, Any]) -> list[dict[str, Any]]:
             "text": str(segment.get("text") or ""),
             "captionText": str(segment.get("captionText") or ""),
             "move": {key: move.get(key) for key in ("from", "to", "piece", "side", "purpose", "opponentReply", "effect", "claims") if move and key in move},
+            "sentenceId": segment.get("sentenceId"),
+            "visualIntent": segment.get("visualIntent") or {},
         })
     if not payload:
         payload.append({"segmentIndex": 1, "kind": "intro", "movePly": None, "text": str(job.get("narration") or ""), "captionText": "", "move": {}})
@@ -415,6 +418,21 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
         return contract("coordinate_map", "Read The Board Map", "Label the files and ranks around the actual board and pulse the intersections named in the narration.", ["files", "ranks", "coordinates"], ["files", "ranks", "intersection_pulse"])
     if "intersection" in text or "point" in text or "crossing" in text:
         return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
+    intent = segment.get("visualIntent") if isinstance(segment.get("visualIntent"), dict) else {}
+    if intent and default_kind not in {"board_overview", "board_identity", "static_board"}:
+        return {"visualKind": default_kind, "semanticTags": [default_kind], "visualPlan": {"mode": "board_overlay", "focus": default_kind, "primitives": [default_kind]}, "confident": False}
+    if intent:
+        concept = str(intent.get("concept") or "new concept").strip()
+        role = str(intent.get("semanticRole") or "concept_explanation").strip()
+        treatment = str(intent.get("visualTreatment") or "concept_focus").strip()
+        return {
+            "visualKind": "board_overview",
+            "headline": concept[:28] or "Concept Focus",
+            "visualInstruction": "Keep the canonical board visible, focus the camera on the spoken concept, and use only verified board references; do not invent a move.",
+            "semanticTags": ["new_concept", role, treatment],
+            "visualPlan": {"mode": "board_overlay", "focus": concept or "new concept", "primitives": ["concept_focus"]},
+            "confident": True,
+        }
     return {"visualKind": default_kind, "semanticTags": [default_kind], "visualPlan": {"mode": "board_overlay", "focus": default_kind, "primitives": [default_kind]}, "confident": False}
 
 
@@ -468,6 +486,8 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
             "visualInstruction": instruction,
             "semanticTags": semantic.get("semanticTags") or [kind],
             "visualPlan": semantic.get("visualPlan") or {"mode": "board_overlay", "focus": kind, "primitives": [kind]},
+            "sentenceId": segment.get("sentenceId"),
+            "visualIntent": segment.get("visualIntent") or {},
         })
     return fallback
 
@@ -488,6 +508,7 @@ def _request_ai_storyboard(puzzle: dict[str, Any], job: dict[str, Any], store: A
         "analysis_focus": puzzle.get("analysis_focus") or job.get("analysis_focus"),
         "researchBundle": job.get("researchBundle") or puzzle.get("researchBundle") or {},
         "claimProof": job.get("claimProof") or {},
+        "sentenceVisualIntents": job.get("sentenceVisualIntents") or [],
         "segments": _segment_payload(job),
     }
     try:
@@ -545,6 +566,8 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             "captionText": caption,
             "movePly": candidate.get("movePly", default.get("movePly")),
             "move": moves_by_ply.get(int(candidate.get("movePly", default.get("movePly")))) if candidate.get("movePly", default.get("movePly")) is not None else {},
+            "sentenceId": source_segment.get("sentenceId"),
+            "visualIntent": source_segment.get("visualIntent") or {},
         }
         semantic = _semantic_visual_contract(segment_for_contract, visual_kind, language)
         if semantic.get("confident") and not foundation:
@@ -563,6 +586,8 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             "visualInstruction": instruction,
             "semanticTags": semantic.get("semanticTags") or candidate.get("semanticTags") or default.get("semanticTags") or [visual_kind],
             "visualPlan": semantic.get("visualPlan") or candidate.get("visualPlan") or default.get("visualPlan") or {"mode": "board_overlay", "focus": visual_kind, "primitives": [visual_kind]},
+            "sentenceId": candidate.get("sentenceId") or default.get("sentenceId"),
+            "visualIntent": candidate.get("visualIntent") or default.get("visualIntent") or source_segment.get("visualIntent") or {},
         })
     return normalized, "ai_router"
 
@@ -582,6 +607,8 @@ def _attach_scenes_to_segments(job: dict[str, Any], scenes: list[dict[str, Any]]
         segment["visualInstruction"] = scene.get("visualInstruction", "Highlight the current board idea.")
         segment["semanticTags"] = list(scene.get("semanticTags") or [segment["visualKind"]])
         segment["visualPlan"] = dict(scene.get("visualPlan") or {"mode": "board_overlay", "focus": segment["visualKind"], "primitives": [segment["visualKind"]]})
+        segment["sentenceId"] = scene.get("sentenceId") or segment.get("sentenceId")
+        segment["visualIntent"] = dict(scene.get("visualIntent") or segment.get("visualIntent") or {})
         if scene.get("movePly") is not None:
             segment["movePly"] = scene.get("movePly")
         segment["captionText"] = str(scene.get("caption") or segment.get("captionText") or segment.get("text") or "").strip()
@@ -595,6 +622,11 @@ def add_visual_storyboard(job: dict[str, Any], puzzle: dict[str, Any], store: An
     if mode in DISABLED_VISUAL_MODES or str(puzzle.get("visual_storyboard_enabled", "1")).lower() in {"0", "false", "no"}:
         return job
     foundation = mode in FOUNDATION_VISUAL_MODES
+    if not foundation:
+        job = expand_narration_segments(job)
+        coverage_errors = validate_sentence_visual_coverage(job)
+        if coverage_errors:
+            raise ValueError("Sentence visual supervision failed: " + "; ".join(coverage_errors))
     raw = puzzle.get("visualStoryboard")
     source_hint = "provided_ai" if raw is not None else ""
     if raw is None and os.getenv("AI_ROUTER_REQUIRE_KEYS", "1").lower() not in {"0", "false", "no"}:
@@ -644,6 +676,9 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
     if mode not in FOUNDATION_VISUAL_MODES and mode != "storyboard":
         return []
     errors: list[str] = []
+    supervision_ready = mode == "storyboard" and isinstance(job.get("sentenceVisualSupervision"), dict)
+    if supervision_ready:
+        errors.extend(validate_sentence_visual_coverage(job))
     strict_semantic_contract = bool(job.get("visualStoryboardSource"))
     scenes = job.get("visualStoryboard")
     segments = [segment for segment in job.get("narrationSegments", []) if isinstance(segment, dict)]
@@ -696,6 +731,10 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
     previous_static_kind: str | None = None
     fallback_source = str(job.get("visualStoryboardSource") or "") == "fallback"
     for index, segment in enumerate(segments, start=1):
+        if supervision_ready and not str(segment.get("sentenceId") or "").strip():
+            errors.append(f"segment_{index} has no sentenceId")
+        if supervision_ready and not isinstance(segment.get("visualIntent"), dict):
+            errors.append(f"segment_{index} has no visualIntent")
         visual_kind = str(segment.get("visualKind") or "")
         if not visual_kind:
             errors.append(f"segment_{index} has no visualKind")
