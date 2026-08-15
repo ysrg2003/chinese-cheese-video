@@ -127,6 +127,8 @@ def render_job(job: dict[str, Any], stage_dir: Path) -> Path:
         "--codec=h264",
         "--image-format=jpeg",
         "--log=warn",
+        "--public-dir",
+        str(PUBLIC_ROOT),
     ]
     subprocess.run(command, cwd=ROOT, check=True)
     return output_path
