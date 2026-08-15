@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from creative_critic import review_job
+from creative_critic import _filter_unsafe_repairs, review_job
 from visual_director import _semantic_visual_contract
 
 
@@ -36,6 +36,19 @@ class ClaimVisualContractTests(unittest.TestCase):
         )
         self.assertIn("horse_leg", semantic["visualPlan"]["primitives"])
         self.assertNotIn("elephant_eye", semantic["visualPlan"]["primitives"])
+
+    def test_critic_does_not_block_valid_storyboard_on_empty_repair(self) -> None:
+        review = {
+            "decision": "repair",
+            "score": 78,
+            "summary": "Needs a visual correction.",
+            "scene_repairs": [],
+            "deterministic": {"errors": []},
+        }
+        result = _filter_unsafe_repairs({}, review)
+        self.assertEqual(result["decision"], "approve")
+        self.assertGreaterEqual(result["score"], 82)
+        self.assertIn("discarded_unsafe_repairs", result)
 
     def test_critic_rejects_scene_without_claim_primitive(self) -> None:
         job = {
