@@ -96,6 +96,16 @@ CURRICULUM_INTROS = {
     "en-008-xiangqi-coordinates": "To follow a Xiangqi lesson, you need a simple way to name two points. We will use files one through nine from left to right on the displayed board and ranks one through ten from top to bottom. A move therefore has a source point and a destination point, such as file two, rank eight to file two, rank five. The exact orientation can be stated for the side being discussed, but the important habit is consistent: identify the piece, name where it starts, name where it ends, and then explain why the route is legal. No game is played in this lesson. We are building the visual language that will make every later example precise and easy to replay.",
 }
 
+GENERIC_FALLBACK_LABELS = {
+    "make the legal move",
+    "the reply",
+    "the position change",
+    "走出合法的一步",
+    "对手回应",
+    "局面变化",
+}
+
+
 FALLBACK_NARRATION_BY_TYPE = {
     "en": {
         "definition": "The board is more than a grid: the river, palaces, and open files determine which plans are possible. This lesson turns one position into a practical rule you can use immediately.",
@@ -177,7 +187,10 @@ def _move_spoken_text(
         "rules": "demonstrate the legal rule",
         "trend_breakdown": "turn the position into a practical lesson",
     }
-    purpose = str(move.get("purpose") or move.get("label") or purpose_defaults.get(content_type, "improve the position")).strip().rstrip(".").lower()
+    supplied_purpose = str(move.get("purpose") or "").strip()
+    supplied_label = str(move.get("label") or "").strip()
+    label_is_generic = supplied_label.lower() in GENERIC_FALLBACK_LABELS
+    purpose = str(supplied_purpose or ("" if label_is_generic else supplied_label) or purpose_defaults.get(content_type, "improve the position")).strip().rstrip(".").lower()
     opponent_reply = str(move.get("opponentReply") or ("contest the new line" if side == "red" else "answer the pressure")).strip().rstrip(".").lower()
     effect_defaults = {
         "opening": "the next piece can join the attack",
@@ -236,7 +249,23 @@ def _move_beats(move: dict[str, Any], language: str, content_type: str, analysis
     piece_key = str(move.get("piece") or "pawn")
     piece = PIECE_NAMES.get(piece_key, PIECE_NAMES["pawn"])[language]
     side = "red" if str(move.get("side", "red")) == "red" else "black"
-    purpose = str(move.get("purpose") or move.get("label") or "improve the position").strip().rstrip(".")
+    supplied_purpose = str(move.get("purpose") or "").strip()
+    supplied_label = str(move.get("label") or "").strip()
+    label_is_generic = supplied_label.lower() in GENERIC_FALLBACK_LABELS
+    purpose_defaults = {
+        "opening": "Open a useful line",
+        "tactics": "Create a forcing threat",
+        "endgame": "Improve the winning plan",
+        "advanced_puzzle": "Start the forcing sequence",
+        "full_game": "Carry out the game plan",
+        "comparison": "Show the different board geometry",
+        "skill_match": "Test the opponent's plan",
+        "viewer_challenge": "Find the best reply",
+        "definition": "Make the board rule visible",
+        "rules": "Demonstrate the legal rule",
+        "trend_breakdown": "Turn the position into a practical lesson",
+    }
+    purpose = str(supplied_purpose or ("" if label_is_generic else supplied_label) or purpose_defaults.get(content_type, "Improve the position")).strip().rstrip(".")
     reply = str(move.get("opponentReply") or ("contest the new line" if side == "red" else "answer the pressure")).strip().rstrip(".")
     effect = str(move.get("effect") or "the available choices change").strip().rstrip(".")
     focus = str(analysis_focus or "the legal consequence").strip().rstrip(".")

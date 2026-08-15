@@ -4,7 +4,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from director import _fallback, _sanitize_director_data, make_job
+from director import _fallback, _sanitize_director_data, build_narration_segments, make_job
 from curriculum import DEFAULT_FEN, TEMPLATES, piece_learning_context, piece_learning_intro
 from research_grounding import ResearchGroundingError, attach_research_bundle
 from xiangqi_claims import build_position_trace, verify_claims
@@ -114,6 +114,19 @@ class GroundingAndClaimsTests(unittest.TestCase):
         result = verify_claims(STANDARD_FEN, HORSE_LESSON_MOVES, claims)
         self.assertTrue(result["ok"], result["errors"])
         self.assertEqual(len(result["proofs"]), 3)
+
+    def test_dynamic_fallback_does_not_use_generic_position_change_as_action_purpose(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "content_type": "trend_breakdown",
+            "moves": ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        fallback = _fallback(puzzle, "en")
+        third_action = next(segment for segment in fallback["narrationSegments"] if segment.get("movePly") == 3 and segment.get("movePhase") == "action")
+        self.assertNotIn("The position change", third_action["text"])
+        self.assertIn("Turn the position into a practical lesson", third_action["text"])
 
     def test_make_job_accepts_grounded_legal_claim(self) -> None:
         puzzle = {

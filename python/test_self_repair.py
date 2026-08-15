@@ -30,6 +30,7 @@ class SelfRepairTests(unittest.TestCase):
         self.assertEqual(classify_failure("Error loading image with src", "render"), "render")
         self.assertEqual(classify_failure("HTTP 503 temporarily unavailable", "tts"), "tts_audio")
         self.assertEqual(classify_failure("invalid_grant", "publication"), "publication")
+        self.assertEqual(classify_failure("prepublication creative review failed: visual storyboard mismatch", "render"), "visual_storyboard")
 
     def test_plan_rejects_gate_bypass_and_publication_keys(self):
         valid, errors = validate_plan(

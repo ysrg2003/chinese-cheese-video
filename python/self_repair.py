@@ -94,7 +94,7 @@ def _contains_arabic(value: Any) -> bool:
 
 def classify_failure(error_text: str, stage: str = "") -> str:
     value = f"{stage} {error_text}".lower()
-    if any(token in value for token in ("youtube", "oauth", "invalid_grant", "quotaexceeded", "publication")):
+    if any(token in value for token in ("youtube", "oauth", "invalid_grant", "quotaexceeded", "youtube publication")):
         return "publication"
     if any(token in value for token in ("research grounding", "grounding", "source timeout")):
         return "research_grounding"
