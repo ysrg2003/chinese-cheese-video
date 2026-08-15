@@ -13,6 +13,7 @@ from timing import clamp_captions, estimate_content_duration, retime_moves
 from xiangqi_rules import parse_fen, validate_move_sequence
 from xiangqi_claims import suspicious_claim_language, verify_claims
 from research_grounding import research_required
+from curriculum import piece_learning_intro
 
 SUPPORTED_LANGUAGES = ("en", "zh")
 DEFAULT_LANGUAGE = "en"
@@ -577,6 +578,9 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
         (str(segment.get("text", "")).strip() for segment in existing_segments if isinstance(segment, dict) and segment.get("kind") == "intro" and str(segment.get("text", "")).strip()),
         str(result.get("narration", "")).strip(),
     )
+    piece_intro = piece_learning_intro(puzzle, language)
+    if piece_intro and not intro_source.startswith(piece_intro):
+        intro_source = f"{piece_intro} {intro_source}".strip()
     result["narration"], result["narrationSegments"] = build_narration_segments(
         intro_source, result["moves"], language, str(puzzle.get("content_type") or "definition"), analysis_focus
     )

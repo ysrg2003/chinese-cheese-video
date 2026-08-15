@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from director import _fallback, _sanitize_director_data, make_job
-from curriculum import DEFAULT_FEN, TEMPLATES
+from curriculum import DEFAULT_FEN, TEMPLATES, piece_learning_context, piece_learning_intro
 from research_grounding import ResearchGroundingError, attach_research_bundle
 from xiangqi_claims import build_position_trace, verify_claims
 
@@ -46,6 +46,44 @@ class GroundingAndClaimsTests(unittest.TestCase):
         result = verify_claims(STANDARD_FEN, HORSE_LESSON_MOVES, wrong_claims)
         self.assertFalse(result["ok"])
         self.assertTrue(any("Horse Leg is not blocked" in error for error in result["errors"]))
+
+    def test_piece_learning_context_references_future_support_piece(self) -> None:
+        puzzle = {
+            "curriculum_stage": "C-piece-academy",
+            "teaching_scope": "piece_rules",
+            "curriculum_sequence": 10,
+            "target_piece": "knight",
+            "target_piece_name_en": "Horse",
+            "target_piece_movement_summary_en": "The Horse uses an orthogonal step followed by a diagonal step.",
+            "position_template": "horse-leg-block",
+        }
+        context = piece_learning_context(puzzle)
+        self.assertTrue(context["enabled"])
+        self.assertEqual(context["target"]["name"], "Horse")
+        self.assertIn("pawn", [item["piece"] for item in context["upcoming"]])
+        intro = piece_learning_intro(puzzle, "en")
+        self.assertIn("We will study the Pawn in a separate lesson later", intro)
+        self.assertIn("our target piece for this lesson", intro)
+
+    def test_piece_learning_context_references_previous_support_piece(self) -> None:
+        puzzle = {
+            "curriculum_stage": "C-piece-academy",
+            "teaching_scope": "piece_rules",
+            "curriculum_sequence": 12,
+            "target_piece": "cannon",
+            "target_piece_name_en": "Cannon",
+            "target_piece_movement_summary_en": "The Cannon needs a screen to capture.",
+            "position_template": "cannon-screen",
+        }
+        context = piece_learning_context(puzzle)
+        self.assertIn("knight", [item["piece"] for item in context["previous"]])
+        self.assertIn("Horse", piece_learning_intro(puzzle, "en"))
+
+    def test_piece_learning_context_is_disabled_outside_piece_stage(self) -> None:
+        puzzle = {"curriculum_stage": "F-tactics", "position_template": "horse-leg-block", "curriculum_sequence": 34}
+        context = piece_learning_context(puzzle)
+        self.assertFalse(context["enabled"])
+        self.assertEqual(piece_learning_intro(puzzle, "en"), "")
 
     def test_horse_leg_curriculum_template_is_mechanically_grounded(self) -> None:
         puzzle = {

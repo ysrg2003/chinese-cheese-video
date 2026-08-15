@@ -9,6 +9,84 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEN = "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r"
 
 STATIC_VISUAL_MODES = {"static_board", "foundation_storyboard", "board_introduction", "setup_overview"}
+PIECE_DISPLAY_NAMES = {
+    "king": "General",
+    "advisor": "Advisor",
+    "bishop": "Elephant",
+    "knight": "Horse",
+    "rook": "Chariot",
+    "cannon": "Cannon",
+    "pawn": "Pawn",
+}
+
+
+def piece_learning_context(puzzle: dict[str, Any]) -> dict[str, Any]:
+    """Return stage-scoped prerequisite references for piece-academy narration."""
+    if str(puzzle.get("teaching_scope") or "") not in {"piece_rules", "piece_rules_review"} and str(puzzle.get("curriculum_stage") or "") != "C-piece-academy":
+        return {"enabled": False, "target": None, "previous": [], "upcoming": [], "used": []}
+    try:
+        lessons = load_curriculum().get("lessons") or []
+    except (OSError, json.JSONDecodeError):
+        lessons = []
+    by_piece: dict[str, dict[str, Any]] = {}
+    for lesson in lessons:
+        piece = str(lesson.get("target_piece") or "").strip().lower()
+        if piece and piece not in by_piece:
+            by_piece[piece] = lesson
+    template = str(puzzle.get("position_template") or "")
+    used_keys = []
+    for move in TEMPLATES.get(template, puzzle.get("moves") or []):
+        if isinstance(move, dict):
+            piece = str(move.get("piece") or "").strip().lower()
+            if piece and piece not in used_keys:
+                used_keys.append(piece)
+    target = str(puzzle.get("target_piece") or "").strip().lower()
+    if target and target not in used_keys:
+        used_keys.insert(0, target)
+    current_order = int(puzzle.get("curriculum_sequence") or puzzle.get("curriculum_order") or 0)
+    previous, upcoming = [], []
+    for piece in used_keys:
+        if piece == target:
+            continue
+        lesson = by_piece.get(piece)
+        record = {
+            "piece": piece,
+            "name": PIECE_DISPLAY_NAMES.get(piece, str(piece).title()),
+            "lesson_key": lesson.get("lesson_key") if lesson else None,
+            "lesson_title": lesson.get("title") if lesson else None,
+            "movement_summary": lesson.get("target_piece_movement_summary_en") if lesson else None,
+        }
+        lesson_order = int(lesson.get("sequence_no") or 0) if lesson else 0
+        if lesson_order and current_order and lesson_order < current_order:
+            previous.append(record)
+        else:
+            upcoming.append(record)
+    target_record = {
+        "piece": target,
+        "name": str(puzzle.get("target_piece_name_en") or PIECE_DISPLAY_NAMES.get(target, target.title() if target else "piece")),
+        "movement_summary": puzzle.get("target_piece_movement_summary_en"),
+    } if target else None
+    return {"enabled": True, "target": target_record, "previous": previous, "upcoming": upcoming, "used": used_keys}
+
+
+def piece_learning_intro(puzzle: dict[str, Any], language: str = "en") -> str:
+    """Write a concise English-first bridge without changing non-educational stages."""
+    context = piece_learning_context(puzzle)
+    if not context.get("enabled") or language != "en":
+        return ""
+    parts: list[str] = []
+    for item in context.get("previous") or []:
+        title = item.get("lesson_title") or f"an earlier {item.get('name')} lesson"
+        summary = item.get("movement_summary") or f"the {item.get('name')} movement"
+        parts.append(f"We covered the {item.get('name')} in an earlier lesson, so here is the quick reminder: {summary} The full lesson is {title}.")
+    for item in context.get("upcoming") or []:
+        summary = item.get("movement_summary") or f"the basic movement of the {item.get('name')}"
+        parts.append(f"This example also uses a {item.get('name')}. For orientation, {summary} We will study the {item.get('name')} in a separate lesson later.")
+    target = context.get("target") or {}
+    if target.get("name"):
+        summary = target.get("movement_summary") or f"the basic movement and rule of the {target.get('name')}"
+        parts.append(f"Now we turn to the {target.get('name')}, our target piece for this lesson: {summary}")
+    return " ".join(parts).strip()
 
 TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "starting-pawn-cannon": [
@@ -94,6 +172,10 @@ def lesson_payload(lesson: dict[str, Any]) -> dict[str, Any]:
         "visual_focus": lesson.get("visual_focus"),
         "visualStoryboard": lesson.get("visual_storyboard"),
         "visualStoryboardSource": lesson.get("visual_storyboard_source"),
+        "teaching_scope": lesson.get("teaching_scope"),
+        "target_piece": lesson.get("target_piece"),
+        "target_piece_name_en": lesson.get("target_piece_name_en"),
+        "target_piece_movement_summary_en": lesson.get("target_piece_movement_summary_en"),
     }
 
 
