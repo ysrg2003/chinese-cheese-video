@@ -21,7 +21,7 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
     "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
     "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
-    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "concept_bridge", "causal_bridge", "general_palace_anchor",
+    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "no_move_notice", "concept_bridge", "causal_bridge", "general_palace_anchor",
 }
 
 ALL_VISUAL_KINDS = {
@@ -400,6 +400,8 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
         return contract("army_setup", "Piece Families And Homes", "Hold the canonical starting position and ring each named piece family at its exact home: General, Advisors, Elephants, Horses, Chariots, Cannons, and Soldiers.", ["setup", "piece_families", "starting_homes", "inventory"], ["piece_family_anchor"])
     if any(marker in text for marker in ("chariots begin", "horses stand", "cannons begin", "soldiers form", "elephants and advisors")):
         return contract("army_setup", "Starting Homes By Family", "Highlight the corners, adjacent Horses, inner Elephants and Advisors, Cannons behind Soldiers, and the Soldier line facing the river on the unchanged board.", ["setup", "chariots", "horses", "elephants", "advisors", "cannons", "soldiers", "river"], ["piece_family_anchor", "river_band", "mirror_setup"])
+    if any(marker in text for marker in ("army stays still", "army stay still", "no move", "without moving", "does not move")):
+        return contract("board_overview", "No Move: Setup Only", "Keep the verified starting position still and label this as a setup explanation, not a played move or a tactical sequence.", ["setup", "no_move", "not_a_move", "board_state"], ["no_move_notice"])
     if ("file" in text or "files" in text) and any(marker in text for marker in ("open", "road", "active", "route")) and "piece" in text:
         return contract("rule_focus", "Starting Routes And Open Files", "Brighten the central files and outline the two palace regions as route constraints, without inventing a move that is not in the setup data.", ["setup", "files", "routes", "open", "piece_activity", "legal_geometry"], ["central_files", "route_constraints"])
     if ("source point" in text and "destination point" in text) or ("file two" in text and "rank eight" in text) or ("file 2" in text and "rank 8" in text):

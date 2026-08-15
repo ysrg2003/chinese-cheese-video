@@ -241,6 +241,7 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const horseTargetPoint = boardPoint(3, 7);
   const cannonPoint = boardPoint(1, 7);
   const pieceFamilyColors: Record<string, string> = { king: "#ef6655", advisor: "#f5ce74", bishop: "#8d6bd1", knight: "#4a9ac2", rook: "#3c8f6a", cannon: "#e0a63c", pawn: "#b63c2f" };
+  const pieceFamilyLabels: Array<[PieceType, string]> = [["king", "GENERAL"], ["advisor", "ADVISOR"], ["bishop", "ELEPHANT"], ["knight", "HORSE"], ["rook", "CHARIOT"], ["cannon", "CANNON"], ["pawn", "SOLDIER"]];
   const notationSourcePoint = boardPoint(1, 7);
   const notationDestinationPoint = boardPoint(1, 4);
   const screenPoint = boardPoint(1, 4);
@@ -310,7 +311,9 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
     {primitives.has("elephant_eye") && elephantEyePoints.length > 0 && <Marker left={boardPoint(elephantEyePoints[0][0], elephantEyePoints[0][1]).x} top={boardPoint(elephantEyePoints[0][0], elephantEyePoints[0][1]).y - 72} opacity={opacity} tone="red">ELEPHANT EYE</Marker>}
     {primitives.has("river_limit") && <Marker left={board.x + board.width / 2} top={grid.y + 4.5 * cell} opacity={opacity} tone="red">RIVER LIMIT</Marker>}
     {primitives.has("constraint_boundary") && <Marker left={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).x} top={boardPoint(legalOrigin?.[0] ?? 4, legalOrigin?.[1] ?? 7).y - 120} opacity={opacity} tone="blue">MOVEMENT LIMIT</Marker>}
-    {primitives.has("concept_focus") && <Marker left={board.x + board.width / 2} top={board.y + board.height + 74} opacity={opacity} tone="gold">NEW IDEA · {(active.headline || "CONCEPT").slice(0, 24)}</Marker>}
+    {primitives.has("concept_focus") && !primitives.has("no_move_notice") && <Marker left={board.x + board.width / 2} top={board.y + board.height + 74} opacity={opacity} tone="gold">NEW IDEA · {(active.headline || "CONCEPT").slice(0, 24)}</Marker>}
+    {primitives.has("no_move_notice") && <Marker left={board.x + board.width / 2} top={board.y + board.height + 74} opacity={opacity} tone="gold">NO MOVE · SETUP ONLY</Marker>}
+    {primitives.has("piece_family_anchor") && <div style={{ position: "absolute", left: 86, right: 86, top: 1410, opacity, zIndex: 7, padding: "10px 14px 12px", borderRadius: 18, background: "rgba(33, 26, 22, .9)", border: "2px solid rgba(245, 206, 116, .88)", boxShadow: "0 10px 22px rgba(45, 24, 9, .28)" }}><div style={{ color: "#f8cf74", fontSize: 16, fontWeight: 900, letterSpacing: 1.1, textAlign: "center", marginBottom: 8 }}>PIECE KEY · ENGLISH NAMES</div><div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "6px 8px" }}>{pieceFamilyLabels.map(([type, label]) => <span key={`family-key-${type}`} style={{ padding: "5px 8px", borderRadius: 999, background: pieceFamilyColors[type], color: "#fff9ed", fontSize: 15, lineHeight: 1, fontWeight: 900, letterSpacing: .5 }}>{label}</span>)}</div></div>}
     {primitives.has("mirror_setup") && <Marker left={boardPoint(4, 4).x} top={boardPoint(4, 4).y + 70} opacity={opacity} tone="gold">MIRRORED SETUP</Marker>}
     {primitives.has("representative_intersections") && <Marker left={board.x + board.width / 2} top={board.y + board.height + 52} opacity={opacity} tone="gold">REPRESENTATIVE POINTS · NOT MOVE TARGETS</Marker>}
     {primitives.has("point_anchor") && <Marker left={boardPoint(4, 3).x + 150} top={boardPoint(4, 3).y - 34} opacity={opacity} tone="gold">ONE INTERSECTION</Marker>}
@@ -445,7 +448,7 @@ export const XiangqiComposition: React.FC<VideoJob> = (job) => {
   return     <AbsoluteFill style={{ background: COLORS.paper, color: COLORS.ink, fontFamily: "Arial, sans-serif" }}>
     <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 10%, #fff8e8 0%, #f5e6ca 48%, #e2c18d 100%)" }} />
     {!job.referenceMode && <div style={{ position: "absolute", top: 72, left: 72, right: 72, textAlign: "center", direction: "ltr", opacity: introOpacity, transform: `scale(${titleScale})`, zIndex: 12 }}>
-      <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHEESE VIDEO</div>
+      <div style={{ fontSize: 28, letterSpacing: 7, color: COLORS.red, fontWeight: 800 }}>CHINESE CHESS VIDEO</div>
       <div style={{ marginTop: 16, fontSize: titleFontSize, fontWeight: 900, lineHeight: 1.08 }}>{job.title}</div>
       {subtitle ? <div style={{ marginTop: 14, fontSize: 26, color: "#76543b", fontFamily: job.language === "zh" ? "Noto Sans CJK SC, Noto Sans SC, Arial, sans-serif" : "Arial, sans-serif" }}>{subtitle}</div> : null}
     </div>}

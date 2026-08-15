@@ -213,6 +213,22 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(scenes[3]["visualPlan"]["primitives"], ["central_files", "route_constraints"])
         self.assertEqual(validate_visual_storyboard(result), [])
 
+    def test_no_move_setup_sentence_gets_explicit_notice(self) -> None:
+        job = {
+            "id": "no-move-setup-test",
+            "title": "Setup Only",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "rules",
+            "moves": [],
+            "narrationSegments": [{"kind": "intro", "text": "In this lesson the army stays still."}],
+        }
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "en-007-set-up-all-32-pieces", "language": "en", "visual_mode": "storyboard"})
+        scene = result["visualStoryboard"][0]
+        self.assertEqual(scene["visualKind"], "board_overview")
+        self.assertIn("no_move_notice", scene["visualPlan"]["primitives"])
+        self.assertEqual(validate_visual_storyboard(result), [])
+
     def test_ai_storyboard_en008_coordinate_sentences_get_endpoint_contracts(self) -> None:
         texts = [
             "A move therefore has a source point and a destination point, such as file two, rank eight to file two, rank five.",
