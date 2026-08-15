@@ -140,6 +140,52 @@ class GroundingAndClaimsTests(unittest.TestCase):
         self.assertTrue(job["claimProof"]["ok"])
         self.assertEqual(job["claimsByPly"][1][0]["claimType"], "legal_move")
 
+    def test_make_job_recovers_unverifiable_dynamic_claim_with_legal_fallback(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "content_type": "trend_breakdown",
+            "topic_key": "dynamic river claim recovery",
+            "moves": ["0,6-0,5", "0,3-0,4", "1,7-1,4"],
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        director_data = {
+            "title": "Unsafe River Claim",
+            "narration": "Watch the position.",
+            "moves": [
+                {
+                    "ply": 1,
+                    "from": [0, 6],
+                    "to": [0, 5],
+                    "piece": "pawn",
+                    "side": "red",
+                    "purpose": "make a legal move",
+                    "claims": [{"claimType": "legal_move", "ply": 1, "position": "after", "statement": "The supplied move is legal."}],
+                },
+                {
+                    "ply": 2,
+                    "from": [0, 3],
+                    "to": [0, 4],
+                    "piece": "pawn",
+                    "side": "black",
+                    "purpose": "make a legal reply",
+                    "claims": [{"claimType": "legal_move", "ply": 2, "position": "after", "statement": "The supplied reply is legal."}],
+                },
+                {
+                    "ply": 3,
+                    "from": [1, 7],
+                    "to": [1, 4],
+                    "piece": "cannon",
+                    "side": "red",
+                    "purpose": "claim a river limit",
+                    "claims": [{"claimType": "river_limit", "ply": 3, "position": "after", "statement": "The river limits this move."}],
+                },
+            ],
+        }
+        job = make_job("dynamic-claim-recovery", puzzle, director_data)
+        self.assertTrue(job["claimProof"]["ok"], job["claimProof"].get("errors"))
+        self.assertTrue(all(claim["claimType"] == "legal_move" for claims in job["claimsByPly"].values() for claim in claims))
+
     def test_make_job_rejects_causal_language_without_claim(self) -> None:
         puzzle = {
             "language": "en",

@@ -646,19 +646,7 @@ def _deterministic_legal_fallback(puzzle: dict[str, Any], language: str) -> dict
     return _sanitize_director_data(fallback_data, language, recovered)
 
 
-def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any]) -> dict[str, Any]:
-    language = normalize_language(puzzle.get("language"))
-    clean_data = _sanitize_director_data(director_data, language, puzzle)
-    research_bundle = puzzle.get("researchBundle") if isinstance(puzzle.get("researchBundle"), dict) else {}
-    if os.getenv("XIANGQI_RESEARCH_REQUIRED", "1").lower() in {"1", "true", "yes"} and research_bundle.get("status") != "grounded":
-        raise ValueError("Xiangqi research grounding is required before script acceptance")
-    move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
-    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle) and not research_required():
-        clean_data = _deterministic_legal_fallback(puzzle, language)
-        move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
-    if not move_validation["ok"]:
-        raise ValueError("Xiangqi legal-move validation failed: " + "; ".join(move_validation["errors"]))
-    canonical_moves = move_validation["moves"]
+def _build_verified_claims(clean_data: dict[str, Any], puzzle: dict[str, Any], canonical_moves: list[dict[str, Any]]) -> tuple[dict[int, list[dict[str, Any]]], dict[str, Any]]:
     claims_by_ply: dict[int, list[dict[str, Any]]] = {}
     for raw_move, canonical_move in zip(clean_data.get("moves", []), canonical_moves):
         raw_move["piece"] = canonical_move["piece"]
@@ -674,6 +662,39 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
     claim_proof = verify_claims(str(puzzle.get("fen") or ""), canonical_moves, claims_by_ply)
     if not claim_proof.get("ok"):
         raise ValueError("Xiangqi causal claim verification failed: " + "; ".join(claim_proof.get("errors") or []))
+    return claims_by_ply, claim_proof
+
+
+def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any]) -> dict[str, Any]:
+    language = normalize_language(puzzle.get("language"))
+    clean_data = _sanitize_director_data(director_data, language, puzzle)
+    research_bundle = puzzle.get("researchBundle") if isinstance(puzzle.get("researchBundle"), dict) else {}
+    if os.getenv("XIANGQI_RESEARCH_REQUIRED", "1").lower() in {"1", "true", "yes"} and research_bundle.get("status") != "grounded":
+        raise ValueError("Xiangqi research grounding is required before script acceptance")
+    move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
+    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle) and not research_required():
+        clean_data = _deterministic_legal_fallback(puzzle, language)
+        move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
+    if not move_validation["ok"]:
+        raise ValueError("Xiangqi legal-move validation failed: " + "; ".join(move_validation["errors"]))
+    canonical_moves = move_validation["moves"]
+    try:
+        claims_by_ply, claim_proof = _build_verified_claims(clean_data, puzzle, canonical_moves)
+    except ValueError as claim_error:
+        if not _recoverable_dynamic_puzzle(puzzle) or not str(claim_error).startswith("Xiangqi causal claim verification failed:"):
+            raise
+        # AI-generated dynamic ideas may contain a plausible-sounding but
+        # mechanically unverifiable causal claim. Keep the research bundle and
+        # legal trace, but replace only the unsafe director prose with the
+        # deterministic legal fallback instead of publishing or retrying the
+        # same invalid claim indefinitely.
+        print(f"Director claim proof failed; using deterministic legal fallback: {claim_error}")
+        clean_data = _deterministic_legal_fallback(puzzle, language)
+        fallback_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
+        if not fallback_validation["ok"]:
+            raise ValueError("Deterministic fallback also failed Xiangqi legal-move validation: " + "; ".join(fallback_validation["errors"]))
+        canonical_moves = fallback_validation["moves"]
+        claims_by_ply, claim_proof = _build_verified_claims(clean_data, puzzle, canonical_moves)
     clean_data["claimProof"] = claim_proof
     clean_data["claimsByPly"] = claims_by_ply
     duration = float(clean_data.get("durationInSeconds") or estimate_content_duration(clean_data.get("narration", ""), clean_data.get("moves", []), language))
