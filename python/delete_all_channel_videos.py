@@ -32,11 +32,11 @@ def enumerate_videos(service: Any, uploads_playlist_id: str) -> list[dict[str, A
     ids: list[str] = []
     token: str | None = None
     while True:
-        def request(token: str | None = token) -> dict[str, Any]:
+        def request(token: str | None = token) -> Any:
             kwargs = {"part": "contentDetails,snippet", "playlistId": uploads_playlist_id, "maxResults": 50}
             if token:
                 kwargs["pageToken"] = token
-            return service.playlistItems().list(**kwargs).execute()
+            return service.playlistItems().list(**kwargs)
         response = youtube_publisher._execute_with_backoff(request)
         for item in response.get("items") or []:
             video_id = str(((item.get("contentDetails") or {}).get("videoId") or ""))
