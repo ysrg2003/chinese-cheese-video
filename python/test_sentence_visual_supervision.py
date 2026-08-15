@@ -54,6 +54,29 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         self.assertEqual(expanded["narrationSegments"][0]["visualIntent"]["visualTreatment"], "region_split")
         self.assertEqual(expanded["narrationSegments"][1]["visualIntent"]["visualTreatment"], "piece_spotlight")
 
+    def test_entity_relations_survive_into_rendered_visual_plan(self) -> None:
+        narration = "The river separates the territories, and the palaces restrict the Generals to a narrow central zone."
+        job = {
+            "id": "relation-preservation",
+            "language": "en",
+            "title": "River And Palaces",
+            "content_type": "definition",
+            "narration": narration,
+            "narrationSegments": [{"kind": "intro", "text": narration}],
+            "moves": [],
+            "visual_mode": "storyboard",
+        }
+        puzzle = {"language": "en", "content_type": "definition", "moves": [], "visualStoryboard": []}
+        result = add_visual_storyboard(job, puzzle)
+        intent = result["sentenceVisualIntents"][0]
+        self.assertEqual(intent["visualTreatment"], "region_split")
+        self.assertIn("river_separates_territories", intent["relations"])
+        self.assertIn("generals_restricted_to_palaces", intent["relations"])
+        plan_primitives = set(result["narrationSegments"][0]["visualPlan"]["primitives"])
+        self.assertTrue({"river_band", "territory_split", "palace_x", "general_palace_anchor"}.issubset(plan_primitives))
+        self.assertEqual(result["narrationSegments"][0]["visualKind"], "river_palaces")
+        self.assertEqual(validate_visual_storyboard(result), [])
+
     def test_expansion_keeps_global_timing_across_untimed_source_segments(self) -> None:
         job = {
             "language": "en",

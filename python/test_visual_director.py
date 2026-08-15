@@ -156,7 +156,7 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertIn("all_intersections", scenes[0]["visualPlan"]["primitives"])
         self.assertIn("legal_destinations", scenes[1]["visualPlan"]["primitives"])
         self.assertIn("palace_x", scenes[2]["visualPlan"]["primitives"])
-        self.assertEqual(set(["chariot_open_file", "cannon_screen", "horse_leg"]), set(scenes[3]["visualPlan"]["primitives"]))
+        self.assertEqual(set(["chariot_open_file", "cannon_screen", "cannon_target", "horse_leg", "horse_leg_blocker", "horse_leg_target"]), set(scenes[3]["visualPlan"]["primitives"]))
         self.assertTrue(all(scene["semanticTags"] and scene["visualPlan"]["primitives"] for scene in scenes))
         self.assertEqual(validate_visual_storyboard(result), [])
 
@@ -182,7 +182,7 @@ class VisualDirectorTests(unittest.TestCase):
         self.assertEqual(result["visualStoryboardSource"], "provided_ai")
         self.assertEqual([scene["visualKind"] for scene in scenes], ["river_palaces", "river_palaces", "rule_focus", "rule_focus"])
         self.assertEqual(scenes[0]["visualPlan"]["primitives"], ["river_band", "territory_split"])
-        self.assertEqual(scenes[1]["visualPlan"]["primitives"], ["palace_x", "palace_piece_anchor"])
+        self.assertEqual(scenes[1]["visualPlan"]["primitives"], ["palace_x", "palace_piece_anchor", "general_palace_anchor"])
         self.assertEqual(scenes[2]["visualPlan"]["primitives"], ["palace_x", "central_files", "palace_entry_points"])
         self.assertEqual(scenes[3]["visualPlan"]["primitives"], ["river_band", "palace_x", "central_files", "route_constraints"])
         self.assertEqual(validate_visual_storyboard(result), [])

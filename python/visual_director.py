@@ -16,12 +16,12 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "dim_square_interiors", "brighten_lines", "river_band", "palace_x", "central_files",
     "intersection_pulse", "territory_split", "palace_piece_anchor", "palace_entry_points", "route_constraints",
     "piece_family_anchor", "mirror_setup", "coordinate_endpoints", "notation_sequence",
-    "chariot_open_file", "cannon_screen", "horse_leg", "source_piece", "legal_path", "played_destination",
+    "chariot_open_file", "cannon_screen", "horse_leg", "horse_leg_blocker", "horse_leg_target", "source_piece", "legal_path", "played_destination",
     "cannon_target", "legal_l_targets", "pressure_marker", "effect_after", "elephant_eye", "river_limit", "constraint_boundary",
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
     "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
     "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
-    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "concept_bridge", "causal_bridge",
+    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "concept_bridge", "causal_bridge", "general_palace_anchor",
 }
 
 ALL_VISUAL_KINDS = {
@@ -381,6 +381,17 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
             plan["focusSide"] = focus_side
         return {"visualKind": kind, "headline": headline, "visualInstruction": instruction, "semanticTags": tags, "visualPlan": plan, "confident": True}
 
+    intent = segment.get("visualIntent") if isinstance(segment.get("visualIntent"), dict) else {}
+    intent_treatment = str(intent.get("visualTreatment") or "").strip()
+    if intent_treatment == "multi_constraint":
+        return contract("rule_focus", "Three Movement Constraints", "Show the verified Chariot open file, Cannon one-screen line, and Horse Leg blocker together as three labeled constraints; do not invent a move.", ["multi_constraint", "chariot", "cannon", "horse", "claim_proof"], ["chariot_open_file", "cannon_screen", "cannon_target", "horse_leg", "horse_leg_blocker", "horse_leg_target"])
+    if intent_treatment == "horse_leg":
+        return contract("rule_focus", "Horse Leg Block", "Show the verified Horse Leg geometry only: the teaching Horse, its adjacent leg point, the blocked diagonal target, and a clear occupied-point explanation without inventing a move.", ["horse_leg", "blocked_destination", "claim_proof"], ["horse_leg", "horse_leg_blocker", "horse_leg_target"])
+    if intent_treatment == "cannon_screen":
+        return contract("cannon_screen", "Cannon Screen", "Show the Cannon, exactly one screen, and the target line from the verified teaching geometry; do not add a second screen.", ["cannon_screen", "one_screen", "claim_proof"], ["piece_anchor", "cannon_screen", "cannon_target"], focus_piece="cannon")
+    if intent_treatment == "elephant_eye":
+        return contract("rule_focus", "Elephant Eye", "Show the Elephant, its eye point, and the river boundary using the verified Elephant Eye geometry; do not invent a move.", ["elephant_eye", "river_limit", "claim_proof"], ["piece_anchor", "elephant_eye", "river_limit"], focus_piece="bishop")
+
     if any(marker in text for marker in ("history", "historical", "origin", "origins", "centuries", "dynasty", "tradition", "culture", "heritage", "历史", "传统", "文化")):
         return contract("history_timeline", "History In Context", "Show a restrained three-stop history timeline while keeping the canonical Xiangqi board unchanged; a masked reference edit may add only a localized historical texture or inset.", ["history", "timeline", "context"], ["timeline", "board_reference"], mode="reference_edit")
     if ("thirty-two" in text or "32" in text) and "piece" in text and any(marker in text for marker in ("mirrored", "starting", "arrangement", "setup")):
@@ -402,7 +413,24 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
     if any(marker in text for marker in ("ninety intersections", "90 intersections", "pieces stand on intersections", "pieces stand on those intersections", "stand on intersections", "stand on those intersections", "move travels along the lines", "points and paths")):
         return contract("piece_movement", "Points And Paths", "Select one real red pawn on an intersection, pulse its origin, and show its legal destination points along the board lines.", ["intersections", "piece_anchor", "paths", "legal_destinations"], ["piece_anchor", "legal_destinations", "path_lines"], "pawn", focus_side="red")
     if "river" in text and ("palace" in text or "central files" in text or "divides" in text):
-        return contract("river_palaces", "River And Palaces", "Shade the river band, outline both central 3-by-3 palaces with their X diagonals, and brighten the three central files.", ["river", "palaces", "central_files"], ["river_band", "palace_x", "central_files"])
+        relation_primitives = ["river_band"]
+        relation_tags = ["river"]
+        if "palace" in text:
+            relation_primitives.append("palace_x")
+            relation_tags.append("palaces")
+        if "central" in text:
+            relation_primitives.append("central_files")
+            relation_tags.append("central_zone")
+        if any(marker in text for marker in ("territor", "separat", "divid")):
+            relation_primitives.append("territory_split")
+            relation_tags.append("territories")
+        if any(marker in text for marker in ("general", "king", "将", "帅")):
+            relation_primitives.append("general_palace_anchor")
+            relation_tags.extend(["general", "palace_limits"])
+        elif any(marker in text for marker in ("advisor", "adviser", "士", "仕")):
+            relation_primitives.append("palace_piece_anchor")
+            relation_tags.append("palace_piece_limits")
+        return contract("river_palaces", "River, Territories, And Palaces", "Keep the canonical board unchanged; shade the river boundary, distinguish the two territories, outline both palaces, anchor any named Generals inside their palaces, and brighten only the central zone when the narration names it.", relation_tags, list(dict.fromkeys(relation_primitives)))
     if "river" in text and any(marker in text for marker in ("separat", "territor", "soldier", "elephant", "divid")):
         return contract("river_palaces", "River Separates Territories", "Shade the river band, tint the Black and Red territories on opposite sides, and keep the river crossing visible without inventing a move.", ["river", "territories", "soldier", "elephant", "board_geometry"], ["river_band", "territory_split"])
     if "palace" in text and any(marker in text for marker in ("three-by-three", "general", "advisor", "adviser", "zone", "remain")):
@@ -419,8 +447,6 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
         return contract("coordinate_map", "Read The Board Map", "Label the files and ranks around the actual board and pulse the intersections named in the narration.", ["files", "ranks", "coordinates"], ["files", "ranks", "intersection_pulse"])
     if "intersection" in text or "point" in text or "crossing" in text:
         return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
-    intent = segment.get("visualIntent") if isinstance(segment.get("visualIntent"), dict) else {}
-    intent_treatment = str(intent.get("visualTreatment") or "").strip()
     if intent_treatment in {"strategic_bridge", "causal_bridge"}:
         default_labels = ["QUIET IDEA", "FORCING IDEA"] if intent_treatment == "strategic_bridge" else ["BASELINE", "EXCHANGE", "INITIATIVE SHIFTS"]
         labels = intent.get("bridgeLabels") if isinstance(intent.get("bridgeLabels"), list) else default_labels
@@ -617,6 +643,68 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
     return normalized, "ai_router"
 
 
+REQUIRED_PRIMITIVE_VISUAL_KIND: dict[str, str] = {
+    "horse_leg": "rule_focus",
+    "horse_leg_blocker": "rule_focus",
+    "horse_leg_target": "rule_focus",
+    "cannon_screen": "cannon_screen",
+    "elephant_eye": "rule_focus",
+    "river_limit": "rule_focus",
+}
+
+
+RELATION_PRIMITIVE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "river_separates_territories": ("river_band", "territory_split"),
+    "generals_restricted_to_palaces": ("palace_x", "general_palace_anchor"),
+    "palaces_define_central_zone": ("palace_x", "central_files"),
+}
+
+
+def _preserve_intent_relations(job: dict[str, Any], scenes: list[dict[str, Any]], puzzle: dict[str, Any]) -> list[dict[str, Any]]:
+    """Repair relation primitives after either AI or fallback storyboard planning.
+
+    The sentence intent is authoritative for entities and relations. Missing
+    relation primitives are restored deterministically; no new move or board
+    state is invented.
+    """
+    source_segments = [segment for segment in job.get("narrationSegments", []) if isinstance(segment, dict)]
+    language = _language(puzzle, job)
+    repaired: list[dict[str, Any]] = []
+    for index, scene in enumerate(scenes):
+        current = dict(scene)
+        source = source_segments[index] if index < len(source_segments) else {}
+        current_intent = current.get("visualIntent") if isinstance(current.get("visualIntent"), dict) else {}
+        source_intent = source.get("visualIntent") if isinstance(source.get("visualIntent"), dict) else {}
+        intent = {**source_intent, **current_intent}
+        relations = {str(value) for value in intent.get("relations", []) if str(value).strip()} if isinstance(intent.get("relations"), list) else set()
+        intent_treatment = str(intent.get("visualTreatment") or "").strip()
+        explicit_required = {str(value) for value in intent.get("requiredPrimitives", []) if str(value).strip()} if isinstance(intent.get("requiredPrimitives"), list) else set()
+        if intent_treatment == "concept_focus" and str(current.get("visualKind") or "") not in {"board_overview", "board_identity", "static_board"}:
+            explicit_required.discard("concept_focus")
+        required = explicit_required | {primitive for relation in relations for primitive in RELATION_PRIMITIVE_REQUIREMENTS.get(relation, ())}
+        plan = dict(current.get("visualPlan") or {})
+        primitives = [str(value) for value in plan.get("primitives", []) if str(value).strip()]
+        missing = [primitive for primitive in required if primitive not in primitives]
+        if missing:
+            plan["primitives"] = primitives + sorted(missing)
+            current["visualPlan"] = plan
+            target_kinds = {REQUIRED_PRIMITIVE_VISUAL_KIND[primitive] for primitive in required if primitive in REQUIRED_PRIMITIVE_VISUAL_KIND}
+            if target_kinds and (str(current.get("visualKind") or "") in {"board_overview", "board_identity", "piece_spotlight", "comparison_split"} or not str(current.get("visualKind") or "")):
+                current["visualKind"] = sorted(target_kinds)[0]
+            tags = list(current.get("semanticTags") or [])
+            for relation in sorted(relations):
+                tag = f"relation:{relation}"
+                if tag not in tags:
+                    tags.append(tag)
+            current["semanticTags"] = tags
+            if relations.intersection({"river_separates_territories", "generals_restricted_to_palaces", "palaces_define_central_zone"}):
+                current["visualKind"] = "river_palaces"
+                current["headline"] = "River, Territories, And Palaces" if language == "en" else "河界、区域与九宫"
+                current["visualInstruction"] = "Show the verified river boundary, both territories, both palaces, and the named General restriction on the unchanged canonical board."
+        repaired.append(current)
+    return repaired
+
+
 def _attach_scenes_to_segments(job: dict[str, Any], scenes: list[dict[str, Any]]) -> None:
     segments = [dict(segment) for segment in job.get("narrationSegments", []) if isinstance(segment, dict)]
     if not segments:
@@ -660,6 +748,8 @@ def add_visual_storyboard(job: dict[str, Any], puzzle: dict[str, Any], store: An
         except Exception as exc:
             print(f"Visual director provider failed: {exc}")
     scenes, source = _normalize_storyboard(raw, puzzle, job)
+    if not foundation:
+        scenes = _preserve_intent_relations(job, scenes, puzzle)
     if source_hint and source == "ai_router":
         source = source_hint
     if foundation:
@@ -735,6 +825,15 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
             unknown_primitives = sorted({str(primitive) for primitive in plan.get("primitives", []) if str(primitive) not in SUPPORTED_BOARD_PRIMITIVES})
             if unknown_primitives:
                 errors.append(f"scene_{index} visualPlan has unsupported primitives={unknown_primitives}")
+            intent_for_scene = scene.get("visualIntent") if isinstance(scene.get("visualIntent"), dict) else {}
+            required_primitives = {str(value) for value in intent_for_scene.get("requiredPrimitives", []) if str(value).strip()} if isinstance(intent_for_scene.get("requiredPrimitives"), list) else set()
+            if str(intent_for_scene.get("visualTreatment") or "") == "concept_focus" and str(scene.get("visualKind") or "") not in {"board_overview", "board_identity", "static_board"}:
+                required_primitives.discard("concept_focus")
+            relation_values = {str(value) for value in intent_for_scene.get("relations", []) if str(value).strip()} if isinstance(intent_for_scene.get("relations"), list) else set()
+            required_primitives |= {primitive for relation in relation_values for primitive in RELATION_PRIMITIVE_REQUIREMENTS.get(relation, ())}
+            missing_required = sorted(required_primitives - {str(value) for value in plan.get("primitives", [])})
+            if missing_required:
+                errors.append(f"scene_{index} visualPlan dropped required primitives={missing_required}")
 
         if strict_semantic_contract and (not isinstance(scene.get("semanticTags"), list) or not scene.get("semanticTags")):
             errors.append(f"scene_{index} has no semanticTags")

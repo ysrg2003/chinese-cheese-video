@@ -30,6 +30,35 @@ def split_sentences(text: str) -> list[str]:
     return parts or [clean]
 
 
+def _has_word(text: str, term: str) -> bool:
+    if any(ord(character) > 127 for character in term):
+        return term in text
+    return bool(re.search(rf"(?<![a-z]){re.escape(term)}(?:[a-z]*)?(?![a-z])", text))
+
+
+def _entity_relation_metadata(text: str) -> dict[str, list[str]]:
+    lowered = text.lower()
+    entities: list[str] = []
+    relations: list[str] = []
+    if _has_word(lowered, "river") or "河界" in lowered:
+        entities.append("river")
+    if any(_has_word(lowered, token) for token in ("territor", "side", "army", "territory")) or "区域" in lowered:
+        entities.extend(["black_territory", "red_territory"])
+    if _has_word(lowered, "palace") or "九宫" in lowered:
+        entities.extend(["black_palace", "red_palace"])
+    if any(_has_word(lowered, token) for token in ("general", "king")) or "将" in lowered or "帅" in lowered:
+        entities.extend(["black_general", "red_general"])
+    if any(_has_word(lowered, phrase) for phrase in ("central zone", "narrow zone", "central region", "central files")) or "中央区域" in lowered:
+        entities.append("central_zone")
+    if (_has_word(lowered, "river") or "河界" in lowered) and (any(_has_word(lowered, token) for token in ("territor", "separat", "divid", "side")) or "区域" in lowered):
+        relations.append("river_separates_territories")
+    if (_has_word(lowered, "palace") or "九宫" in lowered) and (any(_has_word(lowered, token) for token in ("general", "king")) or "将" in lowered or "帅" in lowered) and (any(_has_word(lowered, token) for token in ("restrict", "remain", "inside", "stay", "narrow", "confine")) or any(marker in lowered for marker in ("限制", "留"))):
+        relations.append("generals_restricted_to_palaces")
+    if (_has_word(lowered, "palace") or "九宫" in lowered) and _has_word(lowered, "central"):
+        relations.append("palaces_define_central_zone")
+    return {"entities": list(dict.fromkeys(entities)), "relations": list(dict.fromkeys(relations))}
+
+
 def _role(text: str, segment: dict[str, Any]) -> str:
     value = text.lower()
     if segment.get("movePhase"):
@@ -45,6 +74,7 @@ def _role(text: str, segment: dict[str, Any]) -> str:
 
 def _intent_for(text: str, segment: dict[str, Any]) -> dict[str, Any]:
     lowered = text.lower()
+    metadata = _entity_relation_metadata(text)
     if "initiative" in lowered and "exchange" in lowered and ("after" in lowered or "shift" in lowered):
         return {
             "concept": text[:80].strip(),
@@ -55,7 +85,65 @@ def _intent_for(text: str, segment: dict[str, Any]) -> dict[str, Any]:
             "confidence": "editorial",
             "visualKind": "comparison_split",
             "primitives": ["causal_bridge"],
+            "requiredPrimitives": ["causal_bridge"],
             "bridgeLabels": ["BASELINE", "EXCHANGE", "INITIATIVE SHIFTS"],
+            **metadata,
+        }
+    if "chariot" in lowered and "cannon" in lowered and "horse" in lowered and ("leg" in lowered or "unobstructed" in lowered):
+        primitives = ["chariot_open_file", "cannon_screen", "cannon_target", "horse_leg", "horse_leg_blocker", "horse_leg_target"]
+        return {
+            "concept": "three_movement_constraints",
+            "semanticRole": _role(text, segment),
+            "visualTreatment": "multi_constraint",
+            "evidenceMode": "claim_proof",
+            "coverage": "covered",
+            "confidence": "verified",
+            "visualKind": "rule_focus",
+            "primitives": primitives,
+            "requiredPrimitives": primitives,
+            **metadata,
+        }
+    if "horse leg" in lowered or "horse's leg" in lowered or ("horse" in lowered and "leg" in lowered):
+        primitives = ["horse_leg", "horse_leg_blocker", "horse_leg_target"]
+        return {
+            "concept": "horse_leg",
+            "semanticRole": _role(text, segment),
+            "visualTreatment": "horse_leg",
+            "evidenceMode": "claim_proof",
+            "coverage": "covered",
+            "confidence": "verified",
+            "visualKind": "rule_focus",
+            "primitives": primitives,
+            "requiredPrimitives": primitives,
+            **metadata,
+        }
+    if "cannon screen" in lowered or ("cannon" in lowered and "screen" in lowered):
+        primitives = ["piece_anchor", "cannon_screen", "cannon_target"]
+        return {
+            "concept": "cannon_screen",
+            "semanticRole": _role(text, segment),
+            "visualTreatment": "cannon_screen",
+            "evidenceMode": "claim_proof",
+            "coverage": "covered",
+            "confidence": "verified",
+            "visualKind": "cannon_screen",
+            "primitives": primitives,
+            "requiredPrimitives": primitives,
+            **metadata,
+        }
+    if "elephant eye" in lowered or ("elephant" in lowered and "eye" in lowered):
+        primitives = ["piece_anchor", "elephant_eye", "river_limit"]
+        return {
+            "concept": "elephant_eye",
+            "semanticRole": _role(text, segment),
+            "visualTreatment": "elephant_eye",
+            "evidenceMode": "claim_proof",
+            "coverage": "covered",
+            "confidence": "verified",
+            "visualKind": "rule_focus",
+            "primitives": primitives,
+            "requiredPrimitives": primitives,
+            **metadata,
         }
     for markers, treatment, visual_kind, primitives, evidence in KNOWN_TREATMENTS:
         if any(marker in lowered for marker in markers):
@@ -72,7 +160,9 @@ def _intent_for(text: str, segment: dict[str, Any]) -> dict[str, Any]:
                 "confidence": "editorial" if evidence == "editorial_bridge" else ("verified" if evidence in {"claim_proof", "board_state"} else "inferred"),
                 "visualKind": visual_kind,
                 "primitives": primitives,
+                "requiredPrimitives": list(primitives) if evidence == "claim_proof" or treatment in {"strategic_bridge", "causal_bridge"} else [],
                 **({"bridgeLabels": bridge_labels} if treatment == "strategic_bridge" else {}),
+                **metadata,
             }
     # Flexible path for new concepts: preserve the idea, use a safe generic
     # renderer treatment, and let the AI visual director refine it if possible.
@@ -85,6 +175,8 @@ def _intent_for(text: str, segment: dict[str, Any]) -> dict[str, Any]:
         "confidence": "inferred",
         "visualKind": "board_overview",
         "primitives": ["concept_focus"],
+        "requiredPrimitives": ["concept_focus"],
+        **metadata,
     }
 
 

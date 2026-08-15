@@ -98,6 +98,7 @@ export type VisualIntent = {
   coverage?: "covered" | "bridge_only";
   confidence?: "verified" | "inferred" | "editorial" | "unresolved";
   bridgeLabels?: string[];
+  requiredPrimitives?: string[];
 };
 
 export type VisualStoryboardScene = {

@@ -126,7 +126,13 @@ Foundation storyboard modes are excluded from the new sentence expansion because
 
 The renderer now has three safe paths for abstract ideas. `concept_focus` provides focus and hierarchy without asserting a move. `concept_bridge` is a controlled editorial model for a simple contrast such as `QUIET TEMPO` and `FORCING TEMPO`. `causal_bridge` is a stronger controlled editorial model for causal wording: it shows `BASELINE → EXCHANGE → INITIATIVE SHIFTS` plus `EDITORIAL MODEL · NOT A MOVE`. Neither editorial primitive changes the FEN, claims that a state was played, or uses generic `BEFORE`/`AFTER` labels. Both bridge primitives are declared in the Python supported primitive set and rendered in `src/Composition.tsx`. All legal move demonstrations continue to use the existing FEN-derived board state, verified move geometry, and dedicated primitives such as `horse_leg`, `cannon_screen`, `elephant_eye`, `legal_path`, and `played_destination`.
 
-The TypeScript types now carry `VisualIntent`, `sentenceId`, `visualIntent`, `sentenceVisualIntents`, and `sentenceVisualSupervision`. This keeps the sentence-level audit data available through storyboard normalization and rendering without weakening the existing board-state types.
+The TypeScript types now carry `VisualIntent`, `sentenceId`, `visualIntent`, `sentenceVisualIntents`, `sentenceVisualSupervision`, and `requiredPrimitives`. This keeps the sentence-level audit data available through storyboard normalization and rendering without weakening the existing board-state types.
+
+## Entity-and-relation preservation
+
+The planner now extracts meaningful entities and relations instead of treating a sentence as one keyword. For example, the sentence `The river separates the territories, and the palaces restrict the Generals to a narrow central zone.` records the river, both territories, both palaces, both Generals, and the central zone, together with the relations `river_separates_territories`, `generals_restricted_to_palaces`, and `palaces_define_central_zone`. A post-storyboard preservation gate restores the required primitives after either AI or fallback planning and blocks any storyboard that drops them.
+
+The planner also supports composite sentences. A sentence that names a Chariot open file, a Cannon one-screen constraint, and a Horse Leg constraint receives one combined verified contract containing all three treatments rather than being claimed by the first matching keyword. Claim-specific static treatments use dedicated primitives. Horse Leg uses the verified Horse, blocked leg point, and diagonal target geometry, with `RULE DIAGRAM · NO MOVE PLAYED` to distinguish a rule diagram from a played move.
 
 ## Tests
 
@@ -152,13 +158,16 @@ env PYTHONPATH=python \
   python3 -m unittest python/test_sentence_visual_supervision.py python/test_visual_director.py
 ```
 
-A non-publishing experiment fixture is available at `python/run_sentence_supervision_experiment.py`. It uses two unseen concepts, disables publication in the job payload, runs the deterministic storyboard path, and writes its artifacts under `experiment-output/`.
+A non-publishing experiment fixture is available at `python/run_sentence_supervision_experiment.py`. It uses two unseen concepts, disables publication in the job payload, runs the deterministic storyboard path, and writes its artifacts under `experiment-output/`. The `python/run_new_sentence_experiment.py` fixture tests a verified river-and-palace sentence, while `python/run_relation_matrix_experiment.py` tests river/palace relations, Horse Leg, Cannon Screen, and intersection explanations together. These fixtures never call YouTube or write to the production catalog.
 
 ```bash
 env PYTHONPATH=python AI_ROUTER_REQUIRE_KEYS=0 \
   XIANGQI_RESEARCH_REQUIRED=0 GOOGLE_GROUNDING_ENABLED=0 \
   GOOGLE_GROUNDING_REQUIRED=0 PREPUBLISH_CRITIC_REQUIRED=0 \
   python3 python/run_sentence_supervision_experiment.py
+
+python3 python/run_new_sentence_experiment.py
+python3 python/run_relation_matrix_experiment.py
 ```
 
 Run the complete Python suite with:
