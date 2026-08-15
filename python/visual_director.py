@@ -419,7 +419,12 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
     if "intersection" in text or "point" in text or "crossing" in text:
         return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
     intent = segment.get("visualIntent") if isinstance(segment.get("visualIntent"), dict) else {}
-    if intent and default_kind not in {"board_overview", "board_identity", "static_board"}:
+    intent_treatment = str(intent.get("visualTreatment") or "").strip()
+    fallback_profile = str(segment.get("_fallbackProfile") or "").strip()
+    protected_progression_kind = default_kind in {"two_armies", "learning_roadmap"} and fallback_profile in {"history", "board", "coordinates", "setup", "pieces", "rules"}
+    if intent and intent_treatment == "concept_focus" and protected_progression_kind:
+        return {"visualKind": default_kind, "semanticTags": [default_kind], "visualPlan": {"mode": "board_overlay", "focus": default_kind, "primitives": [default_kind]}, "confident": False}
+    if intent and intent_treatment != "concept_focus" and default_kind not in {"board_overview", "board_identity", "static_board"}:
         return {"visualKind": default_kind, "semanticTags": [default_kind], "visualPlan": {"mode": "board_overlay", "focus": default_kind, "primitives": [default_kind]}, "confident": False}
     if intent:
         concept = str(intent.get("concept") or "new concept").strip()
@@ -470,7 +475,8 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
             kind = _static_kind_for(segment, index, profile) if not intro_kind else (intro_kind if index == 1 else _static_kind_for(segment, index, profile))
             headline, instruction = STATIC_SCENE_COPY.get(kind, STATIC_SCENE_COPY["board_overview"])[language]
         caption = str(segment.get("captionText") or headline).strip()
-        semantic = _semantic_visual_contract(segment, kind, language)
+        segment_for_contract = {**segment, "_fallbackProfile": profile}
+        semantic = _semantic_visual_contract(segment_for_contract, kind, language)
         if semantic.get("confident"):
             kind = str(semantic.get("visualKind") or kind)
             headline = str(semantic.get("headline") or headline)
@@ -488,6 +494,7 @@ def _fallback_for(puzzle: dict[str, Any], job: dict[str, Any]) -> list[dict[str,
             "visualPlan": semantic.get("visualPlan") or {"mode": "board_overlay", "focus": kind, "primitives": [kind]},
             "sentenceId": segment.get("sentenceId"),
             "visualIntent": segment.get("visualIntent") or {},
+            "_fallbackProfile": profile,
         })
     return fallback
 
@@ -588,6 +595,7 @@ def _normalize_storyboard(raw: Any, puzzle: dict[str, Any], job: dict[str, Any])
             "visualPlan": semantic.get("visualPlan") or candidate.get("visualPlan") or default.get("visualPlan") or {"mode": "board_overlay", "focus": visual_kind, "primitives": [visual_kind]},
             "sentenceId": candidate.get("sentenceId") or default.get("sentenceId"),
             "visualIntent": candidate.get("visualIntent") or default.get("visualIntent") or source_segment.get("visualIntent") or {},
+            "_fallbackProfile": _lesson_profile(puzzle, job),
         })
     return normalized, "ai_router"
 
@@ -729,6 +737,7 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
     move_plies = {int(move.get("ply")) for move in job.get("moves", []) if isinstance(move, dict) and move.get("ply") is not None}
     latest_end = 0.0
     previous_static_kind: str | None = None
+    previous_static_signature: tuple[str, str, tuple[str, ...]] | None = None
     fallback_source = str(job.get("visualStoryboardSource") or "") == "fallback"
     for index, segment in enumerate(segments, start=1):
         if supervision_ready and not str(segment.get("sentenceId") or "").strip():
@@ -739,12 +748,19 @@ def validate_visual_storyboard(job: dict[str, Any], audio_duration: float | None
         if not visual_kind:
             errors.append(f"segment_{index} has no visualKind")
         is_static_segment = segment.get("kind") != "move" and segment.get("movePly") is None
+        plan_for_signature = segment.get("visualPlan") if isinstance(segment.get("visualPlan"), dict) else {}
+        primitive_signature = tuple(str(value) for value in plan_for_signature.get("primitives", []) if str(value).strip())
+        visual_signature = (visual_kind, str(plan_for_signature.get("focus") or ""), primitive_signature)
         if fallback_source and is_static_segment and visual_kind and visual_kind == previous_static_kind:
-            errors.append(f"segment_{index} repeats fallback visualKind={visual_kind} without a visual change")
+            concept_focus_changed = "concept_focus" in primitive_signature and visual_signature != previous_static_signature
+            if not concept_focus_changed:
+                errors.append(f"segment_{index} repeats fallback visualKind={visual_kind} without a visual change")
         if is_static_segment and visual_kind:
             previous_static_kind = visual_kind
+            previous_static_signature = visual_signature
         elif not is_static_segment:
             previous_static_kind = None
+            previous_static_signature = None
         if segment.get("movePly") is not None and int(segment["movePly"]) not in move_plies:
             errors.append(f"segment_{index} references missing movePly={segment['movePly']}")
         try:

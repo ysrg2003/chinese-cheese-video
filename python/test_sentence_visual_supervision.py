@@ -66,6 +66,28 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         second = expand_narration_segments(first)
         self.assertEqual(second["narrationSegments"], first_segments)
 
+    def test_adjacent_unknown_concepts_are_distinct_and_renderable(self) -> None:
+        narration = "The tempo window reveals initiative. The exchange lens isolates the idea."
+        job = {
+            "id": "adjacent-new-concepts",
+            "language": "en",
+            "content_type": "definition",
+            "narration": narration,
+            "narrationSegments": [{"kind": "intro", "text": narration}],
+            "moves": [],
+            "visual_mode": "storyboard",
+        }
+        puzzle = {"language": "en", "content_type": "definition", "moves": [], "visualStoryboard": []}
+        result = add_visual_storyboard(job, puzzle)
+        self.assertEqual(len(result["narrationSegments"]), 2)
+        self.assertTrue(all(item["visualKind"] == "board_overview" for item in result["narrationSegments"]))
+        self.assertTrue(all("concept_focus" in item["visualPlan"]["primitives"] for item in result["narrationSegments"]))
+        self.assertNotEqual(
+            result["narrationSegments"][0]["visualPlan"]["focus"],
+            result["narrationSegments"][1]["visualPlan"]["focus"],
+        )
+        self.assertEqual(validate_visual_storyboard(result), [])
+
     def test_unknown_concept_fallback_is_renderable_and_has_no_fake_move(self) -> None:
         puzzle = {
             "language": "en",

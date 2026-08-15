@@ -95,7 +95,7 @@ A new concept is not an error merely because it is absent from `KNOWN_TREATMENTS
 
 The semantic director may refine an unknown concept if it can produce an allowed, evidence-backed plan. If it cannot, the deterministic fallback remains renderable. This makes the system extensible without requiring a code change for every new editorial phrase.
 
-The fallback also preserves specialized existing visual kinds. For example, a history lesson that already selected `history_timeline` is not downgraded to `concept_focus`; the generic treatment is used only where no more specific contract is available.
+The fallback also preserves specialized existing visual kinds. For example, a history lesson that already selected `history_timeline`, `two_armies`, or `learning_roadmap` is not downgraded to `concept_focus`; those progression scenes remain protected for history, board, setup, and related curriculum profiles. The generic treatment is used for genuinely unseen concepts where no protected progression contract applies. If two inferred concepts are adjacent, their focus signatures must differ so the fallback cannot silently render the same generic scene twice.
 
 ## Idempotence and timing
 
@@ -149,6 +149,15 @@ env PYTHONPATH=python \
   AI_ROUTER_REQUIRE_KEYS=0 \
   PREPUBLISH_CRITIC_REQUIRED=0 \
   python3 -m unittest python/test_sentence_visual_supervision.py python/test_visual_director.py
+```
+
+A non-publishing experiment fixture is available at `python/run_sentence_supervision_experiment.py`. It uses two unseen concepts, disables publication in the job payload, runs the deterministic storyboard path, and writes its artifacts under `experiment-output/`.
+
+```bash
+env PYTHONPATH=python AI_ROUTER_REQUIRE_KEYS=0 \
+  XIANGQI_RESEARCH_REQUIRED=0 GOOGLE_GROUNDING_ENABLED=0 \
+  GOOGLE_GROUNDING_REQUIRED=0 PREPUBLISH_CRITIC_REQUIRED=0 \
+  python3 python/run_sentence_supervision_experiment.py
 ```
 
 Run the complete Python suite with:
