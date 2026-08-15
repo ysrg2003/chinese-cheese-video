@@ -1,0 +1,36 @@
+{
+  "contract": "full_channel_deletion_v1",
+  "channel_id": "UCM7pTdgZRwDZ2gZDtC6SITg",
+  "channel_title": "Xiangqi Lab | 中国象棋实验室",
+  "uploads_playlist_id": "UUM7pTdgZRwDZ2gZDtC6SITg",
+  "manifest": "channel-reset-artifacts/full-channel-video-audit.json",
+  "requested_at": "2026-08-15T08:56:45.986893+00:00",
+  "target_video_ids": [
+    "dw6V8q69hY8",
+    "DBh7le5pmlg",
+    "P0c8AZVdY-8",
+    "6zlNGteEW5M",
+    "XeQ5BrYsHpk",
+    "ahEqhv1bmHw",
+    "Q4_3fSM4wBI",
+    "ErLAZQvHUiM",
+    "NYhJlCD49hw",
+    "D-o77HngwOU"
+  ],
+  "target_count": 10,
+  "deleted_video_ids": [
+    "dw6V8q69hY8",
+    "DBh7le5pmlg",
+    "P0c8AZVdY-8",
+    "6zlNGteEW5M",
+    "XeQ5BrYsHpk",
+    "ahEqhv1bmHw",
+    "Q4_3fSM4wBI",
+    "ErLAZQvHUiM",
+    "NYhJlCD49hw",
+    "D-o77HngwOU"
+  ],
+  "errors": [],
+  "dry_run": false,
+  "status": "deleted_all"
+}

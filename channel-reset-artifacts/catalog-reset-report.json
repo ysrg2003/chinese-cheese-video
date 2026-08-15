@@ -1,0 +1,21 @@
+{
+  "contract": "full_channel_catalog_reset_v1",
+  "reset_group": "full_channel_restart_2026-08-15",
+  "verification_run_id": "full-channel-deletion-workflow",
+  "reason": "user_confirmed_full_channel_restart_after_system_grounding_upgrade",
+  "reset_at": "2026-08-15T08:56:56.576204+00:00",
+  "manifest_video_count": 10,
+  "active_local_job_count": 9,
+  "job_ids": [
+    "curriculum-en-001-what-is-xiangqi-en",
+    "curriculum-en-003-a-short-history-of-xiangqi-en",
+    "curriculum-en-005-the-9x10-point-board-en",
+    "curriculum-en-006-the-river-and-palaces-en",
+    "curriculum-en-007-set-up-all-32-pieces-en",
+    "curriculum-en-008-xiangqi-coordinates-en",
+    "curriculum-en-010-the-general-en",
+    "curriculum-en-011-advisors-and-palace-defense-en",
+    "curriculum-en-012-elephants-and-the-river-en"
+  ],
+  "reset_count": 9
+}
