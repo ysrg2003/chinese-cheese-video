@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sys
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,37 @@ RESUMABLE_PUBLICATION_STATUSES = {
 
 class YouTubePublisherError(RuntimeError):
     """A publish operation failed or is not configured."""
+
+
+def _video_dimensions(video_path: str | Path | None) -> tuple[int, int]:
+    """Return rendered video width and height without trusting incomplete job metadata."""
+    if not video_path:
+        return 0, 0
+    try:
+        completed = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-select_streams", "v:0",
+                "-show_entries", "stream=width,height", "-of", "json", str(video_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        payload = json.loads(completed.stdout or "{}")
+        stream = ((payload.get("streams") or [{}])[0] or {})
+        return int(stream.get("width") or 0), int(stream.get("height") or 0)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError, subprocess.SubprocessError):
+        return 0, 0
+
+
+def is_vertical_short(video_path: str | Path | None, job: dict[str, Any] | None = None) -> bool:
+    """Treat a clearly portrait render as a YouTube Short for thumbnail policy."""
+    job = job or {}
+    width = int(job.get("renderedWidth") or job.get("width") or 0)
+    height = int(job.get("renderedHeight") or job.get("height") or 0)
+    if not width or not height:
+        width, height = _video_dimensions(video_path)
+    return bool(width and height and height > width and height / width >= 1.1)
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
@@ -405,6 +437,8 @@ def publish_video(
     thumbnail_assets: dict[str, Any] | None = None
     localization_root: Path | None = None
     localization_enabled = os.getenv("YOUTUBE_LOCALIZATION_ENABLED", "1").lower() in {"1", "true", "yes"}
+    vertical_short = is_vertical_short(video_path, job)
+    thumbnail_policy = "manual_studio_required" if vertical_short else "api_upload_and_verify"
     if localization_enabled and all(hasattr(service, name) for name in ("captions", "videos")):
         from localization import generate_localization_assets, validate_localization_assets
         from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
@@ -419,14 +453,22 @@ def publish_video(
             localization_errors = validate_localization_assets(localization_assets)
             if localization_errors:
                 raise YouTubePublisherError("Pre-publish localization gate failed: " + "; ".join(localization_errors))
-            thumbnail_assets = generate_thumbnail_assets(
-                video_path,
-                job,
-                localization_root / "thumbnails",
-            )
-            thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
-            if thumbnail_errors:
-                raise YouTubePublisherError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
+            if vertical_short:
+                thumbnail_assets = {
+                    "status": "manual_studio_required",
+                    "message": "Portrait Shorts thumbnails must be selected or uploaded in YouTube Studio on a computer; the YouTube Data API is not treated as authoritative for Shorts.",
+                    "source": "user_studio_upload",
+                    "default_language": "en",
+                }
+            else:
+                thumbnail_assets = generate_thumbnail_assets(
+                    video_path,
+                    job,
+                    localization_root / "thumbnails",
+                )
+                thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
+                if thumbnail_errors:
+                    raise YouTubePublisherError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
         except YouTubePublisherError:
             raise
         except Exception as exc:
@@ -498,12 +540,15 @@ def publish_video(
                 raise YouTubePublisherError(f"Caption upload failed: {caption_results}")
             metadata_result = update_localized_metadata(service, video_id, metadata, localization_assets["zh"])
             thumbnail_result = None
-            if hasattr(service, "thumbnails"):
+            if thumbnail_policy == "manual_studio_required":
+                thumbnail_assets["default_upload_status"] = "manual_studio_required"
+                thumbnail_assets["message"] = "Upload or select the Shorts thumbnail in YouTube Studio on a computer; no API thumbnail mutation was attempted."
+            elif hasattr(service, "thumbnails"):
                 thumbnail_result = set_thumbnail(service, video_id, thumbnail_assets["default"])
                 thumbnail_assets["default_upload"] = thumbnail_result
-                thumbnail_assets["default_upload_status"] = "completed"
+                thumbnail_assets["default_upload_status"] = "api_response_confirmed"
             else:
-                raise YouTubePublisherError("YouTube thumbnail API is unavailable")
+                raise YouTubePublisherError("YouTube thumbnail API is unavailable for a landscape video")
             localization = {
                 "status": "completed",
                 "assets": localization_assets,
@@ -511,7 +556,8 @@ def publish_video(
                 "metadata_update": metadata_result,
                 "audio_track_status": localization_assets["zh"].get("audio_track_status"),
                 "thumbnail": thumbnail_assets,
-                "localized_thumbnail_status": "disabled_by_policy",
+                "thumbnail_policy": thumbnail_policy,
+                "localized_thumbnail_status": "manual_studio_required" if vertical_short else "disabled_by_policy",
             }
         except Exception as exc:
             # The video and usually its playlist entry already exist at this point.
@@ -536,6 +582,7 @@ def publish_video(
             }
     publication_metadata = dict(metadata)
     publication_metadata["localization"] = localization
+    publication_metadata["thumbnail_policy"] = thumbnail_policy
     return {
         "status": "published",
         "video_id": video_id,
@@ -546,6 +593,7 @@ def publish_video(
         "playlist_item": playlist_response,
         "metadata": publication_metadata,
         "localization": localization,
+        "thumbnail_policy": thumbnail_policy,
     }
 
 

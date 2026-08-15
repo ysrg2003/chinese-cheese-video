@@ -18,7 +18,7 @@ from local_store import LocalStore
 from supabase_store import SupabaseStore
 from tts import align_narration_segments_to_cues, captions_from_narration, captions_from_narration_segments, captions_from_word_cues, synthesize
 from timing import finalize_timing
-from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES, load_policy, publish_video
+from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES, is_vertical_short, load_policy, publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
 from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
@@ -301,15 +301,23 @@ def main() -> int:
             result["visual_qa"] = visual_qa
             result["creative_review"] = creative_review
             prepublish_thumbnail_dir = stage_dir / "prepublish_thumbnails"
-            thumbnail_assets = generate_thumbnail_assets(
-                output_path,
-                job,
-                prepublish_thumbnail_dir,
-                zh_title=None,
-            )
-            thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
-            if thumbnail_errors:
-                raise RuntimeError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
+            if is_vertical_short(output_path, job):
+                thumbnail_assets = {
+                    "status": "manual_studio_required",
+                    "message": "Portrait Shorts thumbnails are selected or uploaded in YouTube Studio on a computer; no generated thumbnail is treated as authoritative.",
+                    "source": "user_studio_upload",
+                    "default_language": "en",
+                }
+            else:
+                thumbnail_assets = generate_thumbnail_assets(
+                    output_path,
+                    job,
+                    prepublish_thumbnail_dir,
+                    zh_title=None,
+                )
+                thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
+                if thumbnail_errors:
+                    raise RuntimeError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
             job["thumbnailAssets"] = thumbnail_assets
             write_job_files(job, stage_dir, public_dir)
             result["thumbnail_assets"] = thumbnail_assets

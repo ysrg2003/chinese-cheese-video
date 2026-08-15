@@ -114,6 +114,49 @@ class YouTubeLocalizationContractTests(unittest.TestCase):
         self.assertEqual(result["video_id"], "video-localized")
         self.assertEqual(len(service.playlist_items), 1)
 
+    def test_portrait_short_does_not_call_api_thumbnail_setter(self):
+        service = FakeExtendedApi()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative in ("zh/captions.srt", "zh/captions.vtt", "zh/voice.mp3"):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"artifact")
+            assets = {
+                "en": {"enabled": False, "source": "english_captions_disabled_in_video"},
+                "zh": {
+                    "title": "中国象棋棋盘",
+                    "description": "这是一个中国象棋棋盘教学视频。",
+                    "audio_path": str(root / "zh/voice.mp3"),
+                    "caption_srt": str(root / "zh/captions.srt"),
+                    "caption_vtt": str(root / "zh/captions.vtt"),
+                    "audio_track_status": "generated_studio_upload_required",
+                },
+            }
+            job = {
+                "id": "portrait-short-contract",
+                "title": "The 9×10 Point Board",
+                "language": "en",
+                "content_type": "board_setup",
+                "narration": "A Xiangqi board has nine files and ten ranks.",
+            }
+            with patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "1"}, clear=False), patch.object(
+                youtube_publisher, "upload_video", return_value={"id": "portrait-video"}
+            ), patch.object(youtube_publisher, "is_vertical_short", return_value=True), patch(
+                "localization.generate_localization_assets", return_value=assets
+            ), patch("localization.upload_caption_tracks", return_value={"zh-Hans": {"id": "zh-caption"}}), patch(
+                "localization.update_localized_metadata", return_value={"id": "portrait-video"}
+            ), patch("thumbnail.generate_thumbnail_assets") as thumbnail_mock, patch(
+                "localization.set_thumbnail"
+            ) as setter_mock:
+                result = youtube_publisher.publish_video(None, job, service=service)
+        self.assertEqual(result["status"], "published")
+        self.assertEqual(result["thumbnail_policy"], "manual_studio_required")
+        self.assertEqual(result["localization"]["thumbnail"]["default_upload_status"], "manual_studio_required")
+        thumbnail_mock.assert_not_called()
+        setter_mock.assert_not_called()
+        self.assertEqual(service.thumbnail_calls, [])
+
     def test_localization_preflight_blocks_upload_on_missing_artifacts(self):
         service = FakeExtendedApi()
         job = {
