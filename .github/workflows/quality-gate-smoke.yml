@@ -113,7 +113,8 @@ jobs:
       - name: Verify production remains fail-closed in this smoke
         run: |
           grep -q 'XIANGQI_PRODUCTION_FREEZE' python/run_pipeline.py
-          grep -q 'Rendered visual QA failed' python/run_pipeline.py
+          test -f python/creative_critic.py
+          grep -q 'Pre-publish creative review failed' python/run_pipeline.py
           grep -q 'verify_rendered_visuals' python/run_pipeline.py
           grep -q 'Xiangqi legal-move validation failed' python/director.py
           echo 'No production upload or YouTube mutation was performed by this workflow.' > smoke-output/no-publish.txt
