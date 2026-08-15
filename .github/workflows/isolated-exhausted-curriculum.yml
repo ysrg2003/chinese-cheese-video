@@ -80,7 +80,7 @@ jobs:
 
       - name: Install renderer system dependencies
         if: inputs.full_production == true
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: timeout 300s sudo -n apt-get update -o Acquire::Retries=3 && timeout 300s sudo -n apt-get install -y --no-install-recommends ffmpeg
 
       - name: Install JavaScript dependencies
         if: inputs.full_production == true
