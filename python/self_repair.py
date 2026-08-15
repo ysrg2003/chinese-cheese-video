@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ai_router_bridge import load_router
+from visual_director import ALL_VISUAL_KINDS, SUPPORTED_BOARD_PRIMITIVES
 
 REPAIR_SCHEMA = "xiangqi_self_repair_v1"
 DIAGNOSIS_SCHEMA = "xiangqi_self_diagnosis_v1"
@@ -170,13 +171,14 @@ def diagnose_failure(evidence: dict[str, Any], router_factory: Callable[[], Any]
     raw = _router_complete_json(DIAGNOSIS_INSTRUCTIONS, payload, f"self_repair:diagnose:{evidence.get('job_id')}:{evidence.get('attempt')}", router_factory)
     if raw is None:
         return {"schema": DIAGNOSIS_SCHEMA, "repairable": False, "failure_class": evidence.get("failure_class", "unknown"), "root_cause": "AI diagnosis provider unavailable", "affected_stage": evidence.get("stage", "unknown"), "source": "unavailable"}
+    evidence_stage = str(evidence.get("stage") or "unknown")
     diagnosis = {
         "schema": DIAGNOSIS_SCHEMA,
         "repairable": bool(raw.get("repairable", False)),
         "failure_class": str(raw.get("failure_class") or evidence.get("failure_class") or "unknown"),
         "root_cause": _bounded_text(raw.get("root_cause"), 2000),
         "diagnosis": _bounded_text(raw.get("diagnosis"), 3000),
-        "affected_stage": str(raw.get("affected_stage") or evidence.get("stage") or "unknown"),
+        "affected_stage": evidence_stage if evidence_stage in ALLOWED_RESUME_STAGES else str(raw.get("affected_stage") or "unknown"),
         "source": "ai_router",
     }
     if diagnosis["failure_class"] not in ALLOWED_FAILURE_CLASSES:
@@ -262,7 +264,15 @@ def validate_plan(plan: dict[str, Any], diagnosis: dict[str, Any]) -> tuple[bool
 
 
 def propose_repair_plan(evidence: dict[str, Any], diagnosis: dict[str, Any], router_factory: Callable[[], Any] | None = None) -> dict[str, Any]:
-    payload = {"schema": REPAIR_SCHEMA, "allowed_patch_types": sorted(ALLOWED_PATCH_TYPES), "diagnosis": diagnosis, "evidence": evidence}
+    payload = {
+        "schema": REPAIR_SCHEMA,
+        "allowed_patch_types": sorted(ALLOWED_PATCH_TYPES),
+        "allowed_visual_kinds": sorted(ALL_VISUAL_KINDS),
+        "allowed_board_primitives": sorted(SUPPORTED_BOARD_PRIMITIVES),
+        "protected_scene_fields": ["movePly", "movePhase", "narration", "caption", "from", "to", "piece", "side", "fen", "moves", "generatedAsset"],
+        "diagnosis": diagnosis,
+        "evidence": evidence,
+    }
     raw = _router_complete_json(REPAIR_INSTRUCTIONS, payload, f"self_repair:plan:{evidence.get('job_id')}:{evidence.get('attempt')}", router_factory)
     if raw is None:
         return {"schema": REPAIR_SCHEMA, "disposition": "quarantine", "failure_class": diagnosis.get("failure_class", "unknown"), "patch_type": "no_safe_repair", "resume_stage": diagnosis.get("affected_stage", "director"), "reason": "AI repair planner unavailable"}
@@ -325,9 +335,7 @@ def repair_failure(
         checkpoint = write_checkpoint(Path(output_root) / "jobs" / job_id, evidence, diagnosis, plan, "quarantined")
         return {"status": "quarantined", "evidence": evidence, "diagnosis": diagnosis, "plan": plan, "checkpoint": str(checkpoint)}
     if not diagnosis.get("repairable"):
-        plan = {"schema": REPAIR_SCHEMA, "disposition": "quarantine", "failure_class": diagnosis.get("failure_class", "unknown"), "patch_type": "no_safe_repair", "resume_stage": diagnosis.get("affected_stage", "director"), "reason": diagnosis.get("root_cause") or "diagnosis marked failure as non-repairable"}
-        checkpoint = write_checkpoint(Path(output_root) / "jobs" / job_id, evidence, diagnosis, plan, "quarantined")
-        return {"status": "quarantined", "evidence": evidence, "diagnosis": diagnosis, "plan": plan, "checkpoint": str(checkpoint)}
+        diagnosis["planner_override"] = "A second repair-planning pass is required for bounded content, storyboard, asset, TTS, and render failures; do not stop solely on the first diagnosis."
     plan = propose_repair_plan(evidence, diagnosis, router_factory)
     valid, errors = validate_plan(plan, diagnosis)
     if not valid or plan.get("patch_type") == "no_safe_repair":
