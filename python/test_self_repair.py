@@ -163,6 +163,36 @@ class SelfRepairTests(unittest.TestCase):
         self.assertEqual(plan["disposition"], "apply_patch")
         self.assertEqual(plan["patch"]["scene_repairs"][0]["sceneId"], 4)
 
+    def test_field_path_visual_repair_plan_is_normalised(self):
+        from self_repair import propose_repair_plan
+
+        responses = [{
+            "repair_plan": [{
+                "patch_type": "director_patch",
+                "scene_id": 6,
+                "field_path": "visualPlan.focusSide",
+                "value": "black",
+            }],
+            "failure_class": "visual_storyboard",
+            "resume_stage": "storyboard",
+        }]
+
+        def router_factory():
+            return FakeRouter(responses.pop(0))
+
+        plan = propose_repair_plan(
+            {
+                "job_id": "field-path",
+                "attempt": 1,
+                "job_context": {"scenes": [{"index": 6, "visualPlan": {"mode": "board_overlay", "focus": "file 1", "primitives": ["piece_anchor"]}}]},
+            },
+            {"failure_class": "visual_storyboard", "affected_stage": "storyboard"},
+            router_factory,
+        )
+        self.assertEqual(plan["patch_type"], "visual_scene_patch")
+        self.assertEqual(plan["patch"]["scene_repairs"][0]["visualPlan"]["focusSide"], "black")
+        self.assertEqual(plan["patch"]["scene_repairs"][0]["visualPlan"]["primitives"], ["piece_anchor"])
+
     def test_bounded_visual_adapter_builds_safe_repair_from_rejected_ai_scene(self):
         evidence = {
             "review_context": {

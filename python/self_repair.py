@@ -362,6 +362,34 @@ def _safe_scene_repairs_from_evidence(evidence: dict[str, Any], diagnosis: dict[
 
 def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, Any], evidence: dict[str, Any] | None = None) -> dict[str, Any]:
     """Convert common AI wrapper shapes into the protected v1 repair contract."""
+    if isinstance(raw.get("repair_plan"), list) and evidence is not None:
+        contexts = {str(scene.get("index")): scene for scene in (evidence.get("job_context", {}).get("scenes", []) if isinstance(evidence.get("job_context"), dict) else []) if isinstance(scene, dict)}
+        grouped: dict[str, dict[str, Any]] = {}
+        for item in raw.get("repair_plan") or []:
+            if not isinstance(item, dict) or str(item.get("patch_type") or "") != "director_patch":
+                continue
+            scene_id = item.get("scene_id")
+            field_path = str(item.get("field_path") or "")
+            if scene_id is None or not field_path.startswith("visualPlan."):
+                continue
+            field = field_path.split(".", 1)[1]
+            if field not in {"focus", "focusPiece", "focusSide", "region", "focusLine"}:
+                continue
+            key = str(scene_id)
+            context = contexts.get(key, {})
+            base_plan = copy.deepcopy(context.get("visualPlan")) if isinstance(context.get("visualPlan"), dict) else {"mode": "board_overlay", "focus": f"scene {scene_id} teaching focus", "primitives": ["concept_focus"]}
+            base_plan[field] = item.get("value")
+            grouped[key] = {"sceneId": scene_id, "visualPlan": base_plan}
+        if grouped:
+            return {
+                "schema": REPAIR_SCHEMA,
+                "disposition": "apply_patch",
+                "failure_class": "visual_storyboard",
+                "patch_type": "visual_scene_patch",
+                "resume_stage": "storyboard",
+                "patch": {"scene_repairs": list(grouped.values())},
+                "source": "field_path_visual_adapter",
+            }
     if isinstance(raw.get("plan"), list):
         scene_repairs: list[dict[str, Any]] = []
         director_patches: list[dict[str, Any]] = []
