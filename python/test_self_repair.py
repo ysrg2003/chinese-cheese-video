@@ -163,6 +163,34 @@ class SelfRepairTests(unittest.TestCase):
         self.assertEqual(plan["disposition"], "apply_patch")
         self.assertEqual(plan["patch"]["scene_repairs"][0]["sceneId"], 4)
 
+    def test_nested_visual_action_plan_is_normalised(self):
+        from self_repair import propose_repair_plan
+
+        responses = [{
+            "plan": [{
+                "actions": [{"type": "director_patch", "path": "review_context.scene_repairs[0].repair.visualKind", "value": "move_path"}],
+            }],
+            "failure_class": "content_schema",
+            "resume_stage": "director",
+        }]
+
+        def router_factory():
+            return FakeRouter(responses.pop(0))
+
+        plan = propose_repair_plan(
+            {
+                "job_id": "nested",
+                "attempt": 1,
+                "review_context": {"discarded_unsafe_repairs": [{"repair": {"sceneId": 6, "visualKind": "legal_moves", "visualPlan": {"mode": "board_overlay", "focus": "file 1", "primitives": ["piece_anchor"]}}}]},
+                "job_context": {"scenes": [{"index": 6, "movePhase": "action", "visualKind": "board_overview", "visualPlan": {"mode": "board_overlay", "focus": "board", "primitives": ["piece_anchor"]}, "move": {"ply": 2, "piece": "rook", "side": "black"}}]},
+            },
+            {"failure_class": "content_schema", "affected_stage": "director"},
+            router_factory,
+        )
+        self.assertEqual(plan["patch_type"], "visual_scene_patch")
+        self.assertEqual(plan["failure_class"], "content_schema")
+        self.assertEqual(plan["patch"]["scene_repairs"][0]["visualKind"], "move_path")
+
     def test_field_path_visual_repair_plan_is_normalised(self):
         from self_repair import propose_repair_plan
 

@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -389,6 +390,52 @@ def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, An
                 "resume_stage": "storyboard",
                 "patch": {"scene_repairs": list(grouped.values())},
                 "source": "field_path_visual_adapter",
+            }
+    if isinstance(raw.get("plan"), list) and evidence is not None:
+        safe_base = {str(item.get("sceneId")): copy.deepcopy(item) for item in _safe_scene_repairs_from_evidence(evidence, diagnosis) if isinstance(item, dict) and item.get("sceneId") is not None}
+        affected: set[str] = set()
+        discarded = evidence.get("review_context", {}).get("discarded_unsafe_repairs", []) if isinstance(evidence.get("review_context"), dict) else []
+        for item in raw.get("plan") or []:
+            if not isinstance(item, dict):
+                continue
+            actions = item.get("actions") if isinstance(item.get("actions"), list) else []
+            for action in actions:
+                if not isinstance(action, dict) or str(action.get("type") or "").lower() != "director_patch":
+                    continue
+                path = str(action.get("path") or "")
+                match = re.search(r"scene_repairs\[(\d+)\]\.repair\.(.+)$", path)
+                if not match:
+                    continue
+                index = int(match.group(1))
+                if index < 0 or index >= len(discarded) or not isinstance(discarded[index], dict):
+                    continue
+                original_repair = discarded[index].get("repair") if isinstance(discarded[index].get("repair"), dict) else {}
+                scene_id = original_repair.get("sceneId")
+                if scene_id is None:
+                    continue
+                key = str(scene_id)
+                if key not in safe_base:
+                    continue
+                target = safe_base[key]
+                leaf = match.group(2)
+                if leaf == "visualKind":
+                    value = str(action.get("value") or "")
+                    if value in ALL_VISUAL_KINDS:
+                        target["visualKind"] = value
+                elif leaf.startswith("visualPlan."):
+                    visual_field = leaf.split(".", 1)[1]
+                    if visual_field in {"focus", "focusPiece", "focusSide", "region", "focusLine", "primitives"}:
+                        target.setdefault("visualPlan", {})[visual_field] = action.get("value")
+                affected.add(key)
+        if affected:
+            return {
+                "schema": REPAIR_SCHEMA,
+                "disposition": "apply_patch",
+                "failure_class": str(diagnosis.get("failure_class") or "visual_storyboard"),
+                "patch_type": "visual_scene_patch",
+                "resume_stage": "storyboard",
+                "patch": {"scene_repairs": [safe_base[key] for key in sorted(affected)]},
+                "source": "nested_visual_action_adapter",
             }
     if isinstance(raw.get("plan"), list):
         scene_repairs: list[dict[str, Any]] = []
