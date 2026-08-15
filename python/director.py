@@ -672,7 +672,7 @@ def make_job(job_id: str, puzzle: dict[str, Any], director_data: dict[str, Any])
     if os.getenv("XIANGQI_RESEARCH_REQUIRED", "1").lower() in {"1", "true", "yes"} and research_bundle.get("status") != "grounded":
         raise ValueError("Xiangqi research grounding is required before script acceptance")
     move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
-    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle) and not research_required():
+    if not move_validation["ok"] and _recoverable_dynamic_puzzle(puzzle):
         clean_data = _deterministic_legal_fallback(puzzle, language)
         move_validation = validate_move_sequence(str(puzzle.get("fen") or ""), clean_data.get("moves", []))
     if not move_validation["ok"]:
