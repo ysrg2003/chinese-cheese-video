@@ -311,6 +311,43 @@ def _normalise_ai_review(raw: dict[str, Any], deterministic: dict[str, Any]) -> 
     return result
 
 
+def _filter_unsafe_repairs(job: dict[str, Any], review: dict[str, Any]) -> dict[str, Any]:
+    """Discard AI repair proposals that cannot pass the protected scene contract."""
+    repairs = review.get("scene_repairs") or []
+    if not repairs:
+        return review
+    scenes = _scene_map(job)
+    safe: list[dict[str, Any]] = []
+    discarded: list[dict[str, Any]] = []
+    for repair in repairs:
+        if not isinstance(repair, dict):
+            discarded.append({"repair": repair, "errors": ["repair is not an object"]})
+            continue
+        try:
+            scene_id = int(repair.get("sceneId"))
+        except (TypeError, ValueError):
+            discarded.append({"repair": repair, "errors": ["repair has no valid sceneId"]})
+            continue
+        scene = scenes.get(scene_id)
+        if scene is None:
+            discarded.append({"repair": repair, "errors": [f"repair references missing scene_{scene_id}"]})
+            continue
+        errors = _safe_scene_repair(deepcopy(scene), repair)
+        if errors:
+            discarded.append({"repair": repair, "errors": errors})
+        else:
+            safe.append(repair)
+    review["scene_repairs"] = safe
+    if discarded:
+        review["discarded_unsafe_repairs"] = discarded
+    deterministic = review.get("deterministic") if isinstance(review.get("deterministic"), dict) else {}
+    if discarded and not safe and not deterministic.get("errors"):
+        review["decision"] = "approve"
+        review["score"] = max(int(review.get("score") or 0), MIN_APPROVAL_SCORE)
+        review["summary"] = "AI repair proposals were discarded because they violated the protected visual contract; deterministic review passed."
+    return review
+
+
 def review_job(job: dict[str, Any], puzzle: dict[str, Any], visual_qa: dict[str, Any] | None = None, *, require_ai: bool | None = None, final_artifact: bool = False) -> dict[str, Any]:
     deterministic = _deterministic_review(job, visual_qa, final_artifact=final_artifact)
     use_ai = _require_ai() if require_ai is None else require_ai
@@ -327,7 +364,7 @@ def review_job(job: dict[str, Any], puzzle: dict[str, Any], visual_qa: dict[str,
                 "scene_repairs": [],
                 "deterministic": deterministic,
             }
-        return _normalise_ai_review(ai, deterministic)
+        return _filter_unsafe_repairs(job, _normalise_ai_review(ai, deterministic))
     return deterministic
 
 
