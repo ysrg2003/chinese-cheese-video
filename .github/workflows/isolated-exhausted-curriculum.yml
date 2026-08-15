@@ -2,6 +2,12 @@ name: Isolated exhausted curriculum simulation
 
 on:
   workflow_dispatch:
+    inputs:
+      full_production:
+        description: "Run the complete isolated production path through audio, visual assets, render, creative review, and visual QA"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -9,26 +15,89 @@ permissions:
 jobs:
   exhausted-curriculum:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 90
     env:
       YOUTUBE_PUBLISH_ENABLED: "0"
       YOUTUBE_LOCALIZATION_ENABLED: "0"
-      GOOGLE_GROUNDING_ENABLED: "0"
-      GOOGLE_GROUNDING_REQUIRED: "0"
-      XIANGQI_RESEARCH_REQUIRED: "0"
-      PREPUBLISH_CRITIC_REQUIRED: "0"
+      XIANGQI_REVIEW_ONLY: ${{ inputs.full_production == true && '1' || '0' }}
+      EXHAUSTED_TEST_FULL_PRODUCTION: ${{ inputs.full_production == true && '1' || '0' }}
+      EXHAUSTED_TEST_OUTPUT_DIR: exhausted-curriculum-output
       PYTHONPATH: python
+      AI_ROUTER_PATH: ai-provider-router
+      AI_ROUTER_CONFIG_DIR: ai-provider-router/config
+      AI_ROUTER_STATE_DB: exhausted-curriculum-output/isolated-ai-router.db
+      AI_ROUTER_GEMINI_KEYS_JSON: ${{ secrets.AI_ROUTER_GEMINI_KEYS_JSON }}
+      AI_ROUTER_HF_KEYS_JSON: ${{ secrets.AI_ROUTER_HF_KEYS_JSON }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      AI_ROUTER_CHAIN: default
+      AI_ROUTER_REQUIRE_KEYS: ${{ inputs.full_production == true && '1' || '0' }}
+      HF_BASE_URL: https://router.huggingface.co/v1
+      HF_MODELS: ${{ vars.HF_MODELS || 'openai/gpt-oss-120b:fastest' }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      GOOGLE_GROUNDING_ENABLED: ${{ inputs.full_production == true && (vars.GOOGLE_GROUNDING_ENABLED || '1') || '0' }}
+      GOOGLE_GROUNDING_REQUIRED: ${{ inputs.full_production == true && (vars.GOOGLE_GROUNDING_REQUIRED || '1') || '0' }}
+      GOOGLE_GROUNDING_API_KEY: ${{ secrets.GOOGLE_GROUNDING_API_KEY || secrets.GEMINI_API_KEY_1 }}
+      GOOGLE_GROUNDING_MODEL: ${{ vars.GOOGLE_GROUNDING_MODEL || 'gemini-2.5-flash' }}
+      XIANGQI_RESEARCH_REQUIRED: ${{ inputs.full_production == true && '1' || '0' }}
+      PREPUBLISH_CRITIC_REQUIRED: ${{ inputs.full_production == true && '1' || '0' }}
+      PREPUBLISH_CRITIC_MAX_ITERATIONS: "2"
+      RESEARCH_SOURCE_TIMEOUT_SECONDS: "25"
+      TTS_VOICE_EN: en-US-GuyNeural
+      TTS_VOICE_ZH: zh-CN-YunjianNeural
+      USE_WORD_CAPTIONS: "1"
+      VISUAL_STORYBOARD_ENABLED: "1"
+      CHATGPT_VISUAL_API_BASE: ${{ vars.CHATGPT_VISUAL_API_BASE || 'https://yousefsg-chatgpt-api.hf.space' }}
+      CHATGPT_VISUAL_API_KEY: ${{ secrets.CHATGPT_VISUAL_API_KEY }}
+      VISUAL_ASSET_ENABLED: ${{ inputs.full_production == true && (vars.VISUAL_ASSET_ENABLED || '1') || '0' }}
+      VISUAL_ASSET_MAX_PER_VIDEO: ${{ vars.VISUAL_ASSET_MAX_PER_VIDEO || '2' }}
+      VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Checkout reusable AI Router
+        if: inputs.full_production == true
+        uses: actions/checkout@v4
+        with:
+          repository: ysrg2003/ai-provider-router
+          token: ${{ secrets.AI_ROUTER_REPO_TOKEN }}
+          path: ai-provider-router
+
+      - name: Setup Node for full production render
+        if: inputs.full_production == true
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Install renderer system dependencies
+        if: inputs.full_production == true
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install JavaScript dependencies
+        if: inputs.full_production == true
+        run: npm ci
+
+      - name: Ensure Remotion browser
+        if: inputs.full_production == true
+        run: npx remotion browser ensure
+
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r python/requirements.txt
+
+      - name: Install reusable AI Router
+        if: inputs.full_production == true
+        run: python -m pip install -e ai-provider-router
+
+      - name: Validate AI Router runtime for full production
+        if: inputs.full_production == true
+        run: python python/validate_ai_router_runtime.py
 
       - name: Snapshot production database before the isolated test
         run: |
@@ -38,21 +107,20 @@ jobs:
           cp data/chinese_cheese_video.db-wal exhausted-curriculum-output/production-db-before.db-wal 2>/dev/null || true
           cp data/chinese_cheese_video.db-shm exhausted-curriculum-output/production-db-before.db-shm 2>/dev/null || true
 
-      - name: Run exhausted curriculum simulation in temporary SQLite
+      - name: Run exhausted curriculum simulation
         run: python python/run_exhausted_curriculum_isolated.py
-        env:
-          EXHAUSTED_TEST_OUTPUT_DIR: exhausted-curriculum-output
 
       - name: Verify the production database was not touched
+        if: always()
         run: |
           sha256sum data/chinese_cheese_video.db > exhausted-curriculum-output/production-db-after.sha256
           cmp exhausted-curriculum-output/production-db-before.db data/chinese_cheese_video.db
           if [ -f exhausted-curriculum-output/production-db-before.db-wal ]; then cmp exhausted-curriculum-output/production-db-before.db-wal data/chinese_cheese_video.db-wal; fi
           if [ -f exhausted-curriculum-output/production-db-before.db-shm ]; then cmp exhausted-curriculum-output/production-db-before.db-shm data/chinese_cheese_video.db-shm; fi
           git diff --exit-code -- data/chinese_cheese_video.db
-          echo 'Production SQLite database unchanged; no YouTube publication was attempted.' > exhausted-curriculum-output/no-publication-or-production-mutation.txt
+          echo 'Production SQLite database unchanged; YouTube publication was hard-disabled. Full mode renders are review-only artifacts in production-output/.' > exhausted-curriculum-output/no-publication-or-production-mutation.txt
 
-      - name: Upload isolated evidence
+      - name: Upload isolated evidence and rendered video
         if: always()
         uses: actions/upload-artifact@v4
         with:

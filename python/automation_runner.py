@@ -18,6 +18,14 @@ from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
+def _output_root() -> Path:
+    configured = Path(os.getenv("XIANGQI_OUTPUT_ROOT", str(ROOT / "output"))).expanduser()
+    root = configured if configured.is_absolute() else ROOT / configured
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 CONTENT_ROTATION = [
     "definition", "rules", "opening", "tactics", "endgame", "advanced_puzzle",
     "full_game", "comparison", "viewer_challenge", "skill_match", "trend_breakdown",
@@ -181,7 +189,7 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
             f"Public video {video_id} remains in {status}; reconciliation must complete before production retry"
         )
     payload = build_input(candidate, language)
-    with tempfile.NamedTemporaryFile("w", suffix=".json", dir=ROOT / "output", delete=False, encoding="utf-8") as handle:
+    with tempfile.NamedTemporaryFile("w", suffix=".json", dir=_output_root(), delete=False, encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
         input_path = Path(handle.name)
     try:

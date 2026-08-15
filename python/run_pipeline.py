@@ -29,6 +29,15 @@ from research_grounding import attach_research_bundle, research_required
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _configured_root(env_name: str, default: Path) -> Path:
+    configured = Path(os.getenv(env_name, str(default))).expanduser()
+    return configured if configured.is_absolute() else ROOT / configured
+
+
+OUTPUT_ROOT = _configured_root("XIANGQI_OUTPUT_ROOT", ROOT / "output")
+PUBLIC_ROOT = _configured_root("XIANGQI_PUBLIC_ROOT", ROOT / "public")
+
+
 def sample_puzzle(language: str = "en") -> dict[str, Any]:
     language = normalize_language(language)
     return {
@@ -150,7 +159,7 @@ def _reviewed_render(job: dict[str, Any], puzzle: dict[str, Any], stage_dir: Pat
 
         write_job_files(job, stage_dir, public_dir)
         output_path = render_job(job, stage_dir)
-        visual_qa = verify_rendered_visuals(job, output_path, stage_dir / "visual_qa", ROOT / "public")
+        visual_qa = verify_rendered_visuals(job, output_path, stage_dir / "visual_qa", PUBLIC_ROOT)
         job["visualQA"] = visual_qa
         final_review = run_prepublication_review(job, puzzle, visual_qa=visual_qa, final_artifact=True)
         history.append({"phase": "rendered_artifact", "iteration": iteration, "review": deepcopy(final_review)})
@@ -201,8 +210,8 @@ def main() -> int:
     if research_required():
         puzzle = attach_research_bundle(puzzle)
     job_id = args.job_id or f"xiangqi-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
-    stage_dir = ROOT / "output" / "jobs" / job_id
-    public_dir = ROOT / "public" / "generated" / job_id
+    stage_dir = OUTPUT_ROOT / "jobs" / job_id
+    public_dir = PUBLIC_ROOT / "generated" / job_id
     publication_store = None
     if store:
         publication_store = store if hasattr(store, "get_youtube_publication") else LocalStore(args.db_path)
@@ -286,7 +295,7 @@ def main() -> int:
             audio_duration=audio_duration,
             requested_duration=float(puzzle["durationInSeconds"]) if puzzle.get("durationInSeconds") else None,
         )
-        asset_errors = validate_and_annotate_visual_assets(job, public_root=ROOT / "public")
+        asset_errors = validate_and_annotate_visual_assets(job, public_root=PUBLIC_ROOT)
         if asset_errors:
             raise RuntimeError("Visual asset contract failed: " + "; ".join(asset_errors))
         storyboard_errors = validate_visual_storyboard(job, audio_duration=audio_duration)
