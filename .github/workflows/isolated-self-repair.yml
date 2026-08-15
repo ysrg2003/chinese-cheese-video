@@ -1,0 +1,65 @@
+name: Xiangqi Lab — isolated self-repair probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  self-repair-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: python
+      SELF_REPAIR_ENABLED: "1"
+      SELF_REPAIR_MAX_ATTEMPTS: "1"
+      SELF_REPAIR_TEST_OUTPUT_DIR: self-repair-output
+      YOUTUBE_PUBLISH_ENABLED: "0"
+      XIANGQI_REVIEW_ONLY: "1"
+      AI_ROUTER_PATH: ai-provider-router
+      AI_ROUTER_CONFIG_DIR: ai-provider-router/config
+      AI_ROUTER_STATE_DB: self-repair-output/isolated-ai-router.db
+      AI_ROUTER_GEMINI_KEYS_JSON: ${{ secrets.AI_ROUTER_GEMINI_KEYS_JSON }}
+      AI_ROUTER_HF_KEYS_JSON: ${{ secrets.AI_ROUTER_HF_KEYS_JSON }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      AI_ROUTER_CHAIN: default
+      AI_ROUTER_REQUIRE_KEYS: "0"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout reusable AI Router
+        uses: actions/checkout@v4
+        with:
+          repository: ysrg2003/ai-provider-router
+          token: ${{ secrets.AI_ROUTER_REPO_TOKEN }}
+          path: ai-provider-router
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r python/requirements.txt && python -m pip install -e ai-provider-router
+
+      - name: Run isolated self-repair cycle
+        run: python python/run_self_repair_isolated.py
+
+      - name: Assert no production or YouTube side effects
+        run: |
+          test -f self-repair-output/repair-probe-report.json
+          grep -q '"status": "passed"' self-repair-output/repair-probe-report.json
+          test -z "$(find self-repair-output -type f -name '*.mp4' -print)"
+          test -z "$(find self-repair-output -type f -name '*youtube*' -print)"
+
+      - name: Upload self-repair evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-self-repair-${{ github.run_id }}
+          retention-days: 14
+          path: self-repair-output/
+          if-no-files-found: error

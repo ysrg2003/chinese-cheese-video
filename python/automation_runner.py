@@ -160,6 +160,29 @@ def _validate_stored_job_or_raise(job: dict[str, Any], job_id: str) -> None:
         raise PermanentContentError(f"Stored job {job_id} failed Xiangqi legal-move validation: {'; '.join(result['errors'])}")
 
 
+def _repair_enabled() -> bool:
+    return os.getenv("SELF_REPAIR_ENABLED", "1").lower() in {"1", "true", "yes"}
+
+
+def _repair_budget() -> int:
+    try:
+        return max(0, min(3, int(os.getenv("SELF_REPAIR_MAX_ATTEMPTS", "2"))))
+    except ValueError:
+        return 2
+
+
+def _repair_error_context(stage_dir: Path, error: Exception) -> str:
+    fragments = [str(error)]
+    for name in ("creative-review.json", "visual_qa/visual-qa.json", "director-data.json"):
+        path = stage_dir / name
+        if path.exists():
+            try:
+                fragments.append(f"\n--- {name} ---\n{path.read_text(encoding='utf-8')[-12000:]}")
+            except OSError:
+                continue
+    return "\n".join(fragments)[-30000:]
+
+
 def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id: str) -> str:
     # Stable identity is essential: a retry must resume the same YouTube publication,
     # not create a new video with a new run timestamp.
@@ -189,29 +212,100 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
             f"Public video {video_id} remains in {status}; reconciliation must complete before production retry"
         )
     payload = build_input(candidate, language)
-    with tempfile.NamedTemporaryFile("w", suffix=".json", dir=_output_root(), delete=False, encoding="utf-8") as handle:
+    output_root = _output_root()
+    with tempfile.NamedTemporaryFile("w", suffix=".json", dir=output_root, delete=False, encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
         input_path = Path(handle.name)
+    director_override_path: Path | None = None
+    scene_override_path: Path | None = None
+    repair_reports: list[dict[str, Any]] = []
     try:
-        command = [
-            sys.executable,
-            str(ROOT / "python" / "run_pipeline.py"),
-            "--input",
-            str(input_path),
-            "--language",
-            language,
-            "--storage",
-            "local",
-            "--job-id",
-            job_id,
-        ]
-        subprocess.run(command, cwd=ROOT, check=True)
-        if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() in {"1", "true", "yes"}:
-            publication = store.get_youtube_publication(job_id)
-            if not publication or publication.get("status") != "published":
-                error = (publication or {}).get("error_message") or "YouTube publication did not reach published state"
-                raise RuntimeError(error)
-        return job_id
+        max_repairs = _repair_budget() if _repair_enabled() else 0
+        for production_attempt in range(max_repairs + 1):
+            command = [
+                sys.executable,
+                str(ROOT / "python" / "run_pipeline.py"),
+                "--input",
+                str(input_path),
+                "--language",
+                language,
+                "--storage",
+                "local",
+                "--job-id",
+                job_id,
+            ]
+            if director_override_path:
+                command.extend(["--director-override", str(director_override_path)])
+            if scene_override_path:
+                command.extend(["--scene-repair-override", str(scene_override_path)])
+            try:
+                subprocess.run(command, cwd=ROOT, check=True)
+                if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() in {"1", "true", "yes"}:
+                    publication = store.get_youtube_publication(job_id)
+                    if not publication or publication.get("status") != "published":
+                        error = (publication or {}).get("error_message") or "YouTube publication did not reach published state"
+                        raise RuntimeError(error)
+                return job_id
+            except Exception as exc:
+                if production_attempt >= max_repairs or not _repair_enabled():
+                    if repair_reports:
+                        raise RuntimeError(f"Production failed after self-repair attempts: {json.dumps(repair_reports, ensure_ascii=False)}") from exc
+                    raise
+                if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() in {"1", "true", "yes"}:
+                    # Publication failures belong to reconciliation, not content self-repair.
+                    raise
+                from self_repair import classify_failure, repair_failure
+
+                stage_dir = output_root / "jobs" / job_id
+                director_path = stage_dir / "director-data.json"
+                director_data = None
+                if director_path.exists():
+                    try:
+                        value = json.loads(director_path.read_text(encoding="utf-8"))
+                        director_data = value if isinstance(value, dict) else None
+                    except (OSError, json.JSONDecodeError):
+                        director_data = None
+                error_context = _repair_error_context(stage_dir, exc)
+                failure_class = classify_failure(error_context, "render")
+                stage_by_class = {
+                    "content_claim": "director",
+                    "content_move": "director",
+                    "content_schema": "director",
+                    "research_grounding": "director",
+                    "visual_storyboard": "storyboard",
+                    "visual_asset": "visual_assets",
+                    "tts_audio": "tts",
+                    "render": "render",
+                    "transient": "render",
+                }
+                report = repair_failure(
+                    job_id=job_id,
+                    candidate_id=str(candidate.get("id") or job_id),
+                    attempt=production_attempt + 1,
+                    stage=stage_by_class.get(failure_class, "director" if director_data is None else "render"),
+                    error_text=error_context,
+                    candidate_payload=payload,
+                    director_data=director_data,
+                    output_root=output_root,
+                )
+                repair_reports.append(report)
+                if report.get("status") == "patched" and report.get("override_path"):
+                    if str(report.get("override_kind") or "director") == "scene":
+                        scene_override_path = Path(str(report["override_path"]))
+                        if director_path.exists():
+                            director_override_path = director_path
+                    else:
+                        director_override_path = Path(str(report["override_path"]))
+                    continue
+                if report.get("status") == "retry_stage":
+                    scene_override_path = None
+                    resume_stage = str((report.get("plan") or {}).get("resume_stage") or "")
+                    if resume_stage in {"storyboard", "visual_assets", "tts", "render"} and director_path.exists():
+                        director_override_path = director_path
+                    else:
+                        director_override_path = None
+                    continue
+                raise RuntimeError(f"Self-repair quarantined production failure: {json.dumps(report, ensure_ascii=False)}") from exc
     finally:
         input_path.unlink(missing_ok=True)
 

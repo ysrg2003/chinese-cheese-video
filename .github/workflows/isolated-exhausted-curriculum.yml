@@ -41,6 +41,8 @@ jobs:
       XIANGQI_RESEARCH_REQUIRED: ${{ inputs.full_production == true && '1' || '0' }}
       PREPUBLISH_CRITIC_REQUIRED: ${{ inputs.full_production == true && '1' || '0' }}
       PREPUBLISH_CRITIC_MAX_ITERATIONS: "2"
+      SELF_REPAIR_ENABLED: ${{ inputs.full_production == true && '1' || '0' }}
+      SELF_REPAIR_MAX_ATTEMPTS: "2"
       RESEARCH_SOURCE_TIMEOUT_SECONDS: "25"
       TTS_VOICE_EN: en-US-GuyNeural
       TTS_VOICE_ZH: zh-CN-YunjianNeural

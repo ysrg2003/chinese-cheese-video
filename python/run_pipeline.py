@@ -195,6 +195,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db-path", default=os.getenv("LOCAL_DB_PATH", "data/chinese_cheese_video.db"), help="SQLite path")
     parser.add_argument("--skip-tts", action="store_true", help="Skip Edge-TTS and render without audio")
     parser.add_argument("--skip-render", action="store_true", help="Stop after generating audio and data")
+    parser.add_argument("--director-override", help="Use a validated self-repair director JSON override for this stable job")
+    parser.add_argument("--scene-repair-override", help="Use a protected self-repair scene patch for this stable job")
     parser.add_argument("--dry-run", action="store_true", help="Do not persist data, render, or call external services")
     return parser.parse_args()
 
@@ -233,13 +235,31 @@ def main() -> int:
         return 0
 
     try:
-        director_data = generate_director_data(puzzle, store=store, operation=f"director:{job_id}")
+        if args.director_override:
+            override_path = Path(args.director_override)
+            director_data = read_json(str(override_path))
+            if not isinstance(director_data, dict):
+                raise RuntimeError("Self-repair director override is not a JSON object")
+            director_source = "self_repair_override"
+        else:
+            director_data = generate_director_data(puzzle, store=store, operation=f"director:{job_id}")
+            director_source = "ai_router_or_fallback"
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        (stage_dir / "director-data.json").write_text(json.dumps(director_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         job = make_job(job_id, puzzle, director_data)
+        job["directorSource"] = director_source
         if os.getenv("XIANGQI_PRODUCTION_FREEZE", "0").lower() in {"1", "true", "yes"}:
             raise RuntimeError(
                 "Production is temporarily frozen until deterministic Xiangqi legal-move validation is enabled."
             )
         job = add_visual_storyboard(job, puzzle, store=store)
+        if args.scene_repair_override:
+            repair_payload = read_json(args.scene_repair_override) or {}
+            repair_errors = apply_repairs(job, {"scene_repairs": repair_payload.get("scene_repairs", [])})
+            if repair_errors:
+                raise RuntimeError("Self-repair scene patch failed protected contract: " + "; ".join(repair_errors))
+            sync_repaired_scenes(job)
+            job["selfRepairSceneOverride"] = str(args.scene_repair_override)
         # Generated images are optional editorial establishing shots. The
         # deterministic Xiangqi board remains available if planning, service
         # authentication, image validation, or download fails.
