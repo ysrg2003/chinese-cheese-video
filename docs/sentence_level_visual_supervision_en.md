@@ -134,6 +134,8 @@ The planner now extracts meaningful entities and relations instead of treating a
 
 The planner also supports composite sentences. A sentence that names a Chariot open file, a Cannon one-screen constraint, and a Horse Leg constraint receives one combined verified contract containing all three treatments rather than being claimed by the first matching keyword. Claim-specific static treatments use dedicated primitives. Horse Leg uses the verified Horse, blocked leg point, and diagonal target geometry, with `RULE DIAGRAM · NO MOVE PLAYED` to distinguish a rule diagram from a played move.
 
+The intersection treatment is intentionally focused. A sentence such as `The board is a network of intersections, not a set of enclosed squares.` uses representative intersections, one anchored crossing, one marked square interior, and a `REPRESENTATIVE POINTS · NOT MOVE TARGETS` warning. It no longer lights every point at once, because a full-grid overlay creates visual noise and can be mistaken for a legal-destination map. The full `all_intersections` primitive remains available only for explicit whole-grid demonstrations.
+
 ## Tests
 
 The dedicated test file is `python/test_sentence_visual_supervision.py`. It verifies that:
@@ -169,6 +171,8 @@ env PYTHONPATH=python AI_ROUTER_REQUIRE_KEYS=0 \
 python3 python/run_new_sentence_experiment.py
 python3 python/run_relation_matrix_experiment.py
 ```
+
+For an isolated A/B comparison of the old all-points contract against the focused representative-point contract, use the generated fixtures under `intersection-ab-output/`. The comparison is publication-disabled and includes both final MP4s, their QA frames, the contact sheet, and `ab-inspection.md`.
 
 Run the complete Python suite with:
 

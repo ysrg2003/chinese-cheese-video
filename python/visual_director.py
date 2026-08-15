@@ -12,7 +12,7 @@ from sentence_visual_supervision import expand_narration_segments, validate_sent
 FOUNDATION_VISUAL_MODES = {"foundation_storyboard", "board_introduction", "setup_overview"}
 DISABLED_VISUAL_MODES = {"none", "disabled", "off"}
 SUPPORTED_BOARD_PRIMITIVES = {
-    "files", "ranks", "all_intersections", "piece_anchor", "legal_destinations", "path_lines",
+    "files", "ranks", "all_intersections", "representative_intersections", "point_anchor", "square_contrast", "piece_anchor", "legal_destinations", "path_lines",
     "dim_square_interiors", "brighten_lines", "river_band", "palace_x", "central_files",
     "intersection_pulse", "territory_split", "palace_piece_anchor", "palace_entry_points", "route_constraints",
     "piece_family_anchor", "mirror_setup", "coordinate_endpoints", "notation_sequence",
@@ -442,11 +442,11 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
     if any(marker in text for marker in ("route", "routes", "open", "restricted", "impossible", "predict")) and any(marker in text for marker in ("region", "regions", "palace", "river", "file", "line")):
         return contract("rule_focus", "Region-Based Route Limits", "Keep the river and palaces visible, brighten the central route lanes, and mark the region boundaries that make a route open, restricted, or impossible to evaluate.", ["routes", "open", "restricted", "impossible", "regions", "legal_geometry"], ["river_band", "palace_x", "central_files", "route_constraints"])
     if ("route map" in text or "routes" in text) and ("square" in text or "enclosed" in text or "grid" in text):
-        return contract("board_identity", "Board As Route Map", "Dim square interiors and brighten the intersection network so the board reads as routes, not enclosed squares.", ["route_map", "intersections", "lines", "not_squares"], ["dim_square_interiors", "brighten_lines", "all_intersections"])
+        return contract("board_identity", "Board As Route Map", "Dim square interiors, show a small representative sample of intersections, and point to one exact crossing so the board reads as routes rather than enclosed squares.", ["route_map", "intersections", "lines", "not_squares"], ["dim_square_interiors", "brighten_lines", "representative_intersections", "point_anchor", "square_contrast"])
     if "file" in text or "rank" in text or "coordinate" in text:
         return contract("coordinate_map", "Read The Board Map", "Label the files and ranks around the actual board and pulse the intersections named in the narration.", ["files", "ranks", "coordinates"], ["files", "ranks", "intersection_pulse"])
     if "intersection" in text or "point" in text or "crossing" in text:
-        return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
+        return contract("intersections", "Points, Not Squares", "Keep the full board readable, highlight only representative intersections, anchor one exact crossing, and mark one square interior as the contrast; do not imply that every point is an active move target.", ["intersections", "points", "not_squares", "focused_teaching"], ["representative_intersections", "point_anchor", "square_contrast", "dim_square_interiors"])
     if intent_treatment in {"strategic_bridge", "causal_bridge"}:
         default_labels = ["QUIET IDEA", "FORCING IDEA"] if intent_treatment == "strategic_bridge" else ["BASELINE", "EXCHANGE", "INITIATIVE SHIFTS"]
         labels = intent.get("bridgeLabels") if isinstance(intent.get("bridgeLabels"), list) else default_labels

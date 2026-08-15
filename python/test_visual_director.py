@@ -288,5 +288,26 @@ class VisualDirectorTests(unittest.TestCase):
         )
 
 
+    def test_intersection_contract_uses_focused_representatives(self) -> None:
+        job = {
+            "id": "focused-intersection-test",
+            "title": "Points, Not Squares",
+            "language": "en",
+            "visual_mode": "storyboard",
+            "content_type": "definition",
+            "moves": [],
+            "narrationSegments": [
+                {"kind": "intro", "text": "The board is a network of intersections, not a set of enclosed squares."},
+            ],
+        }
+        result = add_visual_storyboard(dict(job), {"curriculum_lesson_key": "focused-intersection-test", "language": "en", "visual_mode": "storyboard"})
+        scene = result["visualStoryboard"][0]
+        primitives = set(scene["visualPlan"]["primitives"])
+        self.assertEqual(scene["visualKind"], "intersections")
+        self.assertTrue({"representative_intersections", "point_anchor", "square_contrast", "dim_square_interiors"}.issubset(primitives))
+        self.assertNotIn("all_intersections", primitives)
+        self.assertEqual(validate_visual_storyboard(result), [])
+
+
 if __name__ == "__main__":
     unittest.main()
