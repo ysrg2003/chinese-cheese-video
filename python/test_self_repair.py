@@ -163,6 +163,27 @@ class SelfRepairTests(unittest.TestCase):
         self.assertEqual(plan["disposition"], "apply_patch")
         self.assertEqual(plan["patch"]["scene_repairs"][0]["sceneId"], 4)
 
+    def test_nested_retry_stage_plan_is_normalised(self):
+        from self_repair import propose_repair_plan
+
+        responses = [{
+            "plan": [{"repair_type": "retry_stage", "stage_to_retry": "director"}],
+            "failure_class": "visual_storyboard",
+            "resume_stage": "director",
+        }]
+
+        def router_factory():
+            return FakeRouter(responses.pop(0))
+
+        plan = propose_repair_plan(
+            {"job_id": "retry", "attempt": 1},
+            {"failure_class": "visual_storyboard", "affected_stage": "director"},
+            router_factory,
+        )
+        self.assertEqual(plan["disposition"], "retry")
+        self.assertEqual(plan["patch_type"], "retry_stage")
+        self.assertEqual(plan["resume_stage"], "director")
+
     def test_nested_visual_action_plan_is_normalised(self):
         from self_repair import propose_repair_plan
 

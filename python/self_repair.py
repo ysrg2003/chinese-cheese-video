@@ -391,6 +391,20 @@ def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, An
                 "patch": {"scene_repairs": list(grouped.values())},
                 "source": "field_path_visual_adapter",
             }
+    if isinstance(raw.get("plan"), list):
+        retry_items = [item for item in raw.get("plan") or [] if isinstance(item, dict) and str(item.get("repair_type") or "").lower() == "retry_stage"]
+        if retry_items:
+            requested_stage = str(retry_items[0].get("stage_to_retry") or raw.get("resume_stage") or diagnosis.get("affected_stage") or "director")
+            if requested_stage in ALLOWED_RESUME_STAGES:
+                return {
+                    "schema": REPAIR_SCHEMA,
+                    "disposition": "retry",
+                    "failure_class": str(diagnosis.get("failure_class") or raw.get("failure_class") or "transient"),
+                    "patch_type": "retry_stage",
+                    "resume_stage": requested_stage,
+                    "reason": str(raw.get("reason") or "AI requested a bounded retry of the affected stage."),
+                    "source": "retry_stage_plan_adapter",
+                }
     if isinstance(raw.get("plan"), list) and evidence is not None:
         safe_base = {str(item.get("sceneId")): copy.deepcopy(item) for item in _safe_scene_repairs_from_evidence(evidence, diagnosis) if isinstance(item, dict) and item.get("sceneId") is not None}
         affected: set[str] = set()
