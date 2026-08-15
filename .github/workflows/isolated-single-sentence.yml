@@ -1,0 +1,100 @@
+name: Isolated Xiangqi sentence experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      sentence:
+        description: "One English Xiangqi sentence to test"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-sentence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SENTENCE: ${{ inputs.sentence }}
+      TTS_VOICE_EN: en-US-GuyNeural
+      TTS_VOICE_ZH: zh-CN-YunjianNeural
+      XIANGQI_PRODUCTION_FREEZE: "1"
+      XIANGQI_RESEARCH_REQUIRED: "0"
+      GOOGLE_GROUNDING_ENABLED: "0"
+      GOOGLE_GROUNDING_REQUIRED: "0"
+      AI_ROUTER_REQUIRE_KEYS: "0"
+      PREPUBLISH_CRITIC_REQUIRED: "0"
+      PYTHONPATH: python
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Ensure Remotion browser
+        run: npx remotion browser ensure
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r python/requirements.txt
+
+      - name: Generate isolated storyboard
+        run: |
+          rm -rf single-sentence-output
+          python3 python/run_single_sentence_experiment.py \
+            --sentence "$SENTENCE" \
+            --output-dir single-sentence-output
+          test "$(python3 -c 'import json; print(json.load(open("single-sentence-output/job.json"))["publicationEnabled"])')" = "False"
+          ! grep -q 'youtube' single-sentence-output/job.json
+
+      - name: Render isolated MP4
+        run: |
+          npx remotion render src/index.tsx XiangqiComposition \
+            single-sentence-output/sentence.mp4 \
+            --props=single-sentence-output/job.json \
+            --codec=h264 --log=error
+
+      - name: Run final MP4 visual QA
+        run: |
+          python3 python/visual_qa.py \
+            --job single-sentence-output/job.json \
+            --video single-sentence-output/sentence.mp4 \
+            --qa-dir single-sentence-output/visual-qa \
+            --public-root public
+          test -s single-sentence-output/visual-qa/visual-qa.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('single-sentence-output/visual-qa/visual-qa.json').read_text())
+          assert report.get('ok') is True, report
+          assert not report.get('errors'), report
+          PY
+
+      - name: Explicit no-publication proof
+        run: |
+          echo "No YouTube upload, playlist mutation, or production catalog write is permitted in this workflow." > single-sentence-output/no-publication.txt
+
+      - name: Upload isolated artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xiangqi-single-sentence-${{ github.run_id }}
+          retention-days: 14
+          path: single-sentence-output/
+          if-no-files-found: error
