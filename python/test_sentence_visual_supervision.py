@@ -11,9 +11,9 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         job = {
             "id": "novel-concept",
             "language": "en",
-            "narration": "The first exchange changes the rhythm of the position.",
+            "narration": "The first pattern changes the rhythm of the position.",
             "narrationSegments": [
-                {"kind": "intro", "text": "The first exchange changes the rhythm of the position."}
+                {"kind": "intro", "text": "The first pattern changes the rhythm of the position."}
             ],
         }
         expanded = expand_narration_segments(job)
@@ -22,6 +22,19 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         self.assertEqual(intent["visualTreatment"], "concept_focus")
         self.assertEqual(intent["confidence"], "inferred")
         self.assertEqual(intent["primitives"], ["concept_focus"])
+        self.assertEqual(validate_sentence_visual_coverage(expanded), [])
+
+    def test_strategic_abstract_language_gets_controlled_editorial_bridge(self) -> None:
+        job = {
+            "language": "en",
+            "narrationSegments": [{"kind": "intro", "text": "A tempo shift changes initiative after an exchange."}],
+        }
+        expanded = expand_narration_segments(job)
+        intent = expanded["sentenceVisualIntents"][0]
+        self.assertEqual(intent["visualTreatment"], "strategic_bridge")
+        self.assertEqual(intent["confidence"], "editorial")
+        self.assertEqual(intent["coverage"], "bridge_only")
+        self.assertEqual(intent["bridgeLabels"], ["QUIET TEMPO", "FORCING TEMPO"])
         self.assertEqual(validate_sentence_visual_coverage(expanded), [])
 
     def test_multiple_sentences_receive_distinct_ids_and_intents(self) -> None:
@@ -67,7 +80,7 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
         self.assertEqual(second["narrationSegments"], first_segments)
 
     def test_adjacent_unknown_concepts_are_distinct_and_renderable(self) -> None:
-        narration = "The tempo window reveals initiative. The exchange lens isolates the idea."
+        narration = "The first pattern appears. The surprising idea remains."
         job = {
             "id": "adjacent-new-concepts",
             "language": "en",
@@ -101,8 +114,8 @@ class SentenceVisualSupervisionTests(unittest.TestCase):
             "language": "en",
             "title": "A New Strategic Idea",
             "content_type": "definition",
-            "narration": "The first exchange changes the rhythm of the position.",
-            "narrationSegments": [{"kind": "intro", "text": "The first exchange changes the rhythm of the position."}],
+            "narration": "The first pattern changes the rhythm of the position.",
+            "narrationSegments": [{"kind": "intro", "text": "The first pattern changes the rhythm of the position."}],
             "moves": [],
             "visual_mode": "storyboard",
         }

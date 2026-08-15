@@ -222,6 +222,7 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
   const legalBoard = teachingMove ? boardAtSecond(job, Math.max(0, Number(teachingMove.startSec ?? 0) - 0.05)) : boardAtSecond(job, second);
   const plan = active.visualPlan;
   const primitives = new Set<string>(Array.isArray(plan?.primitives) ? plan.primitives : []);
+  const bridgeLabels = plan?.bridgeLabels && plan.bridgeLabels.length >= 2 ? plan.bridgeLabels : ["QUIET IDEA", "FORCING IDEA"];
   const inferredType = inferPieceType(`${active.headline || ""} ${active.text || ""}`) || plan?.focusPiece;
   const inferredPiece = inferredType ? legalBoard.find((piece) => piece.type === inferredType && (!plan?.focusSide || piece.side === plan.focusSide)) || legalBoard.find((piece) => piece.type === inferredType) : undefined;
   const fallbackTeachingPiece = kind === "piece_movement" ? legalBoard.find((piece) => piece.type === "pawn" && piece.side === "red") : undefined;
@@ -360,10 +361,17 @@ function StoryboardVisuals({ job, second }: { job: VideoJob; second: number }) {
       <Marker left={target.x} top={target.y - 112} opacity={opacity} tone="red">THREAT</Marker>
     </>}
 
-    {(kind === "before_after" || kind === "comparison_split") && <>
+    {(kind === "before_after" || kind === "comparison_split") && !primitives.has("concept_bridge") && <>
       <div style={{ position: "absolute", left: board.x + 48, top: board.y + 48, width: board.width - 96, height: board.height - 96, border: "5px dashed rgba(255,241,182,.85)", borderRadius: 20, opacity, zIndex: 4 }} />
       <Marker left={board.x + 180} top={board.y + board.height - 34} opacity={opacity} tone="black">BEFORE</Marker>
       <Marker left={board.x + board.width - 180} top={board.y + board.height - 34} opacity={opacity} tone="red">AFTER</Marker>
+    </>}
+
+    {primitives.has("concept_bridge") && <>
+      <Marker left={board.x + board.width / 2} top={board.y + board.height + 34} opacity={opacity} tone="gold">EDITORIAL MODEL · NOT A MOVE</Marker>
+      <div style={{ position: "absolute", left: 94, top: 1430, width: 378, height: 122, borderRadius: 18, background: "rgba(48, 42, 38, .92)", border: "3px solid #f5ce74", color: "#fff8e9", opacity, zIndex: 7, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, boxShadow: "0 10px 22px rgba(45, 24, 9, .24)" }}><div style={{ fontSize: 16, letterSpacing: 1.2, color: "#f5ce74", fontWeight: 900 }}>STATE A</div><div style={{ fontSize: 22, fontWeight: 900 }}>{bridgeLabels[0]}</div></div>
+      <div style={{ position: "absolute", left: 608, top: 1430, width: 378, height: 122, borderRadius: 18, background: "rgba(148, 39, 31, .92)", border: "3px solid #ffd1b6", color: "#fff8e9", opacity, zIndex: 7, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 8, boxShadow: "0 10px 22px rgba(45, 24, 9, .24)" }}><div style={{ fontSize: 16, letterSpacing: 1.2, color: "#ffd1b6", fontWeight: 900 }}>STATE B</div><div style={{ fontSize: 22, fontWeight: 900 }}>{bridgeLabels[1]}</div></div>
+      <div style={{ position: "absolute", left: 504, top: 1470, width: 72, textAlign: "center", color: "#b63c2f", opacity, zIndex: 8, fontSize: 34, fontWeight: 900 }}>→</div>
     </>}
 
     {kind === "game_phase" && <>

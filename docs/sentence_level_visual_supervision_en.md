@@ -85,6 +85,7 @@ Known concepts are mapped to board-safe treatments. The mapping is intentionally
 | Named piece or piece movement | `piece_spotlight` | `piece_anchor`, `legal_destinations` | `board_state` |
 | History, origin, or cultural context | `history_context` | `board_overview` | `research_bundle` |
 | Comparison language | `comparison` | `before_after` | `editorial_bridge` |
+| Tempo, initiative, momentum, or strategic balance without a supplied legal position | `strategic_bridge` | `concept_bridge` with labeled editorial states | `editorial_bridge` |
 | Question or viewer challenge | `question_reveal` | `legal_destinations` | `board_state` |
 
 The known mapping does not replace the deeper semantic contract in `visual_director.py`. For example, a sentence about the Elephant Eye can still receive the specialized deterministic `elephant_eye` contract, while a sentence about the river and palaces can receive the canonical `river_palaces` board plan.
@@ -123,7 +124,7 @@ Foundation storyboard modes are excluded from the new sentence expansion because
 
 ## Remotion implementation
 
-The new renderer primitive is `concept_focus`. It is declared in the Python supported primitive set and rendered in `src/Composition.tsx`. The primitive is deliberately non-semantic: it provides focus and hierarchy without asserting a move. All legal move demonstrations continue to use the existing FEN-derived board state, verified move geometry, and dedicated primitives such as `horse_leg`, `cannon_screen`, `elephant_eye`, `legal_path`, and `played_destination`.
+The renderer now has two safe paths for abstract ideas. `concept_focus` provides focus and hierarchy without asserting a move. `concept_bridge` is a controlled editorial model for language such as tempo or initiative: it shows two labeled states, such as `QUIET TEMPO` and `FORCING TEMPO`, plus `EDITORIAL MODEL · NOT A MOVE`. It never changes the FEN or claims that either state was played. Both primitives are declared in the Python supported primitive set and rendered in `src/Composition.tsx`. All legal move demonstrations continue to use the existing FEN-derived board state, verified move geometry, and dedicated primitives such as `horse_leg`, `cannon_screen`, `elephant_eye`, `legal_path`, and `played_destination`.
 
 The TypeScript types now carry `VisualIntent`, `sentenceId`, `visualIntent`, `sentenceVisualIntents`, and `sentenceVisualSupervision`. This keeps the sentence-level audit data available through storyboard normalization and rendering without weakening the existing board-state types.
 

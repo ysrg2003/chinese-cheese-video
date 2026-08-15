@@ -21,7 +21,7 @@ SUPPORTED_BOARD_PRIMITIVES = {
     "battlefield", "two_armies", "generals_goal", "intersections", "river_palaces", "cannon_geometry", "learning_roadmap",
     "board_overview", "army_setup", "piece_movement", "move_path", "attack_line", "defense_zone", "threat_marker",
     "capture_sequence", "before_after", "comparison_split", "game_phase", "question_reveal", "result_summary", "history_timeline",
-    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus",
+    "cultural_heritage", "board_identity", "rule_focus", "coordinate_map", "piece_spotlight", "concept_focus", "concept_bridge",
 }
 
 ALL_VISUAL_KINDS = {
@@ -138,7 +138,8 @@ VISUAL_DIRECTOR_INSTRUCTIONS = """
 You are the visual director for an autonomous Xiangqi video pipeline. Return valid JSON only:
 {"scenes":[{"index":1,"segmentIndex":1,"movePly":null,"narration":"natural spoken text when requested","caption":"short cue","visualKind":"one permitted kind","headline":"2 to 6 words","visualInstruction":"one concrete renderer-supported visual action","semanticTags":["specific concept"],"visualPlan":{"mode":"board_overlay","focus":"what the viewer must see","primitives":["renderer primitive"]}}]}
 
-Create exactly one scene for every supplied narration segment. Every scene must make the current spoken idea visible through a board change, highlight, path, arrow, before/after comparison, question, or result marker. Do not add decorative motion with no teaching purpose. Do not invent a game or move that is absent from the supplied data. Keep move scenes tied to the supplied movePly and coordinates. Keep captions short. Never write commands addressed to an animator as spoken narration. Use only the requested language and never Arabic. Use only renderer-supported primitives; if the sentence is about the river, palaces, pieces, paths, or route limits, choose the matching deterministic board primitives rather than a generic decorative scene.
+Create exactly one scene for every supplied narration segment. Every scene must make the current spoken idea visible through a board change, highlight, path, arrow, before/after comparison, question, controlled editorial bridge, or result marker. Do not add decorative motion with no teaching purpose. For abstract strategic language, `concept_bridge` is an editorial model only and must be labeled as not being a played move.
+ Do not invent a game or move that is absent from the supplied data. Keep move scenes tied to the supplied movePly and coordinates. Keep captions short. Never write commands addressed to an animator as spoken narration. Use only the requested language and never Arabic. Use only renderer-supported primitives; if the sentence is about the river, palaces, pieces, paths, or route limits, choose the matching deterministic board primitives rather than a generic decorative scene.
 
 Permitted visualKind values: battlefield, two_armies, generals_goal, intersections, river_palaces, cannon_geometry, learning_roadmap, board_overview, army_setup, piece_movement, move_path, attack_line, defense_zone, threat_marker, capture_sequence, cannon_screen, before_after, comparison_split, game_phase, question_reveal, result_summary, history_timeline, cultural_heritage, board_identity, rule_focus, coordinate_map, piece_spotlight.
 """.strip()
@@ -420,6 +421,19 @@ def _semantic_visual_contract(segment: dict[str, Any], default_kind: str, langua
         return contract("intersections", "Play On Points", "Pulse the actual intersections and fade the spaces between lines so pieces are visibly placed on points.", ["intersections", "points", "not_squares"], ["all_intersections", "dim_square_interiors"])
     intent = segment.get("visualIntent") if isinstance(segment.get("visualIntent"), dict) else {}
     intent_treatment = str(intent.get("visualTreatment") or "").strip()
+    if intent_treatment == "strategic_bridge":
+        labels = intent.get("bridgeLabels") if isinstance(intent.get("bridgeLabels"), list) else ["QUIET IDEA", "FORCING IDEA"]
+        labels = [str(label).strip()[:24] for label in labels[:2] if str(label).strip()]
+        while len(labels) < 2:
+            labels.append("FORCING IDEA" if len(labels) == 1 else "QUIET IDEA")
+        return {
+            "visualKind": "comparison_split",
+            "headline": "Strategic Contrast",
+            "visualInstruction": "Show a controlled editorial contrast between two labeled strategic ideas while keeping the canonical board unchanged; explicitly label it as a model, not a played move.",
+            "semanticTags": ["abstract_concept", "strategic_bridge", "editorial_model", "not_a_move"],
+            "visualPlan": {"mode": "board_overlay", "focus": str(intent.get("concept") or "strategic contrast"), "primitives": ["concept_bridge"], "bridgeLabels": labels},
+            "confident": True,
+        }
     fallback_profile = str(segment.get("_fallbackProfile") or "").strip()
     protected_progression_kind = default_kind in {"two_armies", "learning_roadmap"} and fallback_profile in {"history", "board", "coordinates", "setup", "pieces", "rules"}
     if intent and intent_treatment == "concept_focus" and protected_progression_kind:

@@ -87,6 +87,7 @@ export type VisualPlan = {
   primitives: string[];
   focusPiece?: PieceType;
   focusSide?: Side;
+  bridgeLabels?: string[];
 };
 
 export type VisualIntent = {
@@ -96,6 +97,7 @@ export type VisualIntent = {
   evidenceMode?: "claim_proof" | "board_state" | "research_bundle" | "editorial_bridge";
   coverage?: "covered" | "bridge_only";
   confidence?: "verified" | "inferred" | "editorial" | "unresolved";
+  bridgeLabels?: string[];
 };
 
 export type VisualStoryboardScene = {

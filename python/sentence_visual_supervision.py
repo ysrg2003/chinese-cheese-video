@@ -15,6 +15,7 @@ KNOWN_TREATMENTS: list[tuple[tuple[str, ...], str, str, list[str], str]] = [
     (("cannon screen", "one screen", "screen", "炮架"), "cannon_screen", "cannon_screen", ["piece_anchor", "cannon_screen", "cannon_target"], "claim_proof"),
     (("checkmate", "general", "将军", "将死"), "goal_focus", "generals_goal", ["palace_piece_anchor", "pressure_marker"], "board_state"),
     (("piece", "pawn", "horse", "chariot", "rook", "cannon", "elephant", "advisor", "soldier", "棋子"), "piece_spotlight", "piece_spotlight", ["piece_anchor", "legal_destinations"], "board_state"),
+    (("tempo", "initiative", "strategic balance", "exchange", "momentum"), "strategic_bridge", "comparison_split", ["concept_bridge"], "editorial_bridge"),
     (("history", "origin", "dynasty", "tradition", "heritage", "历史", "文化"), "history_context", "history_timeline", ["board_overview"], "research_bundle"),
     (("compare", "different", "unlike", "versus", "comparison", "比较"), "comparison", "comparison_split", ["before_after"], "editorial_bridge"),
     (("question", "pause", "choose", "your move", "问题"), "question_reveal", "question_reveal", ["legal_destinations"], "board_state"),
@@ -46,15 +47,20 @@ def _intent_for(text: str, segment: dict[str, Any]) -> dict[str, Any]:
     lowered = text.lower()
     for markers, treatment, visual_kind, primitives, evidence in KNOWN_TREATMENTS:
         if any(marker in lowered for marker in markers):
+            concept = text[:80].strip() if treatment == "strategic_bridge" else treatment
+            bridge_labels = ["QUIET IDEA", "FORCING IDEA"]
+            if "tempo" in lowered:
+                bridge_labels = ["QUIET TEMPO", "FORCING TEMPO"]
             return {
-                "concept": treatment,
+                "concept": concept,
                 "semanticRole": _role(text, segment),
                 "visualTreatment": treatment,
                 "evidenceMode": evidence,
-                "coverage": "covered",
-                "confidence": "verified" if evidence in {"claim_proof", "board_state"} else "inferred",
+                "coverage": "bridge_only" if evidence == "editorial_bridge" else "covered",
+                "confidence": "editorial" if evidence == "editorial_bridge" else ("verified" if evidence in {"claim_proof", "board_state"} else "inferred"),
                 "visualKind": visual_kind,
                 "primitives": primitives,
+                **({"bridgeLabels": bridge_labels} if treatment == "strategic_bridge" else {}),
             }
     # Flexible path for new concepts: preserve the idea, use a safe generic
     # renderer treatment, and let the AI visual director refine it if possible.
