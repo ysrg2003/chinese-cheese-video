@@ -148,7 +148,7 @@ jobs:
           grep -q 'run_prepublication_review' python/run_pipeline.py
           grep -q 'creative_review' python/run_pipeline.py
           grep -q 'PREPUBLISH_CRITIC_REQUIRED' .github/workflows/render-video.yml
-          grep -q 'Rendered visual QA failed' python/run_pipeline.py
+          grep -q 'Pre-publish creative review failed' python/run_pipeline.py
           grep -q 'verify_rendered_visuals' python/run_pipeline.py
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
           grep -q 'validate_move_sequence' python/director.py
