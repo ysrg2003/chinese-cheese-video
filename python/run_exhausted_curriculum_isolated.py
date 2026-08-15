@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -15,6 +16,12 @@ full_production = os.getenv("EXHAUSTED_TEST_FULL_PRODUCTION", "0").lower() in {"
 render_output_root = output_dir / "production-output"
 render_public_root = output_dir / "production-public"
 db_path = output_dir / "isolated-exhausted.db"
+
+# Remotion needs the repository's static Xiangqi assets (board and piece SVGs)
+# in the same public root as generated voice and visual assets. Copying them
+# here keeps the entire full-production artifact self-contained and isolated.
+if full_production:
+    shutil.copytree(ROOT / "public", render_public_root, dirs_exist_ok=True)
 
 
 def _display_path(path: Path) -> str:
