@@ -131,6 +131,37 @@ class SelfRepairTests(unittest.TestCase):
             self.assertEqual(checkpoint_payload["status"], "patched")
             self.assertEqual(len(responses), 0)
 
+    def test_planner_plan_array_is_normalised_to_visual_scene_patch(self):
+        from self_repair import propose_repair_plan
+
+        responses = [{
+            "plan": [{
+                "action": "patch_director",
+                "scene_id": 4,
+                "patch": {
+                    "visualKind": "rule_focus",
+                    "visualInstruction": "Highlight the rook and its legal destinations.",
+                    "visualPlan": {"mode": "board_overlay", "focus": "red rook legal destinations", "primitives": ["piece_anchor", "legal_destinations", "threat_marker"]},
+                    "semanticTags": ["rook", "legal_geometry"],
+                    "headline": "Show Rook Routes",
+                },
+            }],
+            "failure_class": "visual_storyboard",
+            "resume_stage": "storyboard",
+        }]
+
+        def router_factory():
+            return FakeRouter(responses.pop(0))
+
+        plan = propose_repair_plan(
+            {"job_id": "wrapper", "attempt": 1},
+            {"failure_class": "visual_storyboard", "affected_stage": "storyboard"},
+            router_factory,
+        )
+        self.assertEqual(plan["patch_type"], "visual_scene_patch")
+        self.assertEqual(plan["disposition"], "apply_patch")
+        self.assertEqual(plan["patch"]["scene_repairs"][0]["sceneId"], 4)
+
     def test_visual_scene_patch_is_written_as_separate_override(self):
         diagnosis_response = {
             "repairable": True,

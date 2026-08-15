@@ -263,6 +263,45 @@ def validate_plan(plan: dict[str, Any], diagnosis: dict[str, Any]) -> tuple[bool
     return not errors, errors
 
 
+def _normalise_repair_plan_response(raw: dict[str, Any], diagnosis: dict[str, Any]) -> dict[str, Any]:
+    """Convert common AI wrapper shapes into the protected v1 repair contract."""
+    if isinstance(raw.get("plan"), list):
+        scene_repairs: list[dict[str, Any]] = []
+        director_patches: list[dict[str, Any]] = []
+        for item in raw.get("plan") or []:
+            if not isinstance(item, dict):
+                continue
+            action = str(item.get("action") or "").lower()
+            patch = item.get("patch") if isinstance(item.get("patch"), dict) else {}
+            if action in {"patch_director", "patch_scene", "visual_scene_patch"}:
+                repair = dict(patch)
+                if item.get("scene_id") is not None and repair.get("sceneId") is None:
+                    repair["sceneId"] = item.get("scene_id")
+                if repair.get("sceneId") is not None:
+                    scene_repairs.append(repair)
+                else:
+                    director_patches.append(repair)
+        if scene_repairs and not director_patches:
+            return {
+                "schema": REPAIR_SCHEMA,
+                "disposition": "apply_patch",
+                "failure_class": str(raw.get("failure_class") or diagnosis.get("failure_class") or "visual_storyboard"),
+                "patch_type": "visual_scene_patch",
+                "resume_stage": str(raw.get("resume_stage") or diagnosis.get("affected_stage") or "storyboard"),
+                "patch": {"scene_repairs": scene_repairs},
+            }
+        if director_patches and not scene_repairs:
+            return {
+                "schema": REPAIR_SCHEMA,
+                "disposition": "apply_patch",
+                "failure_class": str(raw.get("failure_class") or diagnosis.get("failure_class") or "content_schema"),
+                "patch_type": "director_patch",
+                "resume_stage": str(raw.get("resume_stage") or diagnosis.get("affected_stage") or "director"),
+                "patch": {"replace_top_level_fields": director_patches[0]},
+            }
+    return dict(raw)
+
+
 def propose_repair_plan(evidence: dict[str, Any], diagnosis: dict[str, Any], router_factory: Callable[[], Any] | None = None) -> dict[str, Any]:
     payload = {
         "schema": REPAIR_SCHEMA,
@@ -276,7 +315,7 @@ def propose_repair_plan(evidence: dict[str, Any], diagnosis: dict[str, Any], rou
     raw = _router_complete_json(REPAIR_INSTRUCTIONS, payload, f"self_repair:plan:{evidence.get('job_id')}:{evidence.get('attempt')}", router_factory)
     if raw is None:
         return {"schema": REPAIR_SCHEMA, "disposition": "quarantine", "failure_class": diagnosis.get("failure_class", "unknown"), "patch_type": "no_safe_repair", "resume_stage": diagnosis.get("affected_stage", "director"), "reason": "AI repair planner unavailable"}
-    plan = dict(raw)
+    plan = _normalise_repair_plan_response(raw, diagnosis)
     plan.setdefault("schema", REPAIR_SCHEMA)
     plan.setdefault("failure_class", diagnosis.get("failure_class", "unknown"))
     plan.setdefault("resume_stage", diagnosis.get("affected_stage", "director"))
