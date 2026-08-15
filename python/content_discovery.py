@@ -255,7 +255,13 @@ def generate_ai_candidate(store: LocalStore, language: str = "en") -> dict[str, 
     result.setdefault("language", language)
     result.setdefault("topic_key", normalize_topic_key(result.get("title", "")))
     result.setdefault("source_kind", "ai_generated")
-    result.setdefault("priority_score", 5.0)
+    try:
+        result["priority_score"] = float(result.get("priority_score", 5.0))
+    except (TypeError, ValueError):
+        # Models occasionally return labels such as "high" despite the JSON
+        # contract. Keep discovery autonomous and deterministic by mapping an
+        # invalid label to the documented default priority.
+        result["priority_score"] = 5.0
     result.setdefault("fen", DEFAULT_FEN)
     result.setdefault("moves", ["0,6-0,5", "0,3-0,4", "1,7-1,4"])
     result.setdefault("pairing", {})

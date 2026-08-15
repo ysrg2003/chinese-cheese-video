@@ -52,6 +52,23 @@ class ContentSelectionTests(unittest.TestCase):
             selected = select_diverse_candidates(store, language="en", limit=1)
             self.assertEqual([item["id"] for item in selected], ["fresh-opening"])
 
+    def test_non_numeric_priority_score_is_safe_for_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalStore(Path(directory) / "priority.db")
+            inserted = store.add_candidate({
+                "id": "ai-high-priority",
+                "topic_key": "ai high priority",
+                "content_type": "viewer_challenge",
+                "title": "AI High Priority Challenge",
+                "language": "en",
+                "source_kind": "ai_generated",
+                "priority_score": "high",
+                "payload": {"topic_key": "ai high priority", "fen": "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r", "moves": ["0,6-0,5"]},
+            })
+            self.assertTrue(inserted)
+            candidate = store.list_candidates(status="discovered", limit=10)[0]
+            self.assertEqual(candidate["priority_score"], 0.0)
+
     def test_fallback_changes_topic_narration_and_move_variant(self) -> None:
         first = _fallback({
             "title": "Trending Xiangqi: Story Alpha",

@@ -627,6 +627,10 @@ class LocalStore:
     def add_candidate(self, candidate: dict[str, Any]) -> bool:
         fingerprint = candidate.get("fingerprint") or self.fingerprint(candidate)
         now = datetime.now(timezone.utc).isoformat()
+        try:
+            priority_score = float(candidate.get("priority_score", 0))
+        except (TypeError, ValueError):
+            priority_score = 0.0
         with self._connect() as connection:
             result = connection.execute(
                 """
@@ -643,7 +647,7 @@ class LocalStore:
                     candidate.get("source_kind", "generated"),
                     candidate.get("source_url"),
                     candidate.get("status", "discovered"),
-                    float(candidate.get("priority_score", 0)),
+                    priority_score,
                     json.dumps(candidate.get("payload", candidate), ensure_ascii=False),
                     now,
                     now,
