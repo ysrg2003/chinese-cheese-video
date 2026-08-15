@@ -77,6 +77,8 @@ jobs:
       VISUAL_ASSET_ENABLED: ${{ vars.VISUAL_ASSET_ENABLED || '1' }}
       VISUAL_ASSET_MAX_PER_VIDEO: ${{ vars.VISUAL_ASSET_MAX_PER_VIDEO || '2' }}
       VISUAL_ASSET_TIMEOUT_SECONDS: ${{ vars.VISUAL_ASSET_TIMEOUT_SECONDS || '720' }}
+      PREPUBLISH_CRITIC_REQUIRED: "1"
+      PREPUBLISH_CRITIC_MAX_ITERATIONS: "2"
       # The repository default is autonomous production; set the repository variable to 1 for an emergency freeze.
       XIANGQI_PRODUCTION_FREEZE: ${{ vars.XIANGQI_PRODUCTION_FREEZE || '0' }}
 
@@ -141,6 +143,10 @@ jobs:
           test -f docs/xiangqi_visual_spec.md
           grep -q 'Pre-publish thumbnail gate failed' python/run_pipeline.py
           test -f python/visual_qa.py
+          test -f python/creative_critic.py
+          grep -q 'run_prepublication_review' python/run_pipeline.py
+          grep -q 'creative_review' python/run_pipeline.py
+          grep -q 'PREPUBLISH_CRITIC_REQUIRED' .github/workflows/render-video.yml
           grep -q 'Rendered visual QA failed' python/run_pipeline.py
           grep -q 'verify_rendered_visuals' python/run_pipeline.py
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py

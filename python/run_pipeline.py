@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from copy import deepcopy
 import os
 import shutil
 import subprocess
@@ -11,6 +12,7 @@ from pathlib import Path
 from random import choice
 from typing import Any
 
+from creative_critic import MIN_APPROVAL_SCORE, apply_repairs, run_prepublication_review, sync_repaired_scenes, write_review
 from director import generate_director_data, make_job, normalize_language
 from local_store import LocalStore
 from supabase_store import SupabaseStore
@@ -118,6 +120,57 @@ def render_job(job: dict[str, Any], stage_dir: Path) -> Path:
     ]
     subprocess.run(command, cwd=ROOT, check=True)
     return output_path
+
+
+def _critic_max_iterations() -> int:
+    try:
+        return max(0, min(4, int(os.getenv("PREPUBLISH_CRITIC_MAX_ITERATIONS", "2"))))
+    except ValueError:
+        return 2
+
+
+def _reviewed_render(job: dict[str, Any], puzzle: dict[str, Any], stage_dir: Path, public_dir: Path) -> tuple[Path, dict[str, Any], dict[str, Any]]:
+    """Render, inspect, repair, and re-render before any thumbnail or YouTube side effect."""
+    history: list[dict[str, Any]] = []
+    max_iterations = _critic_max_iterations()
+    for iteration in range(max_iterations + 1):
+        job["creativeReviewIteration"] = iteration
+        pre_review = run_prepublication_review(job, puzzle, final_artifact=False)
+        history.append({"phase": "storyboard", "iteration": iteration, "review": pre_review})
+        if pre_review.get("decision") != "approve" or int(pre_review.get("score") or 0) < MIN_APPROVAL_SCORE:
+            repair_errors = apply_repairs(job, pre_review)
+            if repair_errors or iteration >= max_iterations:
+                pre_review["repair_errors"] = repair_errors
+                pre_review["history"] = history
+                write_review(pre_review, stage_dir)
+                raise RuntimeError("Pre-publish creative review failed before render: " + "; ".join(repair_errors or [str(pre_review.get("summary") or "critic did not approve")]))
+            sync_repaired_scenes(job)
+            continue
+
+        write_job_files(job, stage_dir, public_dir)
+        output_path = render_job(job, stage_dir)
+        visual_qa = verify_rendered_visuals(job, output_path, stage_dir / "visual_qa", ROOT / "public")
+        job["visualQA"] = visual_qa
+        final_review = run_prepublication_review(job, puzzle, visual_qa=visual_qa, final_artifact=True)
+        history.append({"phase": "rendered_artifact", "iteration": iteration, "review": deepcopy(final_review)})
+        final_ok = visual_qa.get("ok") is True and final_review.get("decision") == "approve" and int(final_review.get("score") or 0) >= MIN_APPROVAL_SCORE
+        if final_ok:
+            final_review["history"] = history
+            final_review["iterations_used"] = iteration + 1
+            job["creativeReview"] = final_review
+            write_review(final_review, stage_dir)
+            write_job_files(job, stage_dir, public_dir)
+            return output_path, visual_qa, final_review
+
+        repair_errors = apply_repairs(job, final_review)
+        if repair_errors or iteration >= max_iterations:
+            final_review["repair_errors"] = repair_errors
+            final_review["history"] = history
+            write_review(final_review, stage_dir)
+            raise RuntimeError("Pre-publish creative review failed after render: " + "; ".join(repair_errors or [str(final_review.get("summary") or "critic did not approve")]))
+        sync_repaired_scenes(job)
+
+    raise RuntimeError("Pre-publish creative review exhausted its bounded iteration budget")
 
 
 def parse_args() -> argparse.Namespace:
@@ -240,19 +293,10 @@ def main() -> int:
         result: dict[str, Any] = {"job": job, "stage_dir": str(stage_dir)}
 
         if not args.skip_render and not args.dry_run:
-            output_path = render_job(job, stage_dir)
+            output_path, visual_qa, creative_review = _reviewed_render(job, puzzle, stage_dir, public_dir)
             result["video_path"] = str(output_path)
-            visual_qa = verify_rendered_visuals(
-                job,
-                output_path,
-                stage_dir / "visual_qa",
-                ROOT / "public",
-            )
-            job["visualQA"] = visual_qa
             result["visual_qa"] = visual_qa
-            if not visual_qa.get("ok"):
-                raise RuntimeError("Rendered visual QA failed: " + "; ".join(visual_qa.get("errors") or ["unknown visual QA failure"]))
-            write_job_files(job, stage_dir, public_dir)
+            result["creative_review"] = creative_review
             prepublish_thumbnail_dir = stage_dir / "prepublish_thumbnails"
             thumbnail_assets = generate_thumbnail_assets(
                 output_path,
