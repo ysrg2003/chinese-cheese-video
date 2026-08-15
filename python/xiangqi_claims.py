@@ -28,7 +28,7 @@ CLAIM_TYPES = {
     "legal_destinations",
 }
 _SUSPICIOUS_CAUSAL_LANGUAGE = re.compile(
-    r"\b(block|blocked|blocks|blocking|leg|eye|screen|mount|cross(?:es|ed|ing)?|cannot|can't|prevents?|opens?|opened|unblocks?)\b",
+    r"\b(block|blocked|blocks|blocking|leg|eye|screen|mount|cross(?:es|ed|ing)?|cannot|can't|prevents?|opens?|opened|unblocks?|takes?|controls?|control|pressure|pressures?|threat|threatens?|forces?|force|protects?|supports?|attacks?|attack|wins?|loses?)\b",
     re.IGNORECASE,
 )
 

@@ -50,25 +50,25 @@ Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only ki
 FALLBACKS = {
     "en": {
         "title": "The Quiet Trap on the Left Wing",
-        "narration": "The first pawn push looks harmless, but it opens a tactical file for the cannon. When the natural reply arrives, the quiet pressure turns into a direct threat. Watch the line before you chase the piece.",
+        "narration": "The first move looks ordinary, but it changes which routes are available. When the natural reply arrives, compare the position before and after. Follow only the legal geometry that the board actually proves.",
         "captions": [
-            "The idea starts with a move that looks ordinary.",
-            "The pawn push opens a file for the cannon.",
-            "The natural reply leaves a tactical weakness.",
-            "Now the decisive idea appears.",
+            "The idea starts with a legal move.",
+            "The reply changes the position.",
+            "Compare the new routes.",
+            "Follow the geometry the board proves.",
         ],
-        "labels": ["Advance the pawn", "The counter-push", "The cannon takes the file"],
+        "labels": ["Make the legal move", "The reply", "The position change"],
     },
     "zh": {
         "title": "左翼的安静陷阱",
-        "narration": "第一步兵看起来很普通，却为大炮打开了战术线路。当对手作出自然回应时，安静的压力立刻变成直接威胁。先观察线路，再追逐棋子。",
+        "narration": "第一步看起来很普通，但它会改变局面中的可用路线。对手作出自然回应后，比较回应前后的棋盘，只讲棋盘实际证明的合法几何关系。",
         "captions": [
-            "这个构想从一手普通的棋开始。",
-            "兵的推进为大炮打开线路。",
-            "自然的回应留下了战术弱点。",
-            "现在，决定性的构想出现了。",
+            "这个构想从一手合法的棋开始。",
+            "对手的回应改变了局面。",
+            "比较新的路线。",
+            "只讲棋盘证明的几何关系。",
         ],
-        "labels": ["兵向前推进", "对手回应", "大炮占据线路"],
+        "labels": ["走出合法的一步", "对手回应", "局面变化"],
     },
 }
 
@@ -480,12 +480,12 @@ def _apply_horse_leg_template_contract(result: dict[str, Any], puzzle: dict[str,
 
     template_moves = [dict(item) for item in TEMPLATES["horse-leg-block"]]
     safe_text = [
-        ("Develop the Horse", "continue developing a piece", "the position opens a new Horse route"),
+        ("Develop the Horse", "continue developing a piece", "the position shows a visible Horse route"),
         ("Develop the opposing Horse", "answer the development", "both Horses now have a visible route"),
-        ("Advance the Pawn", "keep the reply legal", "the Pawn moves closer to the Horse Leg"),
-        ("Make a waiting reply", "continue development elsewhere", "the Horse Leg remains open for now"),
-        ("Advance again", "keep the reply legal", "the Pawn reaches the file beside the Horse route"),
-        ("Keep the reply legal", "continue development elsewhere", "the position is ready for the blocking demonstration"),
+        ("Advance the Pawn", "keep the reply legal", "the Pawn moves toward the Horse route"),
+        ("Make a waiting reply", "continue development elsewhere", "the route remains visible for now"),
+        ("Advance again", "keep the reply legal", "the Pawn reaches the file beside the route"),
+        ("Keep the reply legal", "continue development elsewhere", "the position is ready for the final route demonstration"),
         ("Occupy the Horse Leg", "try to continue the Horse route", "the red Pawn occupies the Horse Leg at file 3, rank 4 and removes the Black Horse destination at file 4, rank 5"),
     ]
     for index, move in enumerate(template_moves, start=1):
@@ -657,6 +657,8 @@ def _build_verified_claims(clean_data: dict[str, Any], puzzle: dict[str, Any], c
         if suspicious_claim_language(raw_move) and not raw_claims:
             raise ValueError(f"ply {ply}: causal/rule language requires structured Xiangqi claims")
         claims_by_ply[ply] = [dict(claim) for claim in raw_claims if isinstance(claim, dict)]
+        if suspicious_claim_language(raw_move) and claims_by_ply[ply] and all(str(claim.get("claimType") or "") == "legal_move" for claim in claims_by_ply[ply]):
+            raise ValueError(f"Xiangqi causal claim verification failed: ply {ply}: causal language has only a legal_move claim")
         if not claims_by_ply[ply]:
             claims_by_ply[ply] = [{"claimType": "legal_move", "ply": ply, "position": "after", "statement": "validated legal move"}]
     claim_proof = verify_claims(str(puzzle.get("fen") or ""), canonical_moves, claims_by_ply)
