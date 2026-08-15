@@ -42,10 +42,21 @@ jobs:
           token: ${{ secrets.AI_ROUTER_REPO_TOKEN }}
           path: ai-provider-router
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install JavaScript dependencies and Remotion browser
+        run: |
+          npm ci
+          npx remotion browser ensure
 
       - name: Install system and Python dependencies
         run: |
