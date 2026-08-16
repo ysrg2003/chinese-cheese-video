@@ -1,0 +1,35 @@
+name: Delete wrong evergreen upload before en-012 republish
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DELETE_WRONG_EVERGREEN_REPUBLISH_EN012 to authorize deleting only YpT0HzHTR2s"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  delete-wrong-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      YOUTUBE_OAUTH_TOKEN_JSON: ${{ secrets.YOUTUBE_OAUTH_TOKEN_JSON }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install YouTube API dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r python/requirements.txt
+      - name: Validate explicit confirmation
+        run: |
+          test "$CONFIRMATION" = "DELETE_WRONG_EVERGREEN_REPUBLISH_EN012"
+          test -n "$YOUTUBE_OAUTH_TOKEN_JSON"
+      - name: Delete and verify only wrong evergreen upload
+        run: python python/delete_wrong_youtube_video.py --confirmation "$CONFIRMATION"
