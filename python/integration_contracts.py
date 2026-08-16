@@ -51,8 +51,11 @@ def validate_job_contract(
         if not str(job.get("audioSrc") or "").strip():
             errors.append("audioSrc missing after TTS")
     if stage in {"storyboard", "render", "publish"}:
-        if not isinstance(job.get("scenes"), list) or not job.get("scenes"):
-            errors.append("scenes missing at render boundary")
+        storyboard = job.get("visualStoryboard")
+        if not isinstance(storyboard, list) or not storyboard:
+            errors.append("visualStoryboard missing at render boundary")
+        elif isinstance(job.get("narrationSegments"), list) and len(storyboard) != len(job["narrationSegments"]):
+            errors.append("visualStoryboard/narrationSegments count mismatch")
     return errors
 
 
