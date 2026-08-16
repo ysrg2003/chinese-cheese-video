@@ -113,6 +113,25 @@ class GroundingAndClaimsTests(unittest.TestCase):
         self.assertFalse(context["enabled"])
         self.assertEqual(piece_learning_intro(puzzle, "en"), "")
 
+    def test_cannon_screen_curriculum_template_is_mechanically_grounded(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "moves": TEMPLATES["cannon-screen"],
+            "title": "The Cannon and Its Screen",
+            "content_type": "rules",
+            "position_template": "cannon-screen",
+            "curriculum_lesson_key": "en-015-the-cannon-and-its-mount",
+            "durationInSeconds": 90,
+            "analysis_focus": "Explain the Cannon line and its required screen.",
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        clean = _sanitize_director_data(_fallback(puzzle, "en"), "en", puzzle)
+        job = make_job("cannon-screen-template-test", puzzle, clean)
+        self.assertEqual(job["moves"][0]["to"], [2, 7])
+        self.assertTrue(job["claimProof"]["ok"], job["claimProof"].get("errors"))
+        self.assertIn("cannon_screen", {item["claimType"] for item in job["claimsByPly"][1]})
+
     def test_horse_leg_curriculum_template_is_mechanically_grounded(self) -> None:
         puzzle = {
             "language": "en",

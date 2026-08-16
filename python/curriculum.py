@@ -121,7 +121,7 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
         {"from": [0, 9], "to": [0, 5], "piece": "rook", "side": "red", "label": "Activate the chariot"},
     ],
     "cannon-screen": [
-        {"from": [1, 7], "to": [1, 4], "piece": "cannon", "side": "red", "label": "Aim through the screen"},
+        {"from": [1, 7], "to": [2, 7], "piece": "cannon", "side": "red", "label": "Aim through the screen"},
         {"from": [2, 3], "to": [2, 4], "piece": "pawn", "side": "black", "label": "Defend the target"},
         {"from": [7, 9], "to": [6, 7], "piece": "knight", "side": "red", "label": "Add a second threat"},
     ],

@@ -626,6 +626,46 @@ def _apply_rook_file_template_contract(result: dict[str, Any], puzzle: dict[str,
     return result
 
 
+def _apply_cannon_screen_template_contract(result: dict[str, Any], puzzle: dict[str, Any]) -> dict[str, Any]:
+    """Keep the Cannon screen demonstration mechanically verified."""
+    if str(puzzle.get("position_template") or "") != "cannon-screen":
+        return result
+    from curriculum import TEMPLATES
+
+    template_moves = [dict(item) for item in TEMPLATES["cannon-screen"]]
+    safe_text = [
+        ("Move the red Cannon to file 3, rank 8.", "Black makes a legal Pawn reply.", "The Cannon is aligned with one screen on its file."),
+        ("Black advances the Pawn on file 3.", "Red keeps the position ready for the Cannon lesson.", "The traced position remains legal."),
+        ("Develop the red Horse on its legal route.", "Black makes a legal reply.", "The traced position remains legal."),
+    ]
+    for index, move in enumerate(template_moves, start=1):
+        purpose, reply, effect = safe_text[index - 1]
+        move.update({
+            "ply": index,
+            "purpose": purpose,
+            "opponentReply": reply,
+            "effect": effect,
+            "label": purpose,
+            "claims": [{
+                "claimType": "legal_move",
+                "ply": index,
+                "position": "after",
+                "statement": f"The supplied move at ply {index} is legal in the traced position.",
+            }],
+        })
+    template_moves[0]["claims"].append({
+        "claimType": "cannon_screen",
+        "ply": 1,
+        "position": "after",
+        "subject": {"at": [2, 7]},
+        "target": [2, 5],
+        "expectedScreens": 1,
+        "statement": "The red Cannon on file 3 has exactly one screen before the target intersection, as required for a Cannon capture.",
+    })
+    result["moves"] = template_moves
+    return result
+
+
 def _normalise_move_entries(raw_moves: Any, language: str, puzzle: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(raw_moves, list):
         return []
@@ -684,6 +724,7 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     result = _apply_elephant_eye_template_contract(result, puzzle)
     result = _apply_horse_leg_template_contract(result, puzzle)
     result = _apply_rook_file_template_contract(result, puzzle)
+    result = _apply_cannon_screen_template_contract(result, puzzle)
     analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
     existing_segments = result.get("narrationSegments") if isinstance(result.get("narrationSegments"), list) else []
     intro_source = next(
