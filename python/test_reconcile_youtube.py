@@ -100,5 +100,23 @@ class ReconcileCurriculumTests(unittest.TestCase):
         self.assertEqual(curriculum_status["job_id"], job_id)
 
 
+    def test_stale_processing_without_publication_is_requeued(self) -> None:
+        candidate = self.store.get_next_curriculum_candidate("en")
+        assert candidate is not None
+        lesson_key = candidate["payload"]["curriculum_lesson_key"]
+        job_id = f"{candidate['id']}-en"
+        self.store.add_candidate(candidate)
+        self.store.update_curriculum_episode(lesson_key, "en", "processing", candidate_id=candidate["id"], job_id=job_id)
+        with self.store._connect() as connection:
+            connection.execute(
+                "UPDATE curriculum_episode_plans SET updated_at='2020-01-01T00:00:00+00:00' WHERE lesson_key=? AND language='en'",
+                (lesson_key,),
+            )
+        recovered = self.store.recover_stale_curriculum_processing("en", 900)
+        self.assertEqual(recovered[0]["lesson_key"], lesson_key)
+        self.assertEqual(self.store.curriculum_lesson_status(lesson_key, "en")["status"], "retry")
+        self.assertEqual(self.store.list_candidates(status="discovered", limit=10)[0]["id"], candidate["id"])
+
+
 if __name__ == "__main__":
     unittest.main()

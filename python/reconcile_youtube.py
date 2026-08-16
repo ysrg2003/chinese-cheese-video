@@ -95,6 +95,11 @@ def main() -> int:
         return 0
 
     store = LocalStore()
+    try:
+        stale_seconds = max(60, int(os.getenv("CURRICULUM_PROCESSING_STALE_SECONDS", "900")))
+    except ValueError:
+        stale_seconds = 900
+    recovered_stale = store.recover_stale_curriculum_processing("en", stale_seconds)
     repaired_deleted = _reconcile_deleted_published_rows(store)
     with store._connect() as connection:
         rows = connection.execute(
@@ -108,7 +113,15 @@ def main() -> int:
             """
         ).fetchall()
 
-    metrics = {"enabled": True, "selected": len(rows), "published": 0, "failed": 0, "repaired_deleted": repaired_deleted, "items": []}
+    metrics = {
+        "enabled": True,
+        "selected": len(rows),
+        "published": 0,
+        "failed": 0,
+        "recovered_stale_processing": recovered_stale,
+        "repaired_deleted": repaired_deleted,
+        "items": [],
+    }
     for row in rows:
         publication = dict(row)
         metadata: dict[str, Any] = json.loads(publication.pop("metadata_json") or "{}")

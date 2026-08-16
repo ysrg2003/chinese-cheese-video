@@ -479,6 +479,63 @@ class LocalStore:
             )
             return result.rowcount == 1
 
+    def recover_stale_curriculum_processing(self, language: str = "en", max_age_seconds: int = 900) -> list[dict[str, Any]]:
+        """Return abandoned processing lessons to retry when no public publication exists.
+
+        GitHub Actions can be cancelled after SQLite is committed. Reconciliation
+        must clear that local lease before selection, but it must never reset a job
+        that already has a YouTube publication requiring completion.
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max(60, int(max_age_seconds)))).isoformat()
+        recovered: list[dict[str, Any]] = []
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT p.lesson_key, p.language, p.candidate_id, p.job_id, p.updated_at,
+                       y.status AS publication_status
+                FROM curriculum_episode_plans p
+                LEFT JOIN youtube_publications y ON y.job_id = p.job_id
+                WHERE p.language = ? AND p.status = 'processing' AND p.updated_at < ?
+                ORDER BY p.updated_at ASC
+                """,
+                (language, cutoff),
+            ).fetchall()
+            now = datetime.now(timezone.utc).isoformat()
+            for row in rows:
+                publication_status = str(row["publication_status"] or "")
+                if publication_status in {
+                    "published", "uploaded_playlist_pending", "published_localization_pending",
+                    "published_thumbnail_pending", "publishing",
+                }:
+                    continue
+                result = connection.execute(
+                    """
+                    UPDATE curriculum_episode_plans
+                    SET status='retry', error_message=?, updated_at=?
+                    WHERE lesson_key=? AND language=? AND status='processing'
+                    """,
+                    (
+                        "Previous production lease expired without a YouTube publication; safely requeued.",
+                        now,
+                        row["lesson_key"],
+                        row["language"],
+                    ),
+                )
+                if result.rowcount == 1:
+                    if row["candidate_id"]:
+                        connection.execute(
+                            "UPDATE content_candidates SET status='discovered', updated_at=? WHERE id=? AND status='processing'",
+                            (now, row["candidate_id"]),
+                        )
+                    recovered.append({
+                        "lesson_key": row["lesson_key"],
+                        "job_id": row["job_id"],
+                        "candidate_id": row["candidate_id"],
+                        "previous_status": "processing",
+                        "status": "retry",
+                    })
+        return recovered
+
     def get_next_curriculum_candidate(self, language: str = "en") -> dict[str, Any] | None:
         """Return only the first runnable lesson; never skip a preceding lesson."""
         if language != "en":
