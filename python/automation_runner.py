@@ -171,6 +171,13 @@ def _repair_budget() -> int:
         return 2
 
 
+def _pipeline_attempt_timeout_seconds() -> int:
+    try:
+        return max(60, min(3600, int(os.getenv("PIPELINE_ATTEMPT_TIMEOUT_SECONDS", "1200"))))
+    except ValueError:
+        return 1200
+
+
 def _repair_error_context(stage_dir: Path, error: Exception) -> str:
     fragments = [str(error)]
     for name in ("creative-review.json", "visual_qa/visual-qa.json", "director-data.json"):
@@ -239,7 +246,7 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
             if scene_override_path:
                 command.extend(["--scene-repair-override", str(scene_override_path)])
             try:
-                subprocess.run(command, cwd=ROOT, check=True)
+                subprocess.run(command, cwd=ROOT, check=True, timeout=_pipeline_attempt_timeout_seconds())
                 if os.getenv("YOUTUBE_PUBLISH_ENABLED", "0").lower() in {"1", "true", "yes"}:
                     publication = store.get_youtube_publication(job_id)
                     if not publication or publication.get("status") != "published":
