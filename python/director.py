@@ -501,6 +501,53 @@ def _fallback(puzzle: dict[str, Any], language: str) -> dict[str, Any]:
     return {"title": title, "narration": narration, "moves": moves, "captions": captions, "narrationSegments": narration_segments, "durationInSeconds": duration}
 
 
+def _apply_elephant_eye_template_contract(result: dict[str, Any], puzzle: dict[str, Any]) -> dict[str, Any]:
+    """Use a fixed, mechanically verified Elephant Eye and river lesson."""
+    if str(puzzle.get("position_template") or "") != "elephant-eye":
+        return result
+    from curriculum import TEMPLATES
+
+    template_moves = [dict(item) for item in TEMPLATES["elephant-eye"]]
+    safe_text = [
+        ("Move the Elephant along a clear diagonal", "Black makes a quiet pawn reply", "The Elephant reaches a central point on Red's side of the river."),
+        ("Make the second legal move", "Red prepares the next move", "The board is ready for the next Elephant demonstration."),
+        ("Keep the Elephant on its side of the river", "Black can continue developing elsewhere", "The Elephant remains active while every destination across the river is rejected."),
+    ]
+    for index, move in enumerate(template_moves, start=1):
+        purpose, reply, effect = safe_text[index - 1]
+        move.update({
+            "ply": index,
+            "purpose": purpose,
+            "opponentReply": reply,
+            "effect": effect,
+            "label": purpose,
+            "claims": [{
+                "claimType": "legal_move",
+                "ply": index,
+                "position": "after",
+                "statement": f"The supplied move at ply {index} is legal in the traced position.",
+            }],
+        })
+    template_moves[0]["claims"].append({
+        "claimType": "elephant_eye_open",
+        "ply": 1,
+        "position": "before",
+        "subject": {"at": [2, 9]},
+        "target": [4, 7],
+        "statement": "The Elephant Eye at file 4, rank 9 is empty, so the Elephant's diagonal route is open.",
+    })
+    template_moves[2]["claims"].append({
+        "claimType": "river_limit",
+        "ply": 3,
+        "position": "after",
+        "subject": {"at": [2, 5]},
+        "targetCandidates": [[0, 3], [4, 3]],
+        "statement": "The Red Elephant cannot cross the river; destinations beyond the river are illegal.",
+    })
+    result["moves"] = template_moves
+    return result
+
+
 def _apply_horse_leg_template_contract(result: dict[str, Any], puzzle: dict[str, Any]) -> dict[str, Any]:
     """Use a fixed, mechanically verified Horse Leg teaching line for curriculum lessons."""
     if str(puzzle.get("position_template") or "") != "horse-leg-block":
@@ -600,6 +647,7 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
         for field in ("purpose", "opponentReply", "effect", "label"):
             if contains_arabic(move.get(field, "")) or (language == "en" and CJK_RE.search(str(move.get(field, "")))):
                 move.pop(field, None)
+    result = _apply_elephant_eye_template_contract(result, puzzle)
     result = _apply_horse_leg_template_contract(result, puzzle)
     analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
     existing_segments = result.get("narrationSegments") if isinstance(result.get("narrationSegments"), list) else []

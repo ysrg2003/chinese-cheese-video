@@ -47,6 +47,34 @@ class GroundingAndClaimsTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(any("Horse Leg is not blocked" in error for error in result["errors"]))
 
+    def test_elephant_eye_curriculum_contract_is_mechanically_verified(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "content_type": "rules",
+            "position_template": "elephant-eye",
+            "curriculum_lesson_key": "en-012-elephants-and-the-river",
+            "curriculum_stage": "C-piece-academy",
+            "teaching_scope": "piece_rules",
+            "curriculum_sequence": 12,
+            "target_piece": "bishop",
+            "target_piece_name_en": "Elephant",
+            "target_piece_movement_summary_en": "The Elephant moves two points diagonally, cannot cross the river, and can be stopped when its Elephant Eye is occupied.",
+            "durationInSeconds": 75,
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        job = make_job(
+            "curriculum-en-012-elephants-and-the-river-en",
+            puzzle,
+            {"title": "Elephants and the River", "narration": "Learn the Elephant rule.", "moves": []},
+        )
+        self.assertTrue(job["claimProof"]["ok"], job["claimProof"].get("errors"))
+        self.assertEqual([move["from"] for move in job["moves"]], [[2, 9], [2, 3], [4, 7]])
+        claims = job["claimsByPly"]
+        self.assertIn("elephant_eye_open", {item["claimType"] for item in claims[1]})
+        self.assertIn("river_limit", {item["claimType"] for item in claims[3]})
+        self.assertNotIn("elephant_eye_block", {item["claimType"] for item in claims[2]})
+
     def test_piece_learning_context_references_future_support_piece(self) -> None:
         puzzle = {
             "curriculum_stage": "C-piece-academy",
