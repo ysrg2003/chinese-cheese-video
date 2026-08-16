@@ -409,40 +409,105 @@ class LocalStore:
             catalog.append(item)
         return catalog
 
-    def get_next_curriculum_candidate(self, language: str = "en") -> dict[str, Any] | None:
-        """Return the earliest planned/retry lesson whose prerequisite lessons are published."""
-        if language != "en":
-            return None
+    def curriculum_gate(self, language: str = "en") -> dict[str, Any]:
+        """Return the authoritative curriculum gate used by selection and publishing.
+
+        The gate is intentionally stricter than prerequisite matching: the earliest
+        active lesson must be published before the system may choose a later lesson
+        or any supplementary discovery item. This prevents a failed/deleted lesson
+        from being silently bypassed by an evergreen candidate.
+        """
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT l.lesson_json, l.lesson_key, l.sequence_no
+                SELECT l.lesson_key, l.sequence_no, l.is_active,
+                       COALESCE(p.status, 'planned') AS status,
+                       p.candidate_id, p.job_id, p.error_message
                 FROM curriculum_lessons l
-                JOIN curriculum_episode_plans p ON p.lesson_key = l.lesson_key AND p.language = ?
-                WHERE l.is_active = 1 AND p.status IN ('planned', 'retry')
+                LEFT JOIN curriculum_episode_plans p
+                  ON p.lesson_key = l.lesson_key AND p.language = ?
+                WHERE l.is_active = 1
                 ORDER BY l.sequence_no ASC
                 """,
                 (language,),
             ).fetchall()
+        total = len(rows)
+        published = sum(1 for row in rows if str(row["status"]) == "published")
+        first_pending = next((dict(row) for row in rows if str(row["status"]) != "published"), None)
+        first_runnable = next(
+            (dict(row) for row in rows if str(row["status"]) in {"planned", "retry"}),
+            None,
+        )
+        return {
+            "language": language,
+            "total": total,
+            "published": published,
+            "complete": total > 0 and published == total,
+            "first_pending": first_pending,
+            "first_runnable": first_runnable,
+            "blocked": bool(first_pending and str(first_pending["status"]) not in {"planned", "retry"}),
+        }
+
+    def claim_curriculum_lesson(self, lesson_key: str, language: str, candidate_id: str) -> bool:
+        """Atomically claim a curriculum lesson only when it is the first runnable lesson."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT l.lesson_key, l.sequence_no, COALESCE(p.status, 'planned') AS status
+                FROM curriculum_lessons l
+                LEFT JOIN curriculum_episode_plans p
+                  ON p.lesson_key = l.lesson_key AND p.language = ?
+                WHERE l.is_active = 1
+                ORDER BY l.sequence_no ASC
+                """,
+                (language,),
+            ).fetchall()
+            target = next((dict(row) for row in rows if row["lesson_key"] == lesson_key), None)
+            if not target or str(target["status"]) not in {"planned", "retry"}:
+                return False
+            earlier = [row for row in rows if int(row["sequence_no"]) < int(target["sequence_no"])]
+            if any(str(row["status"]) != "published" for row in earlier):
+                return False
+            now = datetime.now(timezone.utc).isoformat()
+            result = connection.execute(
+                """
+                UPDATE curriculum_episode_plans
+                SET status='queued', candidate_id=?, error_message=NULL, updated_at=?
+                WHERE lesson_key=? AND language=? AND status IN ('planned','retry')
+                """,
+                (candidate_id, now, lesson_key, language),
+            )
+            return result.rowcount == 1
+
+    def get_next_curriculum_candidate(self, language: str = "en") -> dict[str, Any] | None:
+        """Return only the first runnable lesson; never skip a preceding lesson."""
+        if language != "en":
+            return None
+        gate = self.curriculum_gate(language)
+        row = gate.get("first_runnable")
+        if not row:
+            return None
+        with self._connect() as connection:
+            lesson_row = connection.execute(
+                "SELECT lesson_json FROM curriculum_lessons WHERE lesson_key = ? AND is_active = 1",
+                (row["lesson_key"],),
+            ).fetchone()
+        if not lesson_row:
+            return None
+        try:
+            lesson = json.loads(lesson_row["lesson_json"] or "{}")
+        except json.JSONDecodeError:
+            return None
+        prerequisites = {str(value) for value in lesson.get("prerequisites") or []}
+        with self._connect() as connection:
             published_rows = connection.execute(
                 "SELECT lesson_key FROM curriculum_episode_plans WHERE language = ? AND status = 'published'",
                 (language,),
             ).fetchall()
-        published = {str(row["lesson_key"]) for row in published_rows}
-        for row in rows:
-            try:
-                lesson = json.loads(row["lesson_json"] or "{}")
-            except json.JSONDecodeError:
-                continue
-            prerequisites = {str(value) for value in lesson.get("prerequisites") or []}
-            if not prerequisites.issubset(published):
-                continue
-            try:
-                from curriculum import candidate_from_lesson
-                return candidate_from_lesson(lesson)
-            except ImportError:
-                return None
-        return None
+        if not prerequisites.issubset({str(item["lesson_key"]) for item in published_rows}):
+            return None
+        from curriculum import candidate_from_lesson
+        return candidate_from_lesson(lesson)
 
     def update_curriculum_episode(
         self,

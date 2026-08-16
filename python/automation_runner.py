@@ -341,16 +341,44 @@ def main() -> int:
         metrics["discovery"] = discovery_metrics
         languages = parse_csv(args.languages, ["en"])
         selection_language = "en" if "en" in languages else languages[0]
+        curriculum_gate = store.curriculum_gate(selection_language)
+        metrics["curriculum_gate"] = curriculum_gate
         curriculum_candidate = store.get_next_curriculum_candidate(selection_language)
         if curriculum_candidate is not None:
-            if not args.dry_run:
-                store.add_candidate(curriculum_candidate)
             lesson_key = _curriculum_lesson_key(curriculum_candidate)
-            if lesson_key and not args.dry_run:
-                store.update_curriculum_episode(lesson_key, selection_language, "queued", candidate_id=curriculum_candidate["id"])
+            if not args.dry_run and lesson_key:
+                store.add_candidate(curriculum_candidate)
+                claimed = store.claim_curriculum_lesson(lesson_key, selection_language, curriculum_candidate["id"])
+                if not claimed:
+                    # Another scheduled/manual run owns the lesson. Never fall
+                    # through to discovery because that would break curriculum order.
+                    metrics["selection_mode"] = "curriculum_claim_conflict"
+                    metrics["deferred"] = 1
+                    metrics["curriculum_lesson_key"] = lesson_key
+                    store.finish_run(run_id, "partial", metrics, "Curriculum lesson claim lost to another run")
+                    store.checkpoint()
+                    print(json.dumps(metrics, ensure_ascii=False, indent=2))
+                    return 2
             candidates = [curriculum_candidate]
             metrics["selection_mode"] = "curriculum"
             metrics["curriculum_lesson_key"] = lesson_key
+        elif not curriculum_gate.get("complete"):
+            # A non-complete curriculum is authoritative. A queued, processing,
+            # failed, blocked, or malformed first lesson must stop production;
+            # supplementary discovery is legal only after every active lesson is
+            # published.
+            pending = curriculum_gate.get("first_pending") or {}
+            metrics["selection_mode"] = "curriculum_blocked"
+            metrics["deferred"] = 1
+            metrics["curriculum_block_reason"] = {
+                "lesson_key": pending.get("lesson_key"),
+                "status": pending.get("status"),
+                "error_message": pending.get("error_message"),
+            }
+            store.finish_run(run_id, "partial", metrics, "Curriculum gate blocked supplementary selection")
+            store.checkpoint()
+            print(json.dumps(metrics, ensure_ascii=False, indent=2))
+            return 2
         else:
             candidates = select_diverse_candidates(store, language=selection_language, limit=max(1, args.daily_count))
             metrics["selection_mode"] = "supplementary_discovery"

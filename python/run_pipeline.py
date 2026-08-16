@@ -25,6 +25,7 @@ from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
 from visual_qa import verify_rendered_visuals
 from xiangqi_rules import validate_move_sequence
 from research_grounding import attach_research_bundle, research_required
+from integration_contracts import assert_job_contract, assert_publication_contract
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -248,11 +249,13 @@ def main() -> int:
         (stage_dir / "director-data.json").write_text(json.dumps(director_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         job = make_job(job_id, puzzle, director_data)
         job["directorSource"] = director_source
+        assert_job_contract(job, stage="director", puzzle=puzzle)
         if os.getenv("XIANGQI_PRODUCTION_FREEZE", "0").lower() in {"1", "true", "yes"}:
             raise RuntimeError(
                 "Production is temporarily frozen until deterministic Xiangqi legal-move validation is enabled."
             )
         job = add_visual_storyboard(job, puzzle, store=store)
+        assert_job_contract(job, stage="storyboard", puzzle=puzzle)
         if args.scene_repair_override:
             repair_payload = read_json(args.scene_repair_override) or {}
             repair_errors = apply_repairs(job, {"scene_repairs": repair_payload.get("scene_repairs", [])})
@@ -307,6 +310,13 @@ def main() -> int:
                 job["captions"] = captions_from_narration(job["narration"], float(job.get("durationInSeconds") or 0), job["language"])
                 job["captions_source"] = "narration_fallback"
 
+        assert_job_contract(
+            job,
+            stage="tts",
+            puzzle=puzzle,
+            require_audio=not args.skip_tts,
+        )
+
         # English narration already appears as the spoken audio and as the
         # synchronized storyboard/move labels. Apply the policy outside the TTS
         # branch so skip-tts and pre-authored jobs obey it too.
@@ -327,6 +337,7 @@ def main() -> int:
         result: dict[str, Any] = {"job": job, "stage_dir": str(stage_dir)}
 
         if not args.skip_render and not args.dry_run:
+            assert_job_contract(job, stage="render", puzzle=puzzle, require_audio=not args.skip_tts)
             output_path, visual_qa, creative_review = _reviewed_render(job, puzzle, stage_dir, public_dir)
             result["video_path"] = str(output_path)
             result["visual_qa"] = visual_qa
@@ -374,6 +385,7 @@ def main() -> int:
                         existing_publication=existing_publication,
                         localization_dir=stage_dir / "localization",
                     )
+                    assert_publication_contract(job, publication)
                     result["youtube"] = publication
                     publication_store.upsert_youtube_publication(
                         job_id,
