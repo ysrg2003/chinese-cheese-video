@@ -1,18 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import re
+import subprocess
+import wave
 from pathlib import Path
 from typing import Any
 
-import edge_tts
+from ai_router_bridge import load_router
+
+try:
+    import edge_tts
+except ImportError:  # Legacy provider is optional when AI Router TTS is enabled.
+    edge_tts = None
 
 
+# Charon is documented by Google as a male Gemini-TTS voice. Keep both
+# channel languages on a male voice unless an explicit male voice is supplied.
 VOICE_BY_LANGUAGE = {
-    "en": "en-US-GuyNeural",
-    "zh": "zh-CN-YunjianNeural",
+    "en": "Charon",
+    "zh": "Charon",
 }
 
 
@@ -29,7 +39,9 @@ def _vtt_time(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
 
-async def _synthesize(text: str, voice: str, audio_path: Path) -> list[dict[str, Any]]:
+async def _synthesize_edge(text: str, voice: str, audio_path: Path) -> list[dict[str, Any]]:
+    if edge_tts is None:
+        raise RuntimeError("Edge-TTS is not installed")
     communicate = edge_tts.Communicate(text, voice=voice)
     cues: list[dict[str, Any]] = []
     with audio_path.open("wb") as audio_file:
@@ -41,6 +53,59 @@ async def _synthesize(text: str, voice: str, audio_path: Path) -> list[dict[str,
                 end = start + chunk["duration"] / 10_000_000
                 cues.append({"startSec": round(start, 3), "endSec": round(end, 3), "text": chunk["text"]})
     return cues
+
+
+def _pcm_to_mp3(pcm: bytes, output_path: Path, *, sample_rate_hz: int = 24000, channels: int = 1) -> None:
+    """Convert Router PCM output to the MP3 artifact consumed by Remotion."""
+    wav_path = output_path.with_suffix(".router.wav")
+    try:
+        with wave.open(str(wav_path), "wb") as wav_file:
+            wav_file.setnchannels(channels)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate_hz)
+            wav_file.writeframes(pcm)
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path), "-codec:a", "libmp3lame", "-q:a", "3", str(output_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        wav_path.unlink(missing_ok=True)
+
+
+def _synthesize_ai_router(text: str, voice: str, audio_path: Path, language: str) -> list[dict[str, Any]]:
+    router = load_router()
+    if router is None:
+        raise RuntimeError("AI Router is required for TTS but could not be imported")
+    prompt = (
+        "Speak as a clear, calm adult male educational narrator. "
+        "Read exactly the following text, without adding, omitting, or paraphrasing any words. "
+        f"The language is {language}.\n\n{text}"
+    )
+    try:
+        result = router.complete_auto(
+            user_prompt=prompt,
+            output_type="audio",
+            operation="video_narration_tts",
+            voice=voice,
+        )
+        encoded = str(result.get("data_base64") or "")
+        if not encoded:
+            raise RuntimeError("AI Router TTS returned no audio data")
+        pcm = base64.b64decode(encoded)
+        mime_type = str(result.get("mime_type") or "audio/pcm").lower()
+        if "mpeg" in mime_type or "mp3" in mime_type:
+            audio_path.write_bytes(pcm)
+        elif "wav" in mime_type or "wave" in mime_type:
+            audio_path.write_bytes(pcm)
+        else:
+            _pcm_to_mp3(pcm, audio_path, sample_rate_hz=int(result.get("sample_rate_hz") or 24000))
+        return []
+    finally:
+        close = getattr(router, "close", None)
+        if callable(close):
+            close()
 
 
 def _spoken_units(text: Any, language: Any = "en") -> list[str]:
@@ -91,7 +156,7 @@ def align_narration_segments_to_cues(
         if start is None:
             start = float(aligned[-1]["endSec"]) if aligned else 0.0
             end = start + 0.05
-        aligned.append({**segment, "startSec": round(start, 3), "endSec": round(max(start + 0.05, end or start), 3), "source": "edge_tts_segment_alignment"})
+        aligned.append({**segment, "startSec": round(start, 3), "endSec": round(max(start + 0.05, end or start), 3), "source": "audio_segment_alignment"})
     return aligned
 
 
@@ -198,8 +263,16 @@ def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path,
     audio_path = out / "voice.mp3"
     word_json_path = out / "voice_words.json"
     language = normalize_language(job.get("language"))
-    voice = os.getenv(f"TTS_VOICE_{language.upper()}", VOICE_BY_LANGUAGE[language])
-    cues = asyncio.run(_synthesize(job["narration"], voice, audio_path))
+    voice = os.getenv(f"TTS_VOICE_{language.upper()}", VOICE_BY_LANGUAGE[language]).strip()
+    provider = os.getenv("TTS_PROVIDER", "ai_router").strip().lower()
+    if provider == "edge_tts":
+        cues = asyncio.run(_synthesize_edge(job["narration"], voice, audio_path))
+        cue_source = "edge_tts_word_boundaries"
+    elif provider == "ai_router":
+        cues = _synthesize_ai_router(job["narration"], voice, audio_path, language)
+        cue_source = "ai_router_audio_duration"
+    else:
+        raise RuntimeError(f"Unsupported TTS_PROVIDER: {provider}")
     word_json_path.write_text(json.dumps(cues, ensure_ascii=False, indent=2), encoding="utf-8")
     vtt_path = out / "voice.vtt"
     lines = ["WEBVTT", ""]

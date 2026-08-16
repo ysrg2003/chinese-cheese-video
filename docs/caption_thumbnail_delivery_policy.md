@@ -4,7 +4,7 @@
 
 The channel is English-primary. English narration is already audible, while the Remotion scene provides concise synchronized teaching cues: scene headlines, MoveCards, board highlights, fast legal move animation, and spoken-sentence cues. These in-video teaching cues remain enabled because they tell the viewer what to watch. The separate English caption track on YouTube is disabled by default because it duplicates the same narration.
 
-Chinese localization remains active. The pipeline translates the English narration into Simplified Chinese, generates the male Chinese voice `zh-CN-YunjianNeural`, creates Chinese SRT/VTT captions from the same translated narration units, and uploads the `zh-Hans` caption track through the YouTube Data API. The Chinese audio file is retained as a durable artifact for YouTube Studio alternate-audio attachment when the channel is eligible for that feature.
+Chinese localization remains active. The pipeline translates the English narration into Simplified Chinese, generates the male Chinese voice `Charon` through AI Provider Router Gemini-TTS, creates Chinese SRT/VTT captions from the same translated narration units, and uploads the `zh-Hans` caption track through the YouTube Data API. The Chinese audio file is retained as a durable artifact for YouTube Studio alternate-audio attachment when the channel is eligible for that feature.
 
 The setting is centralized in `config/youtube_metadata_policy.json`:
 
@@ -25,6 +25,10 @@ No Chinese thumbnail is generated, validated, stored, or uploaded. The English t
 ## Shorts cover strategy
 
 The channel publishes vertical videos that YouTube classifies as Shorts. The uploaded 16:9 `thumbnail_en.jpg` remains useful for watch-page, search, desktop, and other non-Short surfaces, but YouTube Help documents that Shorts thumbnails are selected from a frame through the YouTube app rather than edited in Studio.[4] A temporary vertical opening-cover experiment was tested in production and retired because the Shorts surface selected frames non-deterministically. New MP4 files no longer contain a dedicated `VerticalShortCover` state; the system does not claim control over a Shorts grid cover that the Data API cannot deterministically set.
+
+## Audio provider policy
+
+Production narration uses `TTS_PROVIDER=ai_router` and the `Charon` Gemini-TTS voice for both English and Simplified Chinese. Google documents Charon as a male voice. The router returns audio data, normally linear PCM at 24 kHz; `python/tts.py` converts it to the MP3 artifact consumed by Remotion and measures the real duration with FFprobe. Word-boundary cues are not claimed when the provider does not return them, so segment captions are aligned proportionally to the measured audio duration. Edge TTS remains available only through the explicit legacy override `TTS_PROVIDER=edge_tts` and is not the GitHub Actions production default.
 
 ## Narration-to-visual direction
 

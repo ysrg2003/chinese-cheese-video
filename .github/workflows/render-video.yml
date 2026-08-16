@@ -74,8 +74,9 @@ jobs:
       YOUTUBE_PUBLISH_MODE: ${{ vars.YOUTUBE_PUBLISH_MODE || 'public' }}
       YOUTUBE_AUTO_CREATE_PLAYLISTS: ${{ vars.YOUTUBE_AUTO_CREATE_PLAYLISTS || '1' }}
       DISCOVERY_RSS_QUERY: ${{ vars.DISCOVERY_RSS_QUERY || 'xiangqi OR "Chinese chess" OR 象棋' }}
-      TTS_VOICE_EN: en-US-GuyNeural
-      TTS_VOICE_ZH: zh-CN-YunjianNeural
+      TTS_PROVIDER: ai_router
+      TTS_VOICE_EN: Charon
+      TTS_VOICE_ZH: Charon
       USE_WORD_CAPTIONS: "1"
       VISUAL_STORYBOARD_ENABLED: "1"
       CHATGPT_VISUAL_API_BASE: ${{ vars.CHATGPT_VISUAL_API_BASE || 'https://yousefsg-chatgpt-api.hf.space' }}
@@ -178,6 +179,9 @@ jobs:
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
           grep -q 'validate_move_sequence' python/director.py
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
+          grep -q 'TTS_PROVIDER: ai_router' .github/workflows/render-video.yml
+          grep -q 'TTS_VOICE_EN: Charon' .github/workflows/render-video.yml
+          grep -q 'output_type="audio"' python/tts.py
 
       - name: Continuously reconcile public publications before production
         if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1'
