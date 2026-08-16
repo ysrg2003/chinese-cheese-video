@@ -156,6 +156,10 @@ jobs:
           GOOGLE_GROUNDING_ENABLED: "0"
           GOOGLE_GROUNDING_REQUIRED: "0"
           VISUAL_ASSET_ENABLED: "0"
+          # Contract tests exercise the normal publisher behavior; review-only
+          # still blocks the actual production/publish steps below.
+          YOUTUBE_PUBLISH_ENABLED: "1"
+          REVIEW_ONLY: "0"
         run: |
           test -f python/research_grounding.py
           test -f python/xiangqi_claims.py
