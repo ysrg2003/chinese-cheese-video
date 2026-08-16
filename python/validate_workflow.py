@@ -7,7 +7,8 @@ except ImportError as exc:
 
 workflow = yaml.safe_load(Path('.github/workflows/render-video.yml').read_text(encoding='utf-8'))
 assert workflow.get('name')
-assert 'schedule' in workflow.get(True, workflow.get('on', {})) or 'schedule' in workflow.get('on', {})
+on_config = workflow.get(True, workflow.get('on', {}))
+assert 'schedule' in on_config
 assert workflow.get('concurrency', {}).get('cancel-in-progress') is False
 assert 'produce' in workflow.get('jobs', {})
 steps = workflow['jobs']['produce']['steps']

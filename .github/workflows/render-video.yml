@@ -168,6 +168,11 @@ jobs:
             *) echo "Invalid YOUTUBE_PUBLISH_MODE: $YOUTUBE_PUBLISH_MODE" >&2; exit 1 ;;
           esac
 
+      - name: Validate entire curriculum contracts before production
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1'
+        run: |
+          PYTHONPATH=python python python/curriculum_preflight.py
+
       - name: Enforce autonomous preflight contracts
         if: env.XIANGQI_PRODUCTION_FREEZE != '1'
         env:
@@ -184,6 +189,8 @@ jobs:
           XIANGQI_REVIEW_ONLY: "0"
           REVIEW_ONLY: "0"
         run: |
+          test -f python/curriculum_preflight.py
+          grep -q 'curriculum_preflight' python/curriculum_preflight.py
           test -f python/research_grounding.py
           test -f python/xiangqi_claims.py
           test -f python/integration_contracts.py

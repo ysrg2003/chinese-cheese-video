@@ -666,6 +666,57 @@ def _apply_cannon_screen_template_contract(result: dict[str, Any], puzzle: dict[
     return result
 
 
+def _apply_safe_general_template_contract(result: dict[str, Any], puzzle: dict[str, Any]) -> dict[str, Any]:
+    """Use neutral, legal-only move beats for templates without a dedicated proof rule."""
+    template_name = str(puzzle.get("position_template") or "")
+    safe_texts = {
+        "starting-pawn-cannon": [
+            ("Move the red Pawn one point.", "Black makes a legal reply.", "The traced position remains legal."),
+            ("Black makes a legal Pawn reply.", "Red keeps the position ready for the next move.", "The traced position remains legal."),
+            ("Move the red Cannon along its legal line.", "Black makes a legal reply.", "The traced position remains legal."),
+        ],
+        "river-soldier": [
+            ("Move the red Pawn one point.", "Black makes a legal reply.", "The traced position remains legal."),
+            ("Move the black Pawn one point.", "Red makes a legal reply.", "The traced position remains legal."),
+            ("Move the red Pawn to the legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+        ],
+        "cannon-rook-coordination": [
+            ("Move the red Cannon to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+            ("Move the black Pawn to its legal destination.", "Red makes a legal reply.", "The traced position remains legal."),
+            ("Move the red Pawn to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+            ("Move the black Pawn to its legal destination.", "Red makes a legal reply.", "The traced position remains legal."),
+            ("Move the red Pawn to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+            ("Move the black Pawn to its legal destination.", "Red makes a legal reply.", "The traced position remains legal."),
+            ("Move the red Chariot to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+        ],
+    }
+    if template_name not in safe_texts:
+        return result
+    from curriculum import TEMPLATES
+
+    template_moves = [dict(item) for item in TEMPLATES[template_name]]
+    text_rows = safe_texts[template_name]
+    if len(template_moves) != len(text_rows):
+        raise ValueError(f"safe contract length mismatch for {template_name}")
+    for index, (move, text_row) in enumerate(zip(template_moves, text_rows), start=1):
+        purpose, reply, effect = text_row
+        move.update({
+            "ply": index,
+            "purpose": purpose,
+            "opponentReply": reply,
+            "effect": effect,
+            "label": purpose,
+            "claims": [{
+                "claimType": "legal_move",
+                "ply": index,
+                "position": "after",
+                "statement": f"The supplied move at ply {index} is legal in the traced position.",
+            }],
+        })
+    result["moves"] = template_moves
+    return result
+
+
 def _normalise_move_entries(raw_moves: Any, language: str, puzzle: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(raw_moves, list):
         return []
@@ -725,6 +776,7 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
     result = _apply_horse_leg_template_contract(result, puzzle)
     result = _apply_rook_file_template_contract(result, puzzle)
     result = _apply_cannon_screen_template_contract(result, puzzle)
+    result = _apply_safe_general_template_contract(result, puzzle)
     analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
     existing_segments = result.get("narrationSegments") if isinstance(result.get("narrationSegments"), list) else []
     intro_source = next(
