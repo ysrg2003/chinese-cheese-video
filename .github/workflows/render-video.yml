@@ -159,6 +159,7 @@ jobs:
           # Contract tests exercise the normal publisher behavior; review-only
           # still blocks the actual production/publish steps below.
           YOUTUBE_PUBLISH_ENABLED: "1"
+          XIANGQI_REVIEW_ONLY: "0"
           REVIEW_ONLY: "0"
         run: |
           test -f python/research_grounding.py
