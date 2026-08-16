@@ -96,7 +96,7 @@ class CaptionTranscriptTests(unittest.TestCase):
         self.assertLess(len(captions[1]["text"].split()), 24)
         self.assertEqual(captions[0]["captionPosition"], "bottom")
         self.assertEqual(captions[1]["captionPosition"], "board")
-        self.assertIn("likely response", narration)
+        self.assertIn("Now watch the reply", narration)
         self.assertIn("the position changes", narration)
         self.assertIn("Move 1", segments[1]["text"])
         self.assertEqual(segments[1]["movePhase"], "action")

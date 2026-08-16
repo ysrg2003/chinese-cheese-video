@@ -324,6 +324,30 @@ class GroundingAndClaimsTests(unittest.TestCase):
             with self.assertRaises(ResearchGroundingError):
                 attach_research_bundle({"title": "Horse Leg", "content_type": "rules"})
 
+    def test_english_move_beats_are_grammatical(self) -> None:
+        moves = [{
+            "ply": 1,
+            "from": [0, 6],
+            "to": [0, 5],
+            "piece": "pawn",
+            "side": "red",
+            "purpose": "make room on the file",
+            "opponentReply": "Black makes a legal pawn reply on file 3",
+            "effect": "the pawn is one point closer to the river",
+        }]
+        _, segments = build_narration_segments(
+            "We are studying a legal pawn move.",
+            moves,
+            "en",
+            "rules",
+            "Explain the clearance and the resulting position",
+        )
+        texts = [str(segment.get("text") or "") for segment in segments]
+        self.assertTrue(any("Now watch the reply. Black makes" in text for text in texts))
+        self.assertFalse(any("likely response is to Black makes" in text for text in texts))
+        self.assertTrue(any("Remember this: Explain" in text for text in texts))
+        self.assertFalse(any("The rule to remember is Explain" in text for text in texts))
+
 
 if __name__ == "__main__":
     unittest.main()

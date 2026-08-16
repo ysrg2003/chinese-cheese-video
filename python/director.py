@@ -282,9 +282,10 @@ def _move_beats(move: dict[str, Any], language: str, content_type: str, analysis
     else:
         purpose_sentence = purpose[:1].upper() + purpose[1:] if purpose else "The move improves the position"
         action_text = f"Move {ply}: {side.title()} {piece}, {source} to {target}. {purpose_sentence}."
-        reply_text = f"Now watch the reply. The likely response is to {reply}."
-        effect_text = f"After that response, the position changes: {effect}."
-        constraint_text = f"The rule to remember is {focus}."
+        reply_text = f"Now watch the reply. {reply.rstrip('.')} .".replace(" .", ".")
+        effect_text = f"After that response, the position changes: {effect.rstrip('.')} .".replace(" .", ".")
+        focus_text = focus.rstrip('.')
+        constraint_text = f"Remember this: {focus_text}."
         reply_caption = _short_caption(reply, "Likely reply")
         effect_caption = _short_caption(effect, "Position change")
         constraint_caption = _short_caption(focus, "Rule")
