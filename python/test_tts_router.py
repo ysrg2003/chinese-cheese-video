@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import tts
 
@@ -50,6 +51,35 @@ class RouterTtsTests(unittest.TestCase):
             self.assertEqual(fake.calls[0]["voice"], "Charon")
             self.assertIn("adult male educational narrator", str(fake.calls[0]["user_prompt"]))
             convert.assert_called_once()
+
+    def test_edge_is_called_only_after_ai_router_failure(self) -> None:
+        edge = AsyncMock(return_value=[{"startSec": 0.0, "endSec": 0.5, "text": "Fallback"}])
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {"TTS_PROVIDER": "ai_router", "TTS_EDGE_FALLBACK_ENABLED": "1"},
+            clear=False,
+        ), patch.object(tts, "_synthesize_ai_router", side_effect=RuntimeError("all router routes failed")) as router_call, patch.object(tts, "_synthesize_edge", edge):
+            audio_path, _, cues = tts.synthesize(
+                {"language": "en", "narration": "The advisor stays inside the palace."}, directory
+            )
+            provider = json.loads((Path(directory) / "voice_provider.json").read_text(encoding="utf-8"))
+        router_call.assert_called_once()
+        edge.assert_awaited_once()
+        self.assertEqual(cues[0]["text"], "Fallback")
+        self.assertEqual(provider["provider_used"], "edge_tts_last_resort")
+        self.assertEqual(provider["voice"], "en-US-GuyNeural")
+        self.assertEqual(Path(audio_path).name, "voice.mp3")
+
+    def test_disabled_edge_fallback_preserves_router_failure(self) -> None:
+        edge = AsyncMock()
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {"TTS_PROVIDER": "ai_router", "TTS_EDGE_FALLBACK_ENABLED": "0"},
+            clear=False,
+        ), patch.object(tts, "_synthesize_ai_router", side_effect=RuntimeError("all router routes failed")), patch.object(tts, "_synthesize_edge", edge):
+            with self.assertRaisesRegex(RuntimeError, "all router routes failed"):
+                tts.synthesize({"language": "en", "narration": "Test."}, directory)
+        edge.assert_not_awaited()
 
     def test_explicit_edge_provider_remains_legacy_only(self) -> None:
         with patch.dict(os.environ, {"TTS_PROVIDER": "invalid"}, clear=False), tempfile.TemporaryDirectory() as directory:

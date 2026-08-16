@@ -25,6 +25,13 @@ VOICE_BY_LANGUAGE = {
     "zh": "Charon",
 }
 
+# Edge TTS is deliberately last-resort only. These are male voices and are
+# never attempted while the AI Router chain is still succeeding.
+EDGE_VOICE_BY_LANGUAGE = {
+    "en": "en-US-GuyNeural",
+    "zh": "zh-CN-YunjianNeural",
+}
+
 
 def normalize_language(value: Any) -> str:
     value = str(value or "en").lower().strip()
@@ -265,12 +272,30 @@ def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path,
     language = normalize_language(job.get("language"))
     voice = os.getenv(f"TTS_VOICE_{language.upper()}", VOICE_BY_LANGUAGE[language]).strip()
     provider = os.getenv("TTS_PROVIDER", "ai_router").strip().lower()
+    provider_used = provider
+    fallback_error: str | None = None
     if provider == "edge_tts":
+        voice = os.getenv(f"TTS_EDGE_VOICE_{language.upper()}", EDGE_VOICE_BY_LANGUAGE[language]).strip()
         cues = asyncio.run(_synthesize_edge(job["narration"], voice, audio_path))
+        provider_used = "edge_tts_explicit"
         cue_source = "edge_tts_word_boundaries"
     elif provider == "ai_router":
-        cues = _synthesize_ai_router(job["narration"], voice, audio_path, language)
-        cue_source = "ai_router_audio_duration"
+        try:
+            # load_router() owns the complete ordered model/key chain. We do
+            # not rotate keys or models here and we never call Edge first.
+            cues = _synthesize_ai_router(job["narration"], voice, audio_path, language)
+            cue_source = "ai_router_audio_duration"
+        except Exception as exc:
+            fallback_enabled = os.getenv("TTS_EDGE_FALLBACK_ENABLED", "1").strip().lower() in {"1", "true", "yes"}
+            if not fallback_enabled:
+                raise
+            fallback_voice = os.getenv(
+                f"TTS_EDGE_VOICE_{language.upper()}", EDGE_VOICE_BY_LANGUAGE[language]
+            ).strip()
+            fallback_error = f"{type(exc).__name__}: {exc}"[:1000]
+            cues = asyncio.run(_synthesize_edge(job["narration"], fallback_voice, audio_path))
+            provider_used = "edge_tts_last_resort"
+            cue_source = "edge_tts_word_boundaries"
     else:
         raise RuntimeError(f"Unsupported TTS_PROVIDER: {provider}")
     word_json_path.write_text(json.dumps(cues, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -279,4 +304,21 @@ def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path,
     for index, cue in enumerate(cues, start=1):
         lines.extend([str(index), f"{_vtt_time(cue['startSec'])} --> {_vtt_time(cue['endSec'])}", cue["text"], ""])
     vtt_path.write_text("\n".join(lines), encoding="utf-8")
+    (out / "voice_provider.json").write_text(
+        json.dumps(
+            {
+                "requested_provider": provider,
+                "provider_used": provider_used,
+                "voice": voice if provider_used.startswith("ai_router") else os.getenv(
+                    f"TTS_EDGE_VOICE_{language.upper()}", EDGE_VOICE_BY_LANGUAGE[language]
+                ).strip(),
+                "language": language,
+                "cue_source": cue_source,
+                "fallback_error": fallback_error,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return audio_path, word_json_path, cues

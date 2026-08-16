@@ -40,6 +40,11 @@ on:
         required: false
         default: false
         type: boolean
+      tts_compare:
+        description: "Generate samples for all official male Gemini-TTS voices plus a labeled Edge TTS reference; do not produce or publish a video"
+        required: false
+        default: false
+        type: boolean
       continuation_depth:
         description: "Internal continuation counter used when a pending publication needs another workflow run"
         required: false
@@ -146,6 +151,10 @@ jobs:
         if: inputs.tts_smoke == true
         run: python python/tts_smoke.py --output-dir tts-smoke
 
+      - name: Generate all male TTS voice comparison samples
+        if: inputs.tts_compare == true
+        run: python python/tts_voice_compare.py --output-dir tts-voice-comparison --include-edge
+
       - name: Validate YouTube publishing configuration
         if: env.YOUTUBE_PUBLISH_ENABLED == '1' && inputs.tts_smoke != true
         run: |
@@ -197,9 +206,11 @@ jobs:
           grep -q 'TTS_PROVIDER: ai_router' .github/workflows/render-video.yml
           grep -q 'TTS_VOICE_EN: Charon' .github/workflows/render-video.yml
           grep -q 'output_type="audio"' python/tts.py
+          grep -q 'edge_tts_last_resort' python/tts.py
+          test -f python/tts_voice_compare.py
 
       - name: Continuously reconcile public publications before production
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1' && inputs.tts_smoke != true
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1' && inputs.tts_smoke != true && inputs.tts_compare != true
         id: continuous_reconcile
         continue-on-error: true
         env:
@@ -259,7 +270,7 @@ jobs:
             -f "inputs[continuation_depth]=${NEXT_DEPTH}"
 
       - name: Run autonomous discovery and production until the current item completes
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && inputs.tts_smoke != true && (env.REVIEW_ONLY == '1' || steps.reconciliation_state.outputs.state == 'complete')
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && inputs.tts_smoke != true && inputs.tts_compare != true && (env.REVIEW_ONLY == '1' || steps.reconciliation_state.outputs.state == 'complete')
         id: autonomous_run
         continue-on-error: true
         env:
@@ -321,6 +332,7 @@ jobs:
             output/jobs/**/director-data.json
             output/jobs/**/*.mp4
             tts-smoke/**
+            tts-voice-comparison/**
             public/generated/**/job.json
             public/generated/**/voice.mp3
             public/generated/**/assets/**
@@ -340,5 +352,5 @@ jobs:
           fi
 
       - name: Mark workflow failed only for hard completion errors
-        if: inputs.tts_smoke != true && (steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure')
+        if: inputs.tts_smoke != true && inputs.tts_compare != true && (steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure')
         run: exit 1
