@@ -136,7 +136,11 @@ def _merge_audio_chunks(chunks: list[Path], output_path: Path) -> None:
     if not chunks:
         raise RuntimeError("No TTS audio chunks were generated")
     concat_path = output_path.with_suffix(".concat.txt")
-    concat_path.write_text("\\n".join(f"file '{chunk.as_posix().replace(chr(39), chr(39)+chr(92)+chr(39)+chr(39))}'" for chunk in chunks) + "\\n", encoding="utf-8")
+    entries = []
+    for chunk in chunks:
+        escaped = chunk.as_posix().replace("'", "'\\\\''")
+        entries.append(f"file '{escaped}'")
+    concat_path.write_text("\n".join(entries) + "\n", encoding="utf-8")
     try:
         subprocess.run(
             [

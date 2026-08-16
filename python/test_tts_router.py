@@ -83,6 +83,24 @@ class RouterTtsTests(unittest.TestCase):
         self.assertEqual([cue["source"] for cue in cues], ["ai_router_batched_segment"] * 4)
         merge.assert_called_once()
 
+    def test_merge_audio_chunks_writes_real_concat_lines(self) -> None:
+        captured: list[str] = []
+
+        def fake_run(command, **kwargs):
+            concat_file = Path(command[command.index("-i") + 1])
+            captured.append(concat_file.read_text(encoding="utf-8"))
+            return None
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(tts.subprocess, "run", side_effect=fake_run):
+            root = Path(directory)
+            chunks = [root / "chunk-000.mp3", root / "chunk-001.mp3"]
+            for chunk in chunks:
+                chunk.write_bytes(b"fake")
+            tts._merge_audio_chunks(chunks, root / "voice.mp3")
+
+        self.assertEqual(captured, ["file '" + str(chunks[0]) + "'\nfile '" + str(chunks[1]) + "'\n"])
+        self.assertNotIn("\\\\n", captured[0])
+
     def test_pcm_conversion_applies_loudness_normalization(self) -> None:
         with tempfile.TemporaryDirectory() as directory, patch.object(tts.subprocess, "run") as run:
             output = Path(directory) / "voice.mp3"
