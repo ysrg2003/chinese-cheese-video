@@ -88,6 +88,9 @@ jobs:
       TTS_PROVIDER: ai_router
       TTS_VOICE_EN: Schedar
       TTS_VOICE_ZH: Schedar
+      # Generate short, coherent Schedar batches to prevent long-form drift.
+      TTS_BATCH_MAX_CHARS: "480"
+      TTS_BATCH_MAX_SEGMENTS: "3"
       USE_WORD_CAPTIONS: "1"
       VISUAL_STORYBOARD_ENABLED: "1"
       CHATGPT_VISUAL_API_BASE: ${{ vars.CHATGPT_VISUAL_API_BASE || 'https://yousefsg-chatgpt-api.hf.space' }}

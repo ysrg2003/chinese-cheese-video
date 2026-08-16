@@ -52,6 +52,37 @@ class RouterTtsTests(unittest.TestCase):
             self.assertIn("adult male educational narrator", str(fake.calls[0]["user_prompt"]))
             convert.assert_called_once()
 
+    def test_narration_segments_are_generated_in_bounded_batches(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        def fake_synthesize(text: str, voice: str, audio_path: Path, language: str) -> list[dict[str, object]]:
+            calls.append((text, voice))
+            audio_path.write_bytes(b"fake-mp3")
+            return []
+
+        job = {
+            "language": "en",
+            "narrationSegments": [
+                {"kind": "intro", "text": "First short explanation."},
+                {"kind": "move", "text": "The elephant moves two points diagonally."},
+                {"kind": "effect", "text": "This protects the river crossing."},
+                {"kind": "outro", "text": "Now observe the legal response."},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ, {"TTS_BATCH_MAX_SEGMENTS": "2", "TTS_BATCH_MAX_CHARS": "120"}, clear=False
+        ), patch.object(tts, "_synthesize_ai_router", side_effect=fake_synthesize), patch.object(
+            tts, "_audio_duration_seconds", return_value=1.0
+        ), patch.object(tts, "_merge_audio_chunks") as merge:
+            cues, batch_count = tts._synthesize_ai_router_batched(job, "Schedar", Path(directory) / "voice.mp3", "en")
+        self.assertEqual(batch_count, 2)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(cues), 4)
+        self.assertEqual(cues[0]["startSec"], 0.0)
+        self.assertEqual(cues[-1]["endSec"], 2.0)
+        self.assertEqual([cue["source"] for cue in cues], ["ai_router_batched_segment"] * 4)
+        merge.assert_called_once()
+
     def test_pcm_conversion_applies_loudness_normalization(self) -> None:
         with tempfile.TemporaryDirectory() as directory, patch.object(tts.subprocess, "run") as run:
             output = Path(directory) / "voice.mp3"

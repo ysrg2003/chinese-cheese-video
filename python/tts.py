@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import wave
 from pathlib import Path
 from typing import Any
@@ -119,6 +120,96 @@ def _synthesize_ai_router(text: str, voice: str, audio_path: Path, language: str
         close = getattr(router, "close", None)
         if callable(close):
             close()
+
+
+def _audio_duration_seconds(audio_path: Path) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return max(0.05, float(result.stdout.strip()))
+
+
+def _merge_audio_chunks(chunks: list[Path], output_path: Path) -> None:
+    if not chunks:
+        raise RuntimeError("No TTS audio chunks were generated")
+    concat_path = output_path.with_suffix(".concat.txt")
+    concat_path.write_text("\\n".join(f"file '{chunk.as_posix().replace(chr(39), chr(39)+chr(92)+chr(39)+chr(39))}'" for chunk in chunks) + "\\n", encoding="utf-8")
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(concat_path),
+                "-af", "loudnorm=I=-16:TP=-1.5:LRA=7,dynaudnorm=f=150:g=15:p=0.9:m=10,aresample=async=1:first_pts=0",
+                "-ar", "24000", "-ac", "1", "-codec:a", "libmp3lame", "-q:a", "2", str(output_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        concat_path.unlink(missing_ok=True)
+
+
+def _narration_batches(job: dict[str, Any], language: str) -> list[list[dict[str, Any]]]:
+    segments = [segment for segment in job.get("narrationSegments") or [] if str(segment.get("text") or "").strip()]
+    if not segments:
+        return []
+    try:
+        max_chars = max(180, min(1200, int(os.getenv("TTS_BATCH_MAX_CHARS", "480"))))
+    except ValueError:
+        max_chars = 480
+    try:
+        max_segments = max(1, min(6, int(os.getenv("TTS_BATCH_MAX_SEGMENTS", "3"))))
+    except ValueError:
+        max_segments = 3
+    batches: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    chars = 0
+    for segment in segments:
+        text = str(segment.get("text") or "").strip()
+        if current and (len(current) >= max_segments or chars + len(text) > max_chars):
+            batches.append(current)
+            current = []
+            chars = 0
+        current.append(segment)
+        chars += len(text)
+    if current:
+        batches.append(current)
+    return batches
+
+
+def _synthesize_ai_router_batched(job: dict[str, Any], voice: str, audio_path: Path, language: str) -> tuple[list[dict[str, Any]], int]:
+    batches = _narration_batches(job, language)
+    if not batches:
+        cues = _synthesize_ai_router(str(job.get("narration") or ""), voice, audio_path, language)
+        return cues, 1
+    with tempfile.TemporaryDirectory(prefix="xiangqi-tts-") as directory:
+        chunk_paths: list[Path] = []
+        cues: list[dict[str, Any]] = []
+        cursor = 0.0
+        for index, batch in enumerate(batches):
+            chunk_path = Path(directory) / f"chunk-{index:03d}.mp3"
+            batch_text = " ".join(str(segment.get("text") or "").strip() for segment in batch)
+            _synthesize_ai_router(batch_text, voice, chunk_path, language)
+            duration = _audio_duration_seconds(chunk_path)
+            weights = [max(1, len(_spoken_units(segment.get("text"), language))) for segment in batch]
+            total = float(sum(weights)) or 1.0
+            local_cursor = 0.0
+            for segment, weight in zip(batch, weights):
+                local_end = duration if segment is batch[-1] else local_cursor + duration * weight / total
+                cues.append({
+                    "startSec": round(cursor + local_cursor, 3),
+                    "endSec": round(max(cursor + local_cursor + 0.05, cursor + local_end), 3),
+                    "text": str(segment.get("text") or "").strip(),
+                    "source": "ai_router_batched_segment",
+                })
+                local_cursor = local_end
+            chunk_paths.append(chunk_path)
+            cursor += duration
+        _merge_audio_chunks(chunk_paths, audio_path)
+        return cues, len(batches)
 
 
 def _spoken_units(text: Any, language: Any = "en") -> list[str]:
@@ -280,6 +371,7 @@ def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path,
     provider = os.getenv("TTS_PROVIDER", "ai_router").strip().lower()
     provider_used = provider
     fallback_error: str | None = None
+    batch_count = 1
     if provider == "edge_tts":
         voice = os.getenv(f"TTS_EDGE_VOICE_{language.upper()}", EDGE_VOICE_BY_LANGUAGE[language]).strip()
         cues = asyncio.run(_synthesize_edge(job["narration"], voice, audio_path))
@@ -289,8 +381,8 @@ def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path,
         try:
             # load_router() owns the complete ordered model/key chain. We do
             # not rotate keys or models here and we never call Edge first.
-            cues = _synthesize_ai_router(job["narration"], voice, audio_path, language)
-            cue_source = "ai_router_audio_duration"
+            cues, batch_count = _synthesize_ai_router_batched(job, voice, audio_path, language)
+            cue_source = "ai_router_batched_segments" if batch_count > 1 or job.get("narrationSegments") else "ai_router_audio_duration"
         except Exception as exc:
             fallback_enabled = os.getenv("TTS_EDGE_FALLBACK_ENABLED", "1").strip().lower() in {"1", "true", "yes"}
             if not fallback_enabled:
@@ -321,6 +413,9 @@ def synthesize(job: dict[str, Any], output_dir: str | Path) -> tuple[Path, Path,
                 "language": language,
                 "cue_source": cue_source,
                 "fallback_error": fallback_error,
+                "batch_count": batch_count,
+                "batch_max_chars": os.getenv("TTS_BATCH_MAX_CHARS", "480"),
+                "batch_max_segments": os.getenv("TTS_BATCH_MAX_SEGMENTS", "3"),
             },
             ensure_ascii=False,
             indent=2,
