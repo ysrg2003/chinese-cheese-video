@@ -35,6 +35,11 @@ on:
         required: false
         default: false
         type: boolean
+      tts_smoke:
+        description: "Run a real AI Router Gemini-TTS smoke test with male Charon voice; do not produce or publish a video"
+        required: false
+        default: false
+        type: boolean
       continuation_depth:
         description: "Internal continuation counter used when a pending publication needs another workflow run"
         required: false
@@ -137,8 +142,12 @@ jobs:
       - name: Validate AI Router key pools and ordered chain
         run: python python/validate_ai_router_runtime.py
 
+      - name: Run AI Router TTS smoke test
+        if: inputs.tts_smoke == true
+        run: python python/tts_smoke.py --output-dir tts-smoke
+
       - name: Validate YouTube publishing configuration
-        if: env.YOUTUBE_PUBLISH_ENABLED == '1'
+        if: env.YOUTUBE_PUBLISH_ENABLED == '1' && inputs.tts_smoke != true
         run: |
           test -n "$YOUTUBE_OAUTH_TOKEN_JSON" || (echo "YOUTUBE_PUBLISH_ENABLED=1 but YOUTUBE_OAUTH_TOKEN_JSON is missing" >&2; exit 1)
           case "$YOUTUBE_PUBLISH_MODE" in
@@ -190,7 +199,7 @@ jobs:
           grep -q 'output_type="audio"' python/tts.py
 
       - name: Continuously reconcile public publications before production
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1'
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1' && inputs.tts_smoke != true
         id: continuous_reconcile
         continue-on-error: true
         env:
@@ -250,7 +259,7 @@ jobs:
             -f "inputs[continuation_depth]=${NEXT_DEPTH}"
 
       - name: Run autonomous discovery and production until the current item completes
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && (env.REVIEW_ONLY == '1' || steps.reconciliation_state.outputs.state == 'complete')
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && inputs.tts_smoke != true && (env.REVIEW_ONLY == '1' || steps.reconciliation_state.outputs.state == 'complete')
         id: autonomous_run
         continue-on-error: true
         env:
@@ -311,6 +320,7 @@ jobs:
             output/jobs/**/repair/**
             output/jobs/**/director-data.json
             output/jobs/**/*.mp4
+            tts-smoke/**
             public/generated/**/job.json
             public/generated/**/voice.mp3
             public/generated/**/assets/**
