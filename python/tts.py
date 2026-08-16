@@ -75,7 +75,7 @@ def _pcm_to_mp3(pcm: bytes, output_path: Path, *, sample_rate_hz: int = 24000, c
         subprocess.run(
             [
                 "ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path),
-                "-af", "loudnorm=I=-16:TP=-1.5:LRA=7",
+                "-af", "loudnorm=I=-16:TP=-1.5:LRA=7,dynaudnorm=f=150:g=15:p=0.9:m=10",
                 "-ar", "24000", "-ac", str(channels),
                 "-codec:a", "libmp3lame", "-q:a", "2", str(output_path),
             ],

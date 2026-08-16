@@ -57,7 +57,7 @@ class RouterTtsTests(unittest.TestCase):
             output = Path(directory) / "voice.mp3"
             tts._pcm_to_mp3(b"\x00\x00" * 240, output)
             command = run.call_args.args[0]
-            self.assertIn("loudnorm=I=-16:TP=-1.5:LRA=7", command)
+            self.assertIn("loudnorm=I=-16:TP=-1.5:LRA=7,dynaudnorm=f=150:g=15:p=0.9:m=10", command)
             self.assertIn("-q:a", command)
             self.assertIn("2", command)
 

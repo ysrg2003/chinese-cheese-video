@@ -65,7 +65,7 @@ def main() -> int:
         "audio_bytes": audio_path.stat().st_size,
         "duration_seconds": duration,
         "word_cue_count": len(cues),
-        "loudness_filter": "loudnorm=I=-16:TP=-1.5:LRA=7",
+        "loudness_filter": "loudnorm=I=-16:TP=-1.5:LRA=7,dynaudnorm=f=150:g=15:p=0.9:m=10",
         "loudness_analysis": "ffmpeg ebur128 peak=true completed",
         "words_path": str(words_path),
     }
