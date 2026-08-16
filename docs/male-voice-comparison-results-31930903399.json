@@ -1,0 +1,121 @@
+[
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Achird",
+    "status": "success",
+    "audio_bytes": 48981,
+    "duration_seconds": 5.664
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Algenib",
+    "status": "success",
+    "audio_bytes": 52149,
+    "duration_seconds": 5.856
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Algieba",
+    "status": "success",
+    "audio_bytes": 56589,
+    "duration_seconds": 6.048
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Alnilam",
+    "status": "success",
+    "audio_bytes": 55581,
+    "duration_seconds": 6.024
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Charon",
+    "status": "success",
+    "audio_bytes": 52917,
+    "duration_seconds": 6.048
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Enceladus",
+    "status": "success",
+    "audio_bytes": 55293,
+    "duration_seconds": 5.976
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Fenrir",
+    "status": "success",
+    "audio_bytes": 52509,
+    "duration_seconds": 5.664
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Iapetus",
+    "status": "success",
+    "audio_bytes": 56925,
+    "duration_seconds": 6.048
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Orus",
+    "status": "success",
+    "audio_bytes": 49917,
+    "duration_seconds": 5.808
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Puck",
+    "status": "success",
+    "audio_bytes": 52485,
+    "duration_seconds": 5.544
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Rasalgethi",
+    "status": "success",
+    "audio_bytes": 54165,
+    "duration_seconds": 6.168
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Sadachbia",
+    "status": "success",
+    "audio_bytes": 52749,
+    "duration_seconds": 5.736
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Sadaltager",
+    "status": "success",
+    "audio_bytes": 55845,
+    "duration_seconds": 6.048
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Schedar",
+    "status": "success",
+    "audio_bytes": 54813,
+    "duration_seconds": 5.928
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Umbriel",
+    "status": "success",
+    "audio_bytes": 55125,
+    "duration_seconds": 6.144
+  },
+  {
+    "provider_family": "ai_router_gemini",
+    "voice": "Zubenelgenubi",
+    "status": "success",
+    "audio_bytes": 55989,
+    "duration_seconds": 6.504
+  },
+  {
+    "provider_family": "edge_tts_last_resort_reference",
+    "voice": "en-US-GuyNeural",
+    "status": "success",
+    "audio_bytes": 28656,
+    "duration_seconds": 4.776
+  }
+]
