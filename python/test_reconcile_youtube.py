@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import reconcile_youtube
 from local_store import LocalStore
@@ -15,6 +15,35 @@ class ReconcileCurriculumTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
+
+    def test_deleted_public_video_is_requeued_for_regeneration(self) -> None:
+        candidate = self.store.get_next_curriculum_candidate("en")
+        assert candidate is not None
+        lesson_key = candidate["payload"]["curriculum_lesson_key"]
+        job_id = f"{candidate['id']}-en"
+        job = dict(candidate["payload"])
+        job.update({"id": job_id, "title": candidate["title"], "language": "en", "content_type": candidate["content_type"]})
+        self.store.add_candidate(candidate)
+        self.store.update_curriculum_episode(lesson_key, "en", "published", candidate_id=candidate["id"], job_id=job_id)
+        self.store.create_job(job)
+        self.store.upsert_youtube_publication(
+            job_id, "en", candidate["content_type"], "published", video_id="deleted-video",
+            video_url="https://www.youtube.com/watch?v=deleted-video",
+            metadata={"curriculum_lesson_key": lesson_key},
+        )
+        service = Mock()
+        service.videos.return_value.list.return_value = Mock(execute=Mock(return_value={"items": []}))
+        with patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1"}, clear=False), patch(
+            "reconcile_youtube.LocalStore", return_value=self.store
+        ), patch("reconcile_youtube.build_service", return_value=service), patch(
+            "reconcile_youtube.publish_video"
+        ) as publish:
+            self.assertEqual(reconcile_youtube.main(), 0)
+        state = self.store.curriculum_lesson_status(lesson_key, "en")
+        self.assertIsNotNone(state)
+        self.assertEqual(state["status"], "retry")
+        self.assertEqual(self.store.get_youtube_publication(job_id)["status"], "deleted_external")
+        publish.assert_not_called()
 
     def test_successful_reconciliation_marks_curriculum_episode_published(self) -> None:
         candidate = self.store.get_next_curriculum_candidate("en")
