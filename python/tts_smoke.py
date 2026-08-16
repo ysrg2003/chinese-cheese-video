@@ -18,7 +18,7 @@ def main() -> int:
     args = parser.parse_args()
 
     os.environ["TTS_PROVIDER"] = "ai_router"
-    os.environ["TTS_VOICE_EN"] = "Charon"
+    os.environ["TTS_VOICE_EN"] = "Schedar"
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     audio_path, words_path, cues = tts.synthesize(
@@ -46,6 +46,15 @@ def main() -> int:
     duration = float(probe.stdout.strip())
     if duration <= 0:
         raise RuntimeError(f"AI Router TTS produced an invalid duration: {duration}")
+    loudness_probe = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-i", str(audio_path), "-af", "ebur128=peak=true", "-f", "null", "-"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    loudness_text = loudness_probe.stderr
+    if "Summary:" not in loudness_text or "I:" not in loudness_text:
+        raise RuntimeError("AI Router TTS loudness analysis did not return an ebur128 summary")
     manifest = {
         "provider": os.environ["TTS_PROVIDER"],
         "voice": os.environ["TTS_VOICE_EN"],
@@ -56,6 +65,8 @@ def main() -> int:
         "audio_bytes": audio_path.stat().st_size,
         "duration_seconds": duration,
         "word_cue_count": len(cues),
+        "loudness_filter": "loudnorm=I=-16:TP=-1.5:LRA=7",
+        "loudness_analysis": "ffmpeg ebur128 peak=true completed",
         "words_path": str(words_path),
     }
     (output_dir / "manifest.json").write_text(

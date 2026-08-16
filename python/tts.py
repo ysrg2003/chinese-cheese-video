@@ -18,11 +18,12 @@ except ImportError:  # Legacy provider is optional when AI Router TTS is enabled
     edge_tts = None
 
 
-# Charon is documented by Google as a male Gemini-TTS voice. Keep both
-# channel languages on a male voice unless an explicit male voice is supplied.
+# Schedar is the selected male Gemini-TTS voice for both channel languages.
+# Keep the default here aligned with GitHub Actions so local and autonomous
+# production cannot silently diverge.
 VOICE_BY_LANGUAGE = {
-    "en": "Charon",
-    "zh": "Charon",
+    "en": "Schedar",
+    "zh": "Schedar",
 }
 
 # Edge TTS is deliberately last-resort only. These are male voices and are
@@ -72,7 +73,12 @@ def _pcm_to_mp3(pcm: bytes, output_path: Path, *, sample_rate_hz: int = 24000, c
             wav_file.setframerate(sample_rate_hz)
             wav_file.writeframes(pcm)
         subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path), "-codec:a", "libmp3lame", "-q:a", "3", str(output_path)],
+            [
+                "ffmpeg", "-y", "-loglevel", "error", "-i", str(wav_path),
+                "-af", "loudnorm=I=-16:TP=-1.5:LRA=7",
+                "-ar", "24000", "-ac", str(channels),
+                "-codec:a", "libmp3lame", "-q:a", "2", str(output_path),
+            ],
             check=True,
             capture_output=True,
             text=True,

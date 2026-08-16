@@ -29,7 +29,7 @@ class _FakeRouter:
 
 
 class RouterTtsTests(unittest.TestCase):
-    def test_default_provider_is_ai_router_and_uses_male_charon_voice(self) -> None:
+    def test_default_provider_is_ai_router_and_uses_male_schedar_voice(self) -> None:
         fake = _FakeRouter()
         with tempfile.TemporaryDirectory() as directory, patch.object(tts, "load_router", return_value=fake), patch.object(tts, "_pcm_to_mp3") as convert:
             old_provider = os.environ.pop("TTS_PROVIDER", None)
@@ -48,9 +48,18 @@ class RouterTtsTests(unittest.TestCase):
             self.assertEqual(cues, [])
             self.assertEqual(len(fake.calls), 1)
             self.assertEqual(fake.calls[0]["output_type"], "audio")
-            self.assertEqual(fake.calls[0]["voice"], "Charon")
+            self.assertEqual(fake.calls[0]["voice"], "Schedar")
             self.assertIn("adult male educational narrator", str(fake.calls[0]["user_prompt"]))
             convert.assert_called_once()
+
+    def test_pcm_conversion_applies_loudness_normalization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, patch.object(tts.subprocess, "run") as run:
+            output = Path(directory) / "voice.mp3"
+            tts._pcm_to_mp3(b"\x00\x00" * 240, output)
+            command = run.call_args.args[0]
+            self.assertIn("loudnorm=I=-16:TP=-1.5:LRA=7", command)
+            self.assertIn("-q:a", command)
+            self.assertIn("2", command)
 
     def test_edge_is_called_only_after_ai_router_failure(self) -> None:
         edge = AsyncMock(return_value=[{"startSec": 0.0, "endSec": 0.5, "text": "Fallback"}])
