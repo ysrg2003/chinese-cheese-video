@@ -182,6 +182,11 @@ jobs:
         run: |
           test -f python/research_grounding.py
           test -f python/xiangqi_claims.py
+          test -f python/integration_contracts.py
+          grep -q 'assert_job_contract' python/run_pipeline.py
+          grep -q 'assert_publication_contract' python/run_pipeline.py
+          grep -q 'curriculum_gate' python/automation_runner.py
+          grep -q 'claim_curriculum_lesson' python/automation_runner.py
           grep -q "research_required" python/run_pipeline.py
           grep -q "XIANGQI_RESEARCH_REQUIRED" python/research_grounding.py
           grep -q "claimProof" python/director.py
