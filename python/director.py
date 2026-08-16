@@ -592,6 +592,39 @@ def _apply_horse_leg_template_contract(result: dict[str, Any], puzzle: dict[str,
     return result
 
 
+def _apply_rook_file_template_contract(result: dict[str, Any], puzzle: dict[str, Any]) -> dict[str, Any]:
+    """Keep the Chariot file lesson deterministic and mechanically grounded."""
+    if str(puzzle.get("position_template") or "") != "rook-file":
+        return result
+    from curriculum import TEMPLATES
+
+    template_moves = [dict(item) for item in TEMPLATES["rook-file"]]
+    safe_text = [
+        ("Move the red Pawn one point to make room on file 1.", "Black makes a legal pawn reply on file 3.", "The red Pawn is one point closer to the river."),
+        ("Black makes a quiet pawn reply.", "Red continues the file lesson.", "The traced position stays legal."),
+        ("Move the red Pawn again to make room for the Chariot.", "Black makes another legal pawn reply.", "The Chariot's route on file 1 is now clear."),
+        ("Black makes another quiet pawn reply.", "Red prepares the Chariot demonstration.", "The position remains ready for the final move."),
+        ("Bring the red Chariot from the corner to file 1, rank 6.", "Black must choose a reply.", "The Chariot now stands on the demonstrated file."),
+    ]
+    for index, move in enumerate(template_moves, start=1):
+        purpose, reply, effect = safe_text[index - 1]
+        move.update({
+            "ply": index,
+            "purpose": purpose,
+            "opponentReply": reply,
+            "effect": effect,
+            "label": purpose,
+            "claims": [{
+                "claimType": "legal_move",
+                "ply": index,
+                "position": "after",
+                "statement": f"The supplied move at ply {index} is legal in the traced position.",
+            }],
+        })
+    result["moves"] = template_moves
+    return result
+
+
 def _normalise_move_entries(raw_moves: Any, language: str, puzzle: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(raw_moves, list):
         return []
@@ -649,6 +682,7 @@ def _sanitize_director_data(data: dict[str, Any], language: str, puzzle: dict[st
                 move.pop(field, None)
     result = _apply_elephant_eye_template_contract(result, puzzle)
     result = _apply_horse_leg_template_contract(result, puzzle)
+    result = _apply_rook_file_template_contract(result, puzzle)
     analysis_focus = _safe_text(puzzle.get("analysis_focus"), "the next plan", language)
     existing_segments = result.get("narrationSegments") if isinstance(result.get("narrationSegments"), list) else []
     intro_source = next(
