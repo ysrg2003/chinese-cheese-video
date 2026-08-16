@@ -36,7 +36,7 @@ on:
         default: false
         type: boolean
       tts_smoke:
-        description: "Run a real AI Router Gemini-TTS smoke test with male Charon voice; do not produce or publish a video"
+        description: "Run a real AI Router Gemini-TTS smoke test with male Schedar voice; do not produce or publish a video"
         required: false
         default: false
         type: boolean
@@ -86,8 +86,8 @@ jobs:
       YOUTUBE_AUTO_CREATE_PLAYLISTS: ${{ vars.YOUTUBE_AUTO_CREATE_PLAYLISTS || '1' }}
       DISCOVERY_RSS_QUERY: ${{ vars.DISCOVERY_RSS_QUERY || 'xiangqi OR "Chinese chess" OR 象棋' }}
       TTS_PROVIDER: ai_router
-      TTS_VOICE_EN: Charon
-      TTS_VOICE_ZH: Charon
+      TTS_VOICE_EN: Schedar
+      TTS_VOICE_ZH: Schedar
       USE_WORD_CAPTIONS: "1"
       VISUAL_STORYBOARD_ENABLED: "1"
       CHATGPT_VISUAL_API_BASE: ${{ vars.CHATGPT_VISUAL_API_BASE || 'https://yousefsg-chatgpt-api.hf.space' }}
@@ -204,7 +204,7 @@ jobs:
           grep -q 'validate_move_sequence' python/director.py
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
           grep -q 'TTS_PROVIDER: ai_router' .github/workflows/render-video.yml
-          grep -q 'TTS_VOICE_EN: Charon' .github/workflows/render-video.yml
+          grep -q 'TTS_VOICE_EN: Schedar' .github/workflows/render-video.yml
           grep -q 'output_type="audio"' python/tts.py
           grep -q 'edge_tts_last_resort' python/tts.py
           test -f python/tts_voice_compare.py
