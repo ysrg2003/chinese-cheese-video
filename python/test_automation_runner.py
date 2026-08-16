@@ -75,7 +75,7 @@ class AutomationModeTests(unittest.TestCase):
         self.assertEqual(result, "curriculum-en-001-en")
         render.assert_called_once()
 
-    def test_individual_remediation_quarantine_still_blocks_regeneration(self) -> None:
+    def test_historical_quarantine_without_active_publication_allows_regeneration(self) -> None:
         class RemediationStore:
             def get_publication_reset_history(self, job_id: str) -> dict[str, str]:
                 return {
@@ -88,8 +88,24 @@ class AutomationModeTests(unittest.TestCase):
 
         candidate = {"id": "curriculum-en-013", "title": "The Horse and the Horse Leg", "content_type": "rules"}
         with patch("automation_runner.subprocess.run") as render:
-            with self.assertRaises(PublicationPendingError):
-                run_one(candidate, "en", RemediationStore(), "test-run")
+            with patch.dict("os.environ", {"YOUTUBE_PUBLISH_ENABLED": "0", "XIANGQI_REVIEW_ONLY": "0"}, clear=False):
+                result = run_one(candidate, "en", RemediationStore(), "test-run")
+        self.assertEqual(result, "curriculum-en-013-en")
+        render.assert_called_once()
+
+    def test_active_quarantined_publication_blocks_duplicate_upload(self) -> None:
+        class ActiveRemediationStore:
+            def get_publication_reset_history(self, job_id: str) -> dict[str, str]:
+                return {"reset_group": "en013-grounded-review-regeneration-2026-08-15", "original_video_id": "dw6V8q69hY8"}
+
+            def get_youtube_publication(self, job_id: str) -> dict[str, str]:
+                return {"status": "published", "video_id": "dw6V8q69hY8"}
+
+        candidate = {"id": "curriculum-en-013", "title": "The Horse and the Horse Leg", "content_type": "rules"}
+        with patch("automation_runner.subprocess.run") as render:
+            with patch.dict("os.environ", {"YOUTUBE_PUBLISH_ENABLED": "1", "XIANGQI_REVIEW_ONLY": "0"}, clear=False):
+                with self.assertRaises(PublicationPendingError):
+                    run_one(candidate, "en", ActiveRemediationStore(), "test-run")
         render.assert_not_called()
 
 

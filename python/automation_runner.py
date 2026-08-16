@@ -195,18 +195,21 @@ def run_one(candidate: dict[str, Any], language: str, store: LocalStore, run_id:
     # not create a new video with a new run timestamp.
     job_id = f"{candidate['id'][:60]}-{language}".replace("/", "-")
     review_only = os.getenv("XIANGQI_REVIEW_ONLY", "0").lower() in {"1", "true", "yes"}
+    existing_publication = store.get_youtube_publication(job_id)
     history_reader = getattr(store, "get_publication_reset_history", None)
     quarantined = history_reader(job_id) if history_reader else None
-    # Full-channel deletion has already verified that the old identity is absent.
-    # Individual remediation resets remain quarantined to prevent duplicate uploads.
+    # A reset-history row is an audit record, not proof that the old video still
+    # exists. Only an active local publication can block autonomous regeneration.
     reset_group = str((quarantined or {}).get("reset_group") or "")
     full_channel_restart = reset_group.startswith("full_channel_restart_")
-    if quarantined and not review_only and not full_channel_restart:
+    active_publication = bool(existing_publication and existing_publication.get("status") in {
+        "published", *RESUMABLE_PUBLICATION_STATUSES,
+    })
+    if quarantined and active_publication and not review_only and not full_channel_restart:
         raise PublicationPendingError(
-            f"Public video {quarantined['original_video_id']} is quarantined for review-only replacement; "
-            "ordinary production is blocked until the replacement is explicitly approved"
+            f"Public video {quarantined['original_video_id']} is still active; "
+            "ordinary production will not create a duplicate replacement"
         )
-    existing_publication = store.get_youtube_publication(job_id)
     if existing_publication and existing_publication.get("status") == "published":
         stored_job = store.get_video_job_payload(job_id)
         if stored_job:
