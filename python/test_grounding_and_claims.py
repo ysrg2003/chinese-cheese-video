@@ -106,6 +106,19 @@ class GroundingAndClaimsTests(unittest.TestCase):
         self.assertEqual(job["claimsByPly"][7][-1]["subject"]["at"], [2, 2])
         self.assertNotIn("horse eye", str(job).lower())
 
+    def test_flying_general_rule_claim_is_verified_without_subject_coordinate(self) -> None:
+        claims = {
+            1: [{
+                "claimType": "flying_general_rule",
+                "ply": 1,
+                "position": "after",
+                "statement": "The Generals must never face each other along an empty file; that position is illegal.",
+            }]
+        }
+        result = verify_claims(STANDARD_FEN, HORSE_LESSON_MOVES, claims)
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertEqual(result["proofs"][0]["claimType"], "flying_general_rule")
+
     def test_legal_move_claim_can_pass_without_inventing_causal_effect(self) -> None:
         claims = {
             index: [{"claimType": "legal_move", "ply": index, "position": "after", "statement": "The supplied move is legal."}]

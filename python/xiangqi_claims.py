@@ -25,6 +25,7 @@ CLAIM_TYPES = {
     "cannon_screen",
     "river_limit",
     "flying_general",
+    "flying_general_rule",
     "legal_destinations",
 }
 _SUSPICIOUS_CAUSAL_LANGUAGE = re.compile(
@@ -190,6 +191,13 @@ def _claim_for_ply(trace: dict[str, Any], claim: Mapping[str, Any]) -> tuple[boo
     position = str(claim.get("position") or "after").lower()
     board = entry["beforeBoard"] if position == "before" else entry["afterBoard"]
     subject_at = _point((claim.get("subject") or {}).get("at") if isinstance(claim.get("subject"), dict) else claim.get("subjectAt"))
+    if claim_type == "flying_general_rule":
+        statement = str(claim.get("statement") or "").lower()
+        required_terms = ("general", "face")
+        prohibition_terms = ("never", "must not", "forbidden", "illegal", "prohibit", "empty file")
+        if not all(term in statement for term in required_terms) or not any(term in statement for term in prohibition_terms):
+            return False, "flying_general_rule statement does not state the prohibition", {}
+        return True, "Flying General prohibition verified as a Xiangqi rule", {"claimType": claim_type, "ply": ply, "verified": True, "rule": "generals may not face each other along an empty file"}
     if claim_type == "legal_move":
         return True, "legal move is present in validated trace", {"claimType": claim_type, "ply": ply, "verified": True}
     if subject_at is None:

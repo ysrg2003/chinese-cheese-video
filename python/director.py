@@ -30,7 +30,7 @@ You are the director of short Xiangqi Chinese-chess videos. Return valid JSON on
   "captions": [{"startSec": 0.0, "endSec": 2.0, "text": "short English caption"}],
   "durationInSeconds": 0
 }
-Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only king, advisor, bishop, knight, rook, cannon, pawn and red or black. The supplied researchBundle is mandatory evidence: use it before writing the script and cite source ids in claims. Every causal or rule statement must have at least one structured claim. Allowed claimType values are legal_move, horse_leg_block, horse_leg_open, elephant_eye_block, elephant_eye_open, cannon_screen, river_limit, flying_general, and legal_destinations. A claim must specify ply, position, subject.at when relevant, target or blocker when relevant, and a precise statement. Do not use words such as blocks, blocked, Horse Eye, opens, unblocks, screen, mount, cannot, or river limit unless the corresponding claim is mechanically true in the supplied board trace. For every move, write a natural spoken explanation that includes what the move tries to do, the opponent's likely reply, what changed after that reply, and the next plan. Do not merely list coordinates. Keep each move explanation concise enough for one or two caption lines. Do not force a fixed short duration; the rendering pipeline calculates the final duration from narration, audio, captions, and move count. Do not output Markdown or any text outside JSON. Never output Arabic.
+Rules: columns are 0..8 and rows are 0..9 from the top of the board. Use only king, advisor, bishop, knight, rook, cannon, pawn and red or black. The supplied researchBundle is mandatory evidence: use it before writing the script and cite source ids in claims. Every causal or rule statement must have at least one structured claim. Allowed claimType values are legal_move, horse_leg_block, horse_leg_open, elephant_eye_block, elephant_eye_open, cannon_screen, river_limit, flying_general, flying_general_rule, and legal_destinations. Use flying_general_rule for the prohibition that the Generals must never face each other along an empty file; do not represent that forbidden position as a legal move. A claim must specify ply, position, subject.at when relevant, target or blocker when relevant, and a precise statement. Do not use words such as blocks, blocked, Horse Eye, opens, unblocks, screen, mount, cannot, or river limit unless the corresponding claim is mechanically true in the supplied board trace. For every move, write a natural spoken explanation that includes what the move tries to do, the opponent's likely reply, what changed after that reply, and the next plan. Do not merely list coordinates. Keep each move explanation concise enough for one or two caption lines. Do not force a fixed short duration; the rendering pipeline calculates the final duration from narration, audio, captions, and move count. Do not output Markdown or any text outside JSON. Never output Arabic.
 """.strip(),
     "zh": """
 你是中国象棋短视频导演。只能返回有效 JSON，格式如下：
@@ -679,6 +679,16 @@ def _build_verified_claims(clean_data: dict[str, Any], puzzle: dict[str, Any], c
     claims_by_ply: dict[int, list[dict[str, Any]]] = {}
     for raw_move, canonical_move in zip(clean_data.get("moves", []), canonical_moves):
         raw_move["piece"] = canonical_move["piece"]
+        raw_claims = raw_move.get("claims") if isinstance(raw_move.get("claims"), list) else []
+        for claim in raw_claims:
+            if isinstance(claim, dict) and str(claim.get("claimType") or "") == "flying_general":
+                # Legacy AI outputs used flying_general for the rule explanation
+                # and often omitted subject.at. It is a rule claim, not a legal
+                # board position, so normalize it to the explicit rule contract.
+                claim["claimType"] = "flying_general_rule"
+                claim.pop("subject", None)
+                claim.pop("subjectAt", None)
+                claim.setdefault("statement", "The Generals must never face each other along an empty file; that position is illegal.")
         raw_move["side"] = canonical_move["side"]
         raw_move["captured"] = canonical_move["captured"]
         ply = int(canonical_move["ply"])
