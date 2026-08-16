@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
-from curriculum import DEFAULT_FEN, candidate_from_lesson, load_curriculum
+from curriculum import DEFAULT_FEN, TEMPLATES, candidate_from_lesson, load_curriculum
 from xiangqi_rules import validate_move_sequence
 
 
@@ -53,6 +53,20 @@ class CurriculumStoreTests(unittest.TestCase):
         self.assertEqual(payload["position_template"], "board-only")
         self.assertEqual(payload["moves"], [])
         self.assertIn("battlefield", payload["visual_focus"].lower())
+
+    def test_every_move_template_is_legal_on_standard_starting_board(self) -> None:
+        for template_name, template_moves in TEMPLATES.items():
+            moves = []
+            for ply, move in enumerate(template_moves, 1):
+                moves.append({
+                    "ply": ply,
+                    "from": move["from"],
+                    "to": move["to"],
+                    "piece": move.get("piece"),
+                    "side": move.get("side"),
+                })
+            result = validate_move_sequence(DEFAULT_FEN, moves)
+            self.assertTrue(result["ok"], f"{template_name}: {result['errors']}")
 
     def test_piece_lesson_keeps_teaching_move_examples(self) -> None:
         curriculum = load_curriculum()

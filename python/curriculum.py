@@ -115,7 +115,9 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
     ],
     "rook-file": [
         {"from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "label": "Clear the file"},
-        {"from": [0, 0], "to": [0, 4], "piece": "rook", "side": "black", "label": "Contest the file"},
+        {"from": [2, 3], "to": [2, 4], "piece": "pawn", "side": "black", "label": "Make a legal waiting reply"},
+        {"from": [0, 5], "to": [0, 4], "piece": "pawn", "side": "red", "label": "Clear the file further"},
+        {"from": [4, 3], "to": [4, 4], "piece": "pawn", "side": "black", "label": "Keep the reply legal"},
         {"from": [0, 9], "to": [0, 5], "piece": "rook", "side": "red", "label": "Activate the chariot"},
     ],
     "cannon-screen": [
@@ -136,7 +138,11 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "board-only": [],
     "cannon-rook-coordination": [
         {"from": [1, 7], "to": [1, 4], "piece": "cannon", "side": "red", "label": "Fix the defender"},
-        {"from": [0, 0], "to": [0, 4], "piece": "rook", "side": "black", "label": "Seek counterplay"},
+        {"from": [2, 3], "to": [2, 4], "piece": "pawn", "side": "black", "label": "Make a legal reply"},
+        {"from": [0, 6], "to": [0, 5], "piece": "pawn", "side": "red", "label": "Clear the chariot file"},
+        {"from": [4, 3], "to": [4, 4], "piece": "pawn", "side": "black", "label": "Keep the reply legal"},
+        {"from": [0, 5], "to": [0, 4], "piece": "pawn", "side": "red", "label": "Open the file further"},
+        {"from": [6, 3], "to": [6, 4], "piece": "pawn", "side": "black", "label": "Preserve a legal tempo"},
         {"from": [0, 9], "to": [0, 5], "piece": "rook", "side": "red", "label": "Exploit the open file"},
     ],
 }
