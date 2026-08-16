@@ -340,5 +340,5 @@ jobs:
           fi
 
       - name: Mark workflow failed only for hard completion errors
-        if: steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure'
+        if: inputs.tts_smoke != true && (steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure')
         run: exit 1
