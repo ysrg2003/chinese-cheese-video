@@ -492,11 +492,16 @@ class LocalStore:
             rows = connection.execute(
                 """
                 SELECT p.lesson_key, p.language, p.candidate_id, p.job_id, p.updated_at,
-                       y.status AS publication_status
+                       y.status AS publication_status,
+                       y.video_id AS publication_video_id
                 FROM curriculum_episode_plans p
                 LEFT JOIN youtube_publications y ON y.job_id = p.job_id
                 WHERE p.language = ? AND p.updated_at < ?
-                  AND (p.status = 'processing' OR (p.status = 'blocked' AND p.error_message LIKE 'Review artifact generated%'))
+                  AND (
+                    p.status = 'processing'
+                    OR (p.status = 'blocked' AND p.error_message LIKE 'Review artifact generated%')
+                    OR (y.status = 'publishing' AND y.video_id IS NULL)
+                  )
                 ORDER BY p.updated_at ASC
                 """,
                 (language, cutoff),
@@ -506,16 +511,21 @@ class LocalStore:
                 publication_status = str(row["publication_status"] or "")
                 if publication_status in {
                     "published", "uploaded_playlist_pending", "published_localization_pending",
-                    "published_thumbnail_pending", "publishing",
+                    "published_thumbnail_pending",
                 }:
                     continue
                 previous_status = str(row["publication_status"] or "")
+                previous_video_id = str(row["publication_video_id"] or "")
                 result = connection.execute(
                     """
                     UPDATE curriculum_episode_plans
                     SET status='retry', error_message=?, updated_at=?
                     WHERE lesson_key=? AND language=?
-                      AND (status='processing' OR (status='blocked' AND error_message LIKE 'Review artifact generated%'))
+                      AND (
+                        status='processing'
+                        OR (status='blocked' AND error_message LIKE 'Review artifact generated%')
+                        OR (status='retry' AND error_message LIKE 'YouTube publish lease expired%')
+                      )
                     """,
                     (
                         "Previous production lease expired without a YouTube publication; safely requeued.",
@@ -530,11 +540,16 @@ class LocalStore:
                             "UPDATE content_candidates SET status='discovered', updated_at=? WHERE id=? AND status='processing'",
                             (now, row["candidate_id"]),
                         )
+                    if previous_status == "publishing" and not previous_video_id:
+                        connection.execute(
+                            "UPDATE youtube_publications SET status='failed', error_message=?, updated_at=? WHERE job_id=? AND status='publishing' AND video_id IS NULL",
+                            ("YouTube publish lease expired without a video_id; safe to retry without reusing an unknown public identity.", now, row["job_id"]),
+                        )
                     recovered.append({
                         "lesson_key": row["lesson_key"],
                         "job_id": row["job_id"],
                         "candidate_id": row["candidate_id"],
-                        "previous_status": "processing_or_review_blocked",
+                        "previous_status": previous_status or "processing_or_review_blocked",
                         "status": "retry",
                     })
         return recovered

@@ -123,6 +123,31 @@ class ReconcileCurriculumTests(unittest.TestCase):
         self.assertEqual(recovered[0]["lesson_key"], lesson_key)
         self.assertEqual(self.store.curriculum_lesson_status(lesson_key, "en")["status"], "retry")
 
+    def test_stale_publishing_without_video_id_is_requeued_safely(self) -> None:
+        candidate = self.store.get_next_curriculum_candidate("en")
+        assert candidate is not None
+        lesson_key = candidate["payload"]["curriculum_lesson_key"]
+        job_id = f"{candidate['id']}-en"
+        self.store.add_candidate(candidate)
+        self.store.update_curriculum_episode(
+            lesson_key,
+            "en",
+            "retry",
+            candidate_id=candidate["id"],
+            job_id=job_id,
+            error_message="YouTube publish lease expired during a previous run",
+        )
+        self.store.upsert_youtube_publication(job_id, "en", "rules", "publishing", video_id=None)
+        with self.store._connect() as connection:
+            connection.execute(
+                "UPDATE curriculum_episode_plans SET updated_at='2020-01-01T00:00:00+00:00' WHERE lesson_key=? AND language='en'",
+                (lesson_key,),
+            )
+        recovered = self.store.recover_stale_curriculum_processing("en", 900)
+        self.assertEqual(recovered[0]["previous_status"], "publishing")
+        publication = self.store.get_youtube_publication(job_id)
+        self.assertEqual(publication["status"], "failed")
+
     def test_stale_processing_without_publication_is_requeued(self) -> None:
         candidate = self.store.get_next_curriculum_candidate("en")
         assert candidate is not None

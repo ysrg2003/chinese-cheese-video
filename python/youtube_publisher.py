@@ -238,10 +238,18 @@ def _credentials_from_environment() -> Any:
 
 def build_service() -> Any:
     try:
+        import httplib2
+        from google_auth_httplib2 import AuthorizedHttp
         from googleapiclient.discovery import build
     except ImportError as exc:
-        raise YouTubePublisherError("Install google-api-python-client and google-auth-oauthlib first") from exc
-    return build("youtube", "v3", credentials=_credentials_from_environment(), cache_discovery=False)
+        raise YouTubePublisherError("Install google-api-python-client, google-auth-httplib2, and google-auth-oauthlib first") from exc
+    try:
+        timeout_seconds = max(10, min(600, int(os.getenv("YOUTUBE_HTTP_TIMEOUT_SECONDS", "180"))))
+    except ValueError:
+        timeout_seconds = 180
+    credentials = _credentials_from_environment()
+    http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=timeout_seconds))
+    return build("youtube", "v3", http=http, cache_discovery=False)
 
 
 def _execute_with_backoff(request_factory: Any, *, max_attempts: int = 6) -> dict[str, Any]:
