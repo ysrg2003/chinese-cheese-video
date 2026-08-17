@@ -33,7 +33,27 @@ def _job_ids(value: list[str]) -> list[str]:
     return result
 
 
-def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, Any]:
+def _known_dimensions(values: list[str]) -> dict[str, tuple[int, int]]:
+    result: dict[str, tuple[int, int]] = {}
+    for raw_group in values:
+        for raw_item in str(raw_group or "").split(","):
+            item = raw_item.strip()
+            if not item or "=" not in item or "x" not in item.lower():
+                continue
+            job_id, raw_dimensions = item.split("=", 1)
+            raw_width, raw_height = raw_dimensions.lower().split("x", 1)
+            width, height = int(raw_width), int(raw_height)
+            if width > 0 and height > 0:
+                result[job_id.strip()] = (width, height)
+    return result
+
+
+def backfill(
+    job_ids: list[str],
+    db_path: Path,
+    output_root: Path,
+    known_dimensions: dict[str, tuple[int, int]] | None = None,
+) -> dict[str, Any]:
     store = LocalStore(db_path)
     service = build_service()
     report: dict[str, Any] = {"status": "completed", "selected": len(job_ids), "updated": 0, "skipped": 0, "failed": 0, "items": []}
@@ -51,18 +71,31 @@ def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, 
             job = dict(job)
             job["id"] = job_id
             job.setdefault("language", publication.get("language") or "en")
-            remote_format, remote_dimensions = classify_remote_video_format(service, str(publication["video_id"]), job)
+            dimension_source = "youtube_file_details"
+            try:
+                remote_format, remote_dimensions = classify_remote_video_format(service, str(publication["video_id"]), job)
+            except YouTubePublisherError:
+                fallback_dimensions = (known_dimensions or {}).get(job_id)
+                if not fallback_dimensions:
+                    raise
+                remote_dimensions = fallback_dimensions
+                remote_format = "short" if remote_dimensions[1] > remote_dimensions[0] and remote_dimensions[1] / remote_dimensions[0] >= 1.1 else "standard"
+                dimension_source = "verified_artifact_dimensions"
             item["remote_format"] = remote_format
             item["remote_dimensions"] = {"width": remote_dimensions[0], "height": remote_dimensions[1]}
+            item["dimension_source"] = dimension_source
             if remote_format == "short":
                 metadata = dict(publication.get("metadata") or {})
                 if metadata.get("thumbnail"):
                     metadata["legacy_thumbnail_upload"] = metadata.get("thumbnail")
+                metadata["remote_format"] = remote_format
+                metadata["remote_dimensions"] = {"width": remote_dimensions[0], "height": remote_dimensions[1]}
+                metadata["remote_dimensions_source"] = dimension_source
                 metadata["thumbnail_policy"] = "manual_studio_required"
                 metadata["thumbnail"] = {
                     "status": "manual_studio_required",
                     "message": "The existing upload is portrait and is presented as a YouTube Short. Select or upload a 9:16 thumbnail in YouTube Studio on a computer.",
-                    "source": "remote_video_dimensions",
+                    "source": dimension_source,
                     "remote_dimensions": {"width": remote_dimensions[0], "height": remote_dimensions[1]},
                 }
                 store.upsert_youtube_publication(
@@ -100,6 +133,7 @@ def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, 
             metadata = dict(publication.get("metadata") or {})
             metadata["remote_format"] = remote_format
             metadata["remote_dimensions"] = {"width": remote_dimensions[0], "height": remote_dimensions[1]}
+            metadata["remote_dimensions_source"] = dimension_source
             metadata["thumbnail_policy"] = "api_upload_and_readback"
             metadata["thumbnail"] = {
                 "default": assets["default"],
@@ -146,11 +180,12 @@ def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--job-id", action="append", required=True, help="Existing published job ID; repeat for multiple videos")
+    parser.add_argument("--known-dimensions", action="append", default=[], help="Optional verified dimensions: job-id=WIDTHxHEIGHT; repeat or comma-separate")
     parser.add_argument("--db-path", default=os.getenv("LOCAL_DB_PATH", "data/chinese_cheese_video.db"))
     parser.add_argument("--output-root", default="output/thumbnail-backfill")
     parser.add_argument("--report", default="thumbnail-backfill-report.json")
     args = parser.parse_args()
-    report = backfill(_job_ids(args.job_id), Path(args.db_path), Path(args.output_root))
+    report = backfill(_job_ids(args.job_id), Path(args.db_path), Path(args.output_root), _known_dimensions(args.known_dimensions))
     Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["status"] == "completed" else 1

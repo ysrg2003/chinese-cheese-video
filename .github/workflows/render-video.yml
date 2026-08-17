@@ -231,6 +231,8 @@ jobs:
           grep -q 'api_readback_confirmed' python/backfill_thumbnails.py
           test -f python/backfill_thumbnails.py
           test -f .github/workflows/backfill-thumbnails.yml
+          grep -q 'known_dimensions' .github/workflows/backfill-thumbnails.yml
+          grep -q 'test_known_dimensions_accepts_comma_separated_verified_artifacts' python/test_backfill_thumbnails.py
           grep -q 'test_semantic_format_dimensions_are_deterministic' python/test_youtube_publisher.py
           grep -q 'test_standard_thumbnail_must_pass_youtube_readback' python/test_youtube_publisher_fake_api.py
           grep -q 'TTS_PROVIDER: ai_router' .github/workflows/render-video.yml

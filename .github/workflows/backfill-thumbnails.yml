@@ -8,6 +8,11 @@ on:
         required: true
         default: "curriculum-en-015-the-cannon-and-its-mount-en,curriculum-en-016-soldiers-before-and-after-river-en"
         type: string
+      known_dimensions:
+        description: "Optional verified artifact dimensions, e.g. job-id=1920x1080"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -60,6 +65,7 @@ jobs:
       - name: Upload thumbnails without re-uploading videos
         env:
           JOB_IDS: ${{ inputs.job_ids }}
+          KNOWN_DIMENSIONS: ${{ inputs.known_dimensions }}
         run: |
           set -euo pipefail
           IFS=',' read -ra IDS <<< "$JOB_IDS"
@@ -69,6 +75,9 @@ jobs:
             test -n "$clean"
             ARGS+=(--job-id "$clean")
           done
+          if [ -n "$KNOWN_DIMENSIONS" ]; then
+            ARGS+=(--known-dimensions "$KNOWN_DIMENSIONS")
+          fi
           PYTHONPATH=python python python/backfill_thumbnails.py "${ARGS[@]}" --report thumbnail-backfill-report.json
 
       - name: Upload backfill report and generated thumbnails
