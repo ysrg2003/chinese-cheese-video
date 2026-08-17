@@ -21,6 +21,14 @@ FRAME_HEIGHT = 1920
 SIDE_STRIP = (0, 450, 64, 1450)
 
 
+def _expected_frame_size(job: dict[str, Any]) -> tuple[int, int]:
+    """Return the same semantic format dimensions enforced by Remotion."""
+    declared = (int(job.get("renderedWidth") or 0), int(job.get("renderedHeight") or 0))
+    if declared[0] > 0 and declared[1] > 0:
+        return declared
+    return (1080, 1920) if str(job.get("format") or "lesson").strip().lower() == "short" else (1920, 1080)
+
+
 def _probe_duration(video_path: Path) -> float:
     result = subprocess.run(
         [
@@ -86,17 +94,18 @@ def _fit_cover(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     return resized.crop((left, top, left + target_width, top + target_height))
 
 
-def _asset_side_strip_similarity(frame: Image.Image, asset: Image.Image) -> float:
+def _asset_side_strip_similarity(frame: Image.Image, asset: Image.Image, frame_size: tuple[int, int]) -> float:
     """Return a 0..1 similarity for the unoccluded side strip.
 
     GeneratedVisualAsset is a full-frame backdrop below the board and semantic
     overlays. The left strip is outside the board and therefore remains a stable
     pixel witness that the asset was actually composited into the MP4.
     """
-    frame_rgb = frame.convert("RGB").resize((FRAME_WIDTH, FRAME_HEIGHT), Image.Resampling.BILINEAR)
-    asset_rgb = _fit_cover(asset, (FRAME_WIDTH, FRAME_HEIGHT))
-    frame_crop = frame_rgb.crop(SIDE_STRIP).resize((32, 128), Image.Resampling.BILINEAR)
-    asset_crop = asset_rgb.crop(SIDE_STRIP).resize((32, 128), Image.Resampling.BILINEAR)
+    frame_rgb = frame.convert("RGB").resize(frame_size, Image.Resampling.BILINEAR)
+    asset_rgb = _fit_cover(asset, frame_size)
+    strip = SIDE_STRIP if frame_size[0] < frame_size[1] else (1080, 120, 1840, 960)
+    frame_crop = frame_rgb.crop(strip).resize((64, 64), Image.Resampling.BILINEAR)
+    asset_crop = asset_rgb.crop(strip).resize((64, 64), Image.Resampling.BILINEAR)
     difference = ImageChops.difference(frame_crop, asset_crop)
     mean_difference = sum(ImageStat.Stat(difference).mean) / 3.0
     return max(0.0, min(1.0, 1.0 - mean_difference / 255.0))
@@ -131,6 +140,7 @@ def verify_rendered_visuals(
     except Exception as exc:
         return {"ok": False, "errors": [f"cannot probe rendered MP4 duration: {exc}"], "scenes": []}
 
+    expected_frame_size = _expected_frame_size(job)
     scenes = _scene_index_map(job)
     segments = _segment_records(job)
     if not segments:
@@ -161,8 +171,8 @@ def verify_rendered_visuals(
             _extract_frame(video_path, frame_second, frame_path)
             with Image.open(frame_path) as image:
                 frame = image.convert("RGB")
-                if frame.size != (FRAME_WIDTH, FRAME_HEIGHT):
-                    errors.append(f"scene_{scene_id} frame has unexpected size {frame.size}")
+                if frame.size != expected_frame_size:
+                    errors.append(f"scene_{scene_id} frame has unexpected size {frame.size}; expected {expected_frame_size}")
                 if sum(ImageStat.Stat(frame).mean) < 12.0:
                     errors.append(f"scene_{scene_id} sampled frame is effectively blank")
                 fingerprint = _fingerprint(frame)
@@ -195,7 +205,7 @@ def verify_rendered_visuals(
                 else:
                     try:
                         with Image.open(asset_path) as asset_image, Image.open(frame_path) as frame_image:
-                            similarity = _asset_side_strip_similarity(frame_image, asset_image)
+                            similarity = _asset_side_strip_similarity(frame_image, asset_image, expected_frame_size)
                         record["asset"] = {"src": src, "sideStripSimilarity": round(similarity, 4)}
                         if similarity < 0.55:
                             errors.append(f"scene_{scene_id} generatedAsset does not appear in rendered side-strip witness: similarity={similarity:.3f}")

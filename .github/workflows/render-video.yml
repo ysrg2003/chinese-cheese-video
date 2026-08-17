@@ -208,6 +208,8 @@ jobs:
           test -f docs/xiangqi_visual_spec.md
           grep -q 'Pre-publish thumbnail gate failed' python/run_pipeline.py
           test -f python/visual_qa.py
+          grep -q '_expected_frame_size' python/visual_qa.py
+          grep -q 'test_landscape_lesson_frame_and_asset_witness_pass' python/test_visual_qa.py
           test -f python/creative_critic.py
           grep -q 'run_prepublication_review' python/run_pipeline.py
           grep -q 'SELF_REPAIR_ENABLED' .github/workflows/render-video.yml

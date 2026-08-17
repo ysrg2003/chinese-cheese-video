@@ -9,7 +9,7 @@ from visual_qa import verify_rendered_visuals
 
 
 class RenderedVisualQATests(unittest.TestCase):
-    def _job(self, asset_src: str | None = None):
+    def _job(self, asset_src: str | None = None, format: str = "short"):
         scene = {
             "index": 1,
             "visualKind": "army_setup",
@@ -24,6 +24,7 @@ class RenderedVisualQATests(unittest.TestCase):
             scene["generatedAsset"] = {"src": asset_src, "assetRole": "editorial_backdrop"}
         return {
             "id": "visual-qa-test",
+            "format": format,
             "visualStoryboard": [scene],
             "narrationSegments": [{"sceneId": 1, "startSec": 0.0, "endSec": 2.0, "kind": "intro", "visualKind": "army_setup"}],
         }
@@ -31,6 +32,10 @@ class RenderedVisualQATests(unittest.TestCase):
     def _fake_frame(self, _video_path: Path, _second: float, output_path: Path):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (1080, 1920), (185, 135, 82)).save(output_path, format="JPEG")
+
+    def _fake_landscape_frame(self, _video_path: Path, _second: float, output_path: Path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (1920, 1080), (185, 135, 82)).save(output_path, format="JPEG")
 
     def test_rendered_frame_and_asset_witness_pass(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -45,6 +50,20 @@ class RenderedVisualQATests(unittest.TestCase):
                 result = verify_rendered_visuals(self._job("generated/visual-qa-test/assets/scene-01.png"), video, root / "qa", public_root)
             self.assertTrue(result["ok"], result["errors"])
             self.assertEqual(result["contract"], "rendered_mp4_scene_asset_witness_v1")
+            self.assertEqual(result["scenes"][0]["asset"]["sideStripSimilarity"], 1.0)
+
+    def test_landscape_lesson_frame_and_asset_witness_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            video = root / "job.mp4"
+            video.write_bytes(b"x" * 6000)
+            public_root = root / "public"
+            asset = public_root / "generated" / "visual-qa-test" / "assets" / "scene-01.png"
+            asset.parent.mkdir(parents=True)
+            Image.new("RGB", (1920, 1080), (185, 135, 82)).save(asset, format="PNG")
+            with patch("visual_qa._probe_duration", return_value=2.5), patch("visual_qa._extract_frame", side_effect=self._fake_landscape_frame):
+                result = verify_rendered_visuals(self._job("generated/visual-qa-test/assets/scene-01.png", format="lesson"), video, root / "qa", public_root)
+            self.assertTrue(result["ok"], result["errors"])
             self.assertEqual(result["scenes"][0]["asset"]["sideStripSimilarity"], 1.0)
 
     def test_missing_asset_fails_before_publish(self):
