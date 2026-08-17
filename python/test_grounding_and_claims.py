@@ -153,6 +153,34 @@ class GroundingAndClaimsTests(unittest.TestCase):
         self.assertEqual(job["claimsByPly"][7][-1]["subject"]["at"], [2, 2])
         self.assertNotIn("horse eye", str(job).lower())
 
+    def test_horse_development_curriculum_template_is_mechanically_grounded(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "moves": TEMPLATES["horse-development"],
+            "title": "How to Read a Xiangqi Move",
+            "content_type": "rules",
+            "position_template": "horse-development",
+            "curriculum_lesson_key": "en-009-how-to-read-a-move",
+            "durationInSeconds": 75,
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        ai_data = {
+            "title": "How to Read a Xiangqi Move",
+            "narration": "Watch the legal route.",
+            "moves": [
+                {"ply": 1, "from": [1, 9], "to": [2, 7], "piece": "knight", "side": "red", "purpose": "control the center", "claims": [{"claimType": "legal_move", "ply": 1, "position": "after", "statement": "The move is legal."}]},
+                {"ply": 2, "from": [1, 0], "to": [2, 2], "piece": "knight", "side": "black", "purpose": "contest the center", "claims": [{"claimType": "legal_move", "ply": 2, "position": "after", "statement": "The move is legal."}]},
+                {"ply": 3, "from": [2, 6], "to": [2, 5], "piece": "pawn", "side": "red", "purpose": "claim more space", "claims": [{"claimType": "legal_move", "ply": 3, "position": "after", "statement": "The move is legal."}]},
+            ],
+        }
+        clean = _sanitize_director_data(ai_data, "en", puzzle)
+        job = make_job("horse-development-template-test", puzzle, clean)
+        self.assertTrue(job["claimProof"]["ok"], job["claimProof"].get("errors"))
+        self.assertEqual([move["from"] for move in job["moves"]], [[1, 9], [1, 0], [2, 6]])
+        self.assertTrue(all(claim["claimType"] == "legal_move" for claims in job["claimsByPly"].values() for claim in claims))
+        self.assertNotIn("control the center", " ".join(move["purpose"] for move in job["moves"]))
+
     def test_flying_general_rule_claim_is_verified_without_subject_coordinate(self) -> None:
         claims = {
             1: [{

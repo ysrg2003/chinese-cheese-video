@@ -680,6 +680,11 @@ def _apply_safe_general_template_contract(result: dict[str, Any], puzzle: dict[s
             ("Move the black Pawn one point.", "Red makes a legal reply.", "The traced position remains legal."),
             ("Move the red Pawn to the legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
         ],
+        "horse-development": [
+            ("Move the red Horse to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+            ("Move the black Horse to its legal destination.", "Red makes a legal reply.", "The traced position remains legal."),
+            ("Move the red Pawn to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
+        ],
         "cannon-rook-coordination": [
             ("Move the red Cannon to its legal destination.", "Black makes a legal reply.", "The traced position remains legal."),
             ("Move the black Pawn to its legal destination.", "Red makes a legal reply.", "The traced position remains legal."),

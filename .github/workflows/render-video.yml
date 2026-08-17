@@ -220,6 +220,7 @@ jobs:
           grep -q 'verify_rendered_visuals' python/run_pipeline.py
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
           grep -q 'validate_move_sequence' python/director.py
+          grep -q '"horse-development"' python/director.py
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
           grep -q 'expected_video_dimensions' python/youtube_publisher.py
           grep -q 'assert_video_format_contract' python/run_pipeline.py
