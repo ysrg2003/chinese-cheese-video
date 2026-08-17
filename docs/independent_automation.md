@@ -1,63 +1,87 @@
-# Independent automation architecture
+# Independent Automation Architecture
 
-## الهدف
+## Purpose
 
-يعمل Chinese Cheese Video بدون جلسة Manus مفتوحة. يبدأ التشغيل المجدول باكتشاف مصادر وأفكار جديدة، ثم يمنع التكرار، يختار مرشحاً، يولد النص وخطة النقلات عبر طبقة مزودات مستقلة، يرندر الإنجليزية والصينية، يسجل كل مرحلة، ويحفظ قاعدة SQLite وملفات الفيديو لليوم التالي.
+Chinese Cheese Video operates without an open Manus session. A scheduled GitHub Actions runner discovers or selects work, validates the curriculum and Xiangqi rules, generates a grounded script and visual storyboard, produces male narration, renders a format-correct MP4, performs quality gates, publishes to YouTube when enabled, reconciles public state, uploads artifacts, and commits SQLite state for the next run.
 
-## خيارات التشغيل
+## Why GitHub Actions plus SQLite is the production design
 
-| Approach | Tradeoffs | Cost | Setup Complexity |
-| --- | --- | --- | --- |
-| GitHub Actions + SQLite committed to the repository | مناسب للتشغيل اليومي، يحفظ الحالة بين الأيام عبر commit، ويتيح artifacts. يعتمد على توفر runner وحدود GitHub؛ لا يفضل للمراقبة اللحظية. | GitHub Actions بحسب خطة المستودع، وتكلفة Gemini/Hugging Face حسب حسابات المستخدم | متوسطة؛ تحتاج Secrets وcommit أولي للتعديلات |
-| خادم دائم مع عامل طوابير وSQLite/Postgres | تحكم أكبر في الطوابير والجدولة والمراقبة، لكنه يحتاج استضافة مستمرة وصيانة ومراقبة أسرار ونسخ احتياطية. | تكلفة استضافة شهرية إضافة إلى مزودات AI | مرتفعة |
-| تشغيل محلي أو workflow يدوي بسيط | أخف في الإعداد، لكنه لا يحقق العمل اليومي بلا تدخل ولا يضمن حفظ الحالة خارج جهاز المستخدم. | منخفضة، لكن ليست أتمتة دائمة | منخفضة |
+| Design | Strengths | Trade-offs |
+| --- | --- | --- |
+| GitHub Actions plus committed SQLite | Scheduled execution, durable state, workflow logs, artifacts, and no continuously running server | Runner time limits, provider quotas, and Git commits are part of the persistence path |
+| Persistent server plus queue | Fine-grained scheduling and live monitoring | Requires a continuously maintained host, queue, database, and secret manager |
+| Local-only execution | Fastest setup for development | Does not provide unattended execution or shared durable state |
 
-الخيار المنفذ هو **GitHub Actions + SQLite محفوظة في المستودع**. يضمن ذلك أن التشغيل التالي يرى المرشحين المنشورين، بصمات التكرار، سجل استدعاءات المزودات، وحالات التبريد. سير العمل يستخدم مجموعة concurrency واحدة ولا يلغي التشغيل الجاري حتى لا يخسر رندر الفيديو.
+The implemented design is GitHub Actions plus SQLite. The workflow serializes production with one concurrency group and does not cancel an active run. After production, it commits `data/chinese_cheese_video.db` and `data/ai_router.db` when they change. The next runner therefore sees curriculum publication state, deduplication fingerprints, provider cooldowns, and resumable YouTube publication records.
 
-## ترتيب الذكاء الاصطناعي
+## End-to-end stages
 
-1. يستدعي النظام `gemini-2.5-flash` على كل موضع في `GEMINI_KEYS_JSON` بالترتيب.
-2. بعد فشل جميع المواضع أو تبريدها، يعيد نفس ترتيب المواضع مع `gemini-2.5-flash-lite`.
-3. بعد ذلك يستخدم Hugging Face Inference Providers من خلال `HF_TOKEN` و`HF_MODELS` بالترتيب.
-4. إذا لم يتوفر أي مزود أو فشلت كل الطلبات، يستخدم المخرج الحتمي المحلي حتى لا يتوقف الإنتاج بالكامل.
+1. **Checkout.** The workflow checks out this repository and the reusable `ysrg2003/ai-provider-router` repository.
+2. **Runtime setup.** It installs Node.js 22, Python 3.11, `ffmpeg`, JavaScript dependencies, Python dependencies, and the Remotion browser.
+3. **Router validation.** It validates ordered provider configuration and key-pool shape without printing secrets.
+4. **Curriculum preflight.** It runs the curriculum contract across all 72 lessons before selecting new production work.
+5. **Autonomous preflight.** It runs TypeScript, Python, rule, claim, visual, localization, thumbnail, and TTS contract checks with deterministic test variables.
+6. **Public reconciliation.** It checks existing YouTube records and repairs resumable publication steps before selecting new work.
+7. **Selection.** It chooses the next unpublished curriculum lesson in `sequence_no` order, or a deduplicated discovery candidate after the fixed curriculum path is exhausted.
+8. **Research and direction.** It grounds the subject, generates narration and move data, validates claims, builds the storyboard, and assigns sentence-level visual supervision.
+9. **Self-repair and review.** Recoverable defects may receive bounded, validated repairs. The creative critic must approve the job before publication.
+10. **Narration.** The AI Router generates bounded Gemini-TTS batches using male `Schedar` for English and Chinese. Edge TTS is only the final recorded fallback.
+11. **Render and QA.** Remotion renders the job using the explicit format contract and the visual QA stage samples frames and checks the resulting MP4.
+12. **Publication.** YouTube upload, localization, playlist placement, and thumbnail handling follow the resumable publisher contract.
+13. **Persistence.** The workflow exports a normalized YouTube catalog, uploads artifacts, and commits SQLite state.
 
-التدوير لا يتجاوز حدود Google للمشروع؛ وثائق Google تذكر أن الحصص تقاس عبر RPM وTPM وRPD وتطبق على مستوى المشروع لا مفتاح API فقط. لذلك، إذا كانت المفاتيح مرتبطة بالمشروع نفسه، فهي أدوات توفر وفصل أخطاء وليست مضاعفاً مضموناً للحصة. يمكن تمثيل مشاريع مستقلة في JSON، لكن يجب استخدامها وفق شروط Google وعدم محاولة التحايل على حدود الاستخدام.
+## Provider order and failure policy
 
-## صيغة الأسرار
+The reusable AI Router owns provider order, key rotation, backoff, and cooldown. The application’s intended chain is:
 
-الأفضل استخدام JSON مرتب، مع معرف للمفتاح واسم المشروع:
+1. `gemini-2.5-flash` across the configured Gemini key pool.
+2. `gemini-2.5-flash-lite` across the configured Gemini key pool.
+3. The configured Hugging Face Inference Provider models.
+4. A deterministic local fallback only where the job contract permits it.
+5. Edge TTS as a final narration fallback when explicitly enabled.
 
-```json
-[
-  {"id": "project-a-key-1", "key": "AIza...", "project": "project-a"},
-  {"id": "project-b-key-1", "key": "AIza...", "project": "project-b"}
-]
-```
+The system records calls and state in `data/ai_router.db`, but never stores raw keys there. A transient provider failure should cause the Router to try its next valid route. A fixed curriculum contract failure should remain a hard failure until the rule, data, or template is corrected. The system must not hide a legal-move error behind a generic fallback.
 
-ضع هذا المحتوى في GitHub Secret باسم `GEMINI_KEYS_JSON`. البديل الأبسط هو `GEMINI_API_KEYS` كسلسلة مفصولة بفواصل. لا يضع النظام الأسرار في قاعدة البيانات أو ملفات الفيديو أو سجلات GitHub.
+## Selection and deduplication
 
-## إدارة الفشل
+`python/automation_runner.py` calls the discovery layer, stores candidates in `content_candidates`, and selects only unpublished or retryable records. Candidate fingerprints are derived from the content type, language, FEN, moves, pairing, and title. A published candidate is not selected again. A failed render can return to a retryable state, while a successful YouTube ID remains authoritative for reconciliation.
 
-كل طلب يسجل في `ai_provider_calls`. كما تحفظ `ai_provider_state` عدد المحاولات والنجاحات والفشل، ووقت التبريد، وآخر خطأ. أخطاء 401/403 تبرد الموضع طويلاً، وأخطاء 429 تبرده مؤقتاً، وأخطاء 5xx والشبكة تعاد مع backoff، أما JSON غير الصالح فينتقل إلى الموضع التالي ثم النموذج التالي. لا يعاد استخدام موضع موجود في فترة التبريد خلال الجولة نفسها.
+Discovery combines RSS signals, optional YouTube Data API search, evergreen ideas, ordered skill-pairings across `beginner`, `intermediate`, `advanced`, `expert`, `professional`, and `legendary`, and AI-generated ideas when configured. Public material is used as a topic signal; the project does not re-upload third-party footage.
 
-## الاستمرارية ومنع التكرار
+## Curriculum behavior
 
-يستخدم `automation_runner.py` قاعدة SQLite لاستدعاء `discover_all`, ثم يسجل كل مرشح في `content_candidates` ببصمة SHA-256 مبنية من نوع المحتوى واللغة وFEN والنقلات والزوج والعنوان. المرشح المنشور لا يعاد اختياره. إذا فشل الرندر، يعود إلى `discovered` ليُعاد في الجولة التالية بدلاً من فقدانه.
+The versioned curriculum is in `config/xiangqi_curriculum_en.json`. The database stores the same lesson identity and its episode plan. The authoritative next item is the active lesson with the lowest unpublished `sequence_no`; historical lesson labels such as `en-002` do not necessarily equal sequence 2.
 
-المحرك لا يتوقف عند انتهاء خطة الحلقات. فهو يجمع عناوين عامة من RSS، ويستخدم YouTube Data API اختيارياً للبحث عن فيديوهات حديثة مرتبة بالمشاهدات، ويولد مباريات مرتبة بين كل مستويات `beginner`, `intermediate`, `advanced`, `expert`, `professional`, و`legendary`، ويضيف سلاسل evergreen أسبوعية وأفكاراً جديدة من نموذج الذكاء الاصطناعي عند توفره. بيانات المصادر العامة تستخدم كإشارة موضوعية فقط؛ لا يعيد النظام رفع مواد محمية بحقوق النشر.
+Every fixed curriculum item is preflighted before production. `lesson` and `game` items are standard landscape videos at `1920×1080`; explicit `short` items are portrait at `1080×1920`. The publisher also checks the actual rendered MP4 dimensions so curriculum metadata cannot silently misclassify a historical upload.
 
-## تشغيل اليوم
+## Runtime schedule
 
-سير العمل يعمل ثلاث مرات يومياً بتوقيت UTC، ويتيح تشغيله يدوياً. كل جولة يمكن أن تنتج اللغتين `en,zh` للمرشح نفسه. يتم رفع MP4 وJSON والسجل وقاعدة SQLite كـ artifacts، ثم commit قاعدة البيانات إلى الفرع الافتراضي. يمكن التحكم في عدد المرشحين عبر `DAILY_CONTENT_COUNT` أو مدخل التشغيل اليدوي.
+The workflow runs at `15 8 * * *`, `15 14 * * *`, and `15 20 * * *` UTC. Manual dispatch supports normal production, reconciliation-only mode, review-only mode, a Schedar TTS smoke test, and a male-voice comparison run. A bounded continuation may self-dispatch when public reconciliation needs another window; it is capped by `continuation_depth`.
 
-## مراجع
+## Evidence and observability
 
-[1] [Gemini API models](https://ai.google.dev/gemini-api/docs/models)
+Every run should leave these evidence classes:
 
-[2] [Gemini API rate limits](https://ai.google.dev/gemini-api/docs/rate-limits)
+| Evidence | File or location |
+| --- | --- |
+| Workflow status | GitHub Actions run summary and logs |
+| Production result | `automation-run.json` or `automation-run-*.json` |
+| Public reconciliation | `continuous-reconcile.json` and `.log` |
+| Job contract | `output/jobs/<job-id>/job.json` |
+| Director and claims | `output/jobs/<job-id>/director-data.json` |
+| Audio provider | `output/jobs/<job-id>/localization/zh/voice_provider.json` |
+| Visual QA | `output/jobs/<job-id>/visual_qa/visual-qa.json` and sampled frames |
+| YouTube catalog | `youtube-catalog.json` |
+| Durable state | `data/chinese_cheese_video.db` and `data/ai_router.db` |
 
-[3] [GitHub Actions concurrency](https://docs.github.com/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs)
+## Operational limits
 
-[4] [GitHub Actions artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data)
+This design is autonomous but not unlimited. GitHub runner time, YouTube quota, Gemini quota, Hugging Face quota, external visual-provider availability, and artifact retention remain provider-owned limits. The system responds to transient states and retries within explicit caps; it does not guarantee that every scheduled tick produces a public upload.
 
-[5] [Hugging Face Inference Providers](https://huggingface.co/docs/inference-providers/en/index)
+## References
+
+[1]: https://github.com/ysrg2003/ai-provider-router "Reusable AI Provider Router"
+[2]: https://docs.github.com/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs "GitHub Actions concurrency"
+[3]: https://docs.github.com/actions/using-workflows/storing-workflow-data-as-artifacts "GitHub Actions artifacts"
+[4]: https://ai.google.dev/gemini-api/docs/rate-limits "Gemini API rate limits"
+[5]: https://huggingface.co/docs/inference-providers/en/index "Hugging Face Inference Providers"

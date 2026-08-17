@@ -1,9 +1,9 @@
 {
   "name": "chinese-cheese-video",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
-  "description": "Automated Xiangqi short-video production pipeline with Remotion, Edge-TTS and Supabase.",
+  "description": "Autonomous Xiangqi video production pipeline with Remotion, AI Router Gemini-TTS, YouTube publishing, and durable SQLite state.",
   "scripts": {
     "dev": "remotion studio src/index.tsx",
     "render": "remotion render src/index.tsx XiangqiComposition out/video.mp4",
