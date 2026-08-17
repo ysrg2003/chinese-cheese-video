@@ -485,7 +485,7 @@ def publish_video(
     if video_path is not None:
         assert_video_format_contract(video_path, job)
     vertical_short = is_vertical_short(video_path, job)
-    thumbnail_policy = "manual_studio_required" if vertical_short else "api_upload_and_verify"
+    thumbnail_policy = "manual_studio_required" if vertical_short else "api_upload_and_readback"
     if localization_enabled and all(hasattr(service, name) for name in ("captions", "videos")):
         from localization import generate_localization_assets, validate_localization_assets
         from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
@@ -593,11 +593,12 @@ def publish_video(
             elif hasattr(service, "thumbnails"):
                 thumbnail_result = set_thumbnail(service, video_id, thumbnail_assets["default"])
                 thumbnail_assets["default_upload"] = thumbnail_result
-                thumbnail_assets["default_upload_status"] = "api_response_confirmed"
+                thumbnail_assets["readback"] = verify_standard_thumbnail_readback(service, video_id, thumbnail_result)
+                thumbnail_assets["default_upload_status"] = "api_readback_confirmed"
             else:
                 raise YouTubePublisherError("YouTube thumbnail API is unavailable for a standard video")
-            if not vertical_short and thumbnail_assets.get("default_upload_status") != "api_response_confirmed":
-                raise YouTubePublisherError("Standard video thumbnail upload was not confirmed by the YouTube API")
+            if not vertical_short and thumbnail_assets.get("default_upload_status") != "api_readback_confirmed":
+                raise YouTubePublisherError("Standard video thumbnail upload was not confirmed by the YouTube API read-back")
             localization = {
                 "status": "completed",
                 "assets": localization_assets,
@@ -637,7 +638,8 @@ def publish_video(
             if not hasattr(service, "thumbnails"):
                 raise YouTubePublisherError("YouTube thumbnail API is unavailable for a standard video")
             thumbnail_assets["default_upload"] = set_thumbnail(service, video_id, thumbnail_assets["default"])
-            thumbnail_assets["default_upload_status"] = "api_response_confirmed"
+            thumbnail_assets["readback"] = verify_standard_thumbnail_readback(service, video_id, thumbnail_assets["default_upload"])
+            thumbnail_assets["default_upload_status"] = "api_readback_confirmed"
             localization = {"status": "disabled", "thumbnail": thumbnail_assets}
         except Exception as exc:
             status = "published_thumbnail_pending" if _is_thumbnail_rate_limit_error(exc) else "published_localization_pending"
@@ -668,6 +670,106 @@ def publish_video(
         "localization": localization,
         "thumbnail_policy": thumbnail_policy,
     }
+
+
+def _thumbnail_resource_map(response: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Flatten the single thumbnail resource returned inside thumbnails.set.items[]."""
+    if not isinstance(response, dict):
+        return {}
+    items = response.get("items")
+    if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+        return {}
+    return {
+        str(name): value
+        for name, value in items[0].items()
+        if isinstance(value, dict) and value.get("url")
+    }
+
+
+def _thumbnail_readback_map(response: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Extract snippet.thumbnails from a videos.list response."""
+    if not isinstance(response, dict):
+        return {}
+    items = response.get("items")
+    if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+        return {}
+    snippet = items[0].get("snippet")
+    if not isinstance(snippet, dict):
+        return {}
+    thumbnails = snippet.get("thumbnails")
+    return thumbnails if isinstance(thumbnails, dict) else {}
+
+
+def verify_standard_thumbnail_readback(
+    service: Any,
+    video_id: str,
+    upload_response: dict[str, Any],
+    *,
+    attempts: int | None = None,
+) -> dict[str, Any]:
+    """Confirm that YouTube exposes the newly uploaded standard thumbnail."""
+    uploaded = _thumbnail_resource_map(upload_response)
+    expected = uploaded.get("maxres")
+    if not isinstance(expected, dict) or int(expected.get("width") or 0) < 1280 or int(expected.get("height") or 0) < 720:
+        raise YouTubePublisherError("Thumbnail upload response has no verified 1280x720 maxres resource")
+    if not hasattr(service, "videos") or not hasattr(service.videos(), "list"):
+        raise YouTubePublisherError("YouTube videos.list read-back is unavailable for standard thumbnail verification")
+    try:
+        max_attempts = max(1, min(5, int(attempts if attempts is not None else os.getenv("YOUTUBE_THUMBNAIL_READBACK_ATTEMPTS", "3"))))
+    except ValueError:
+        max_attempts = 3
+    last_actual: dict[str, dict[str, Any]] = {}
+    for attempt in range(max_attempts):
+        response = _execute_with_backoff(lambda: service.videos().list(part="snippet", id=video_id))
+        actual = _thumbnail_readback_map(response)
+        last_actual = actual
+        actual_maxres = actual.get("maxres")
+        if isinstance(actual_maxres, dict):
+            same_url = str(actual_maxres.get("url") or "") == str(expected.get("url") or "")
+            same_dimensions = int(actual_maxres.get("width") or 0) >= 1280 and int(actual_maxres.get("height") or 0) >= 720
+            if same_url and same_dimensions:
+                return {
+                    "status": "verified",
+                    "video_id": video_id,
+                    "resource": actual_maxres,
+                    "attempt": attempt + 1,
+                    "source": "videos.list:snippet.thumbnails",
+                }
+        if attempt < max_attempts - 1:
+            time.sleep(min(2 ** attempt, 8))
+    raise YouTubePublisherError(f"Standard thumbnail read-back failed for video {video_id}: expected={expected}, actual={last_actual}")
+
+
+def remote_video_dimensions(service: Any, video_id: str) -> tuple[int, int]:
+    """Read owner-visible uploaded video dimensions from YouTube fileDetails."""
+    if not hasattr(service, "videos") or not hasattr(service.videos(), "list"):
+        raise YouTubePublisherError("YouTube videos.list is unavailable for remote video dimension verification")
+    response = _execute_with_backoff(lambda: service.videos().list(part="fileDetails,status,snippet", id=video_id))
+    items = response.get("items") if isinstance(response, dict) else None
+    if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+        raise YouTubePublisherError(f"YouTube returned no video resource for {video_id}")
+    streams = ((items[0].get("fileDetails") or {}).get("videoStreams") or [])
+    dimensions = []
+    for stream in streams:
+        if not isinstance(stream, dict):
+            continue
+        width = int(stream.get("width") or 0)
+        height = int(stream.get("height") or 0)
+        if width > 0 and height > 0:
+            dimensions.append((width, height))
+    if not dimensions:
+        raise YouTubePublisherError(f"YouTube did not expose fileDetails.videoStreams dimensions for {video_id}")
+    return max(dimensions, key=lambda pair: pair[0] * pair[1])
+
+
+def classify_remote_video_format(service: Any, video_id: str, job: dict[str, Any]) -> tuple[str, tuple[int, int]]:
+    """Classify an existing upload from its real dimensions, never from format alone."""
+    width, height = remote_video_dimensions(service, video_id)
+    explicit_short = str(job.get("format") or "lesson").strip().lower() == "short"
+    actual_short = bool(height > width and height / width >= 1.1)
+    if explicit_short and not actual_short:
+        raise YouTubePublisherError(f"Remote video format mismatch for {video_id}: curriculum=short, actual={width}x{height}")
+    return ("short" if actual_short else "standard"), (width, height)
 
 
 def bootstrap_oauth(client_secrets_file: str, output_file: str) -> None:

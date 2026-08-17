@@ -18,13 +18,13 @@ A deliberate visual simplification can disable the English teaching-cue layer by
 
 ## Thumbnail automation
 
-The pipeline renders a clean board frame, builds `thumbnail_en.jpg` at 1280×720, validates JPEG format, dimensions, readability, and the 2 MB limit, then calls the YouTube `thumbnails.set` endpoint automatically after the video upload and playlist association. The publisher explicitly requests both `https://www.googleapis.com/auth/youtube.upload` and `https://www.googleapis.com/auth/youtube.force-ssl` in `python/youtube_publisher.py`; the latter is covered by a unit test and a production preflight grep gate. YouTube's official API documentation defines `thumbnails.set` as the method that uploads and sets a custom video thumbnail, with a 2 MB maximum file size.[1]
+The pipeline renders a clean board frame, builds `thumbnail_en.jpg` at 1280×720, validates JPEG format, dimensions, readability, and the 2 MB limit, then calls the YouTube `thumbnails.set` endpoint automatically after the video upload and playlist association. For a standard video, it immediately reads the exact `videoId` back with `videos.list(part=snippet,id=...)` and requires the returned `snippet.thumbnails.maxres` URL and dimensions to match before recording `api_readback_confirmed`. A successful `thumbnails.set` response by itself is no longer treated as proof that the selected thumbnail is visible. The publisher explicitly requests both `https://www.googleapis.com/auth/youtube.upload` and `https://www.googleapis.com/auth/youtube.force-ssl` in `python/youtube_publisher.py`; the latter is covered by a unit test and a production preflight grep gate. YouTube's official API documentation defines `thumbnails.set` as the method that uploads and sets a custom video thumbnail, with a 2 MB maximum file size.[1]
 
 No Chinese thumbnail is generated, validated, stored, or uploaded. The English thumbnail is the sole thumbnail policy for this channel. This avoids an unnecessary Studio-only localization step and keeps every future production run fully unattended.
 
 ## Shorts cover strategy
 
-The channel publishes vertical videos that YouTube classifies as Shorts. The uploaded 16:9 `thumbnail_en.jpg` remains useful for watch-page, search, desktop, and other non-Short surfaces, but YouTube Help documents that Shorts thumbnails are selected from a frame through the YouTube app rather than edited in Studio.[4] A temporary vertical opening-cover experiment was tested in production and retired because the Shorts surface selected frames non-deterministically. New MP4 files no longer contain a dedicated `VerticalShortCover` state; the system does not claim control over a Shorts grid cover that the Data API cannot deterministically set.
+Only explicit `short` jobs are intended to render vertically. YouTube Help documents a separate Studio workflow for custom Shorts thumbnails and recommends a 9:16 upload. The publisher therefore records `manual_studio_required` for portrait Shorts and does not treat a generic Data API response as authoritative for the Shorts surface. During reconciliation/backfill, the system also reads the actual remote video dimensions so a legacy portrait upload cannot be misclassified as a standard video merely because its curriculum label says `lesson`.
 
 ## Audio provider policy
 
@@ -40,7 +40,8 @@ YouTube's official Data API exposes `captions.insert` for uploading caption trac
 
 ## Acceptance contract
 
-Before `upload_video()` is called, the workflow must have valid English teaching cues in the job/render contract, a valid Chinese audio file, Chinese SRT/VTT files, valid Chinese metadata, and one valid English thumbnail. If any required artifact fails, upload is blocked. After upload, the workflow uploads the Chinese caption track but not the redundant English YouTube caption track, updates English and Chinese localized metadata, sets the English thumbnail automatically, associates the public video with its playlist, and persists all statuses in SQLite. For piece lessons and move explanations, legal destination dots are computed from the actual board position and filtered through Xiangqi legality before they are drawn.
+Before `upload_video()` is called, the workflow must have valid English teaching cues in the job/render contract, a valid Chinese audio file, Chinese SRT/VTT files, valid Chinese metadata, and one valid English thumbnail. If any required artifact fails, upload is blocked. After upload, the workflow uploads the Chinese caption track but not the redundant English YouTube caption track, updates English and Chinese localized metadata, sets and reads back the English thumbnail automatically for a standard video, associates the public video with its playlist, and persists all statuses in SQLite. A portrait Short remains explicitly creator-managed for its Studio thumbnail.
+ For piece lessons and move explanations, legal destination dots are computed from the actual board position and filtered through Xiangqi legality before they are drawn.
 
 ## References
 

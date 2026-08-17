@@ -6,11 +6,43 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
-from youtube_publisher import SCOPES, _reusable_existing_video_id, build_metadata, expected_video_dimensions, is_vertical_short, load_playlists, load_policy
+from youtube_publisher import (
+    SCOPES,
+    _reusable_existing_video_id,
+    build_metadata,
+    classify_remote_video_format,
+    expected_video_dimensions,
+    is_vertical_short,
+    load_playlists,
+    load_policy,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "youtube_metadata_policy.json"
 PLAYLISTS = ROOT / "config" / "youtube_playlists.json"
+
+
+class _RemoteVideoRequest:
+    def __init__(self, video_id: str, width: int, height: int):
+        self.video_id = video_id
+        self.width = width
+        self.height = height
+
+    def execute(self):
+        return {"items": [{"fileDetails": {"videoStreams": [{"width": self.width, "height": self.height}]}, "snippet": {"thumbnails": {}}}]}
+
+
+class _RemoteVideoService:
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+
+    def videos(self):
+        owner = self
+        class Videos:
+            def list(self, **kwargs):
+                return _RemoteVideoRequest(str(kwargs.get("id") or "video"), owner.width, owner.height)
+        return Videos()
 
 
 class YouTubePublisherLocalTests(unittest.TestCase):
@@ -24,6 +56,18 @@ class YouTubePublisherLocalTests(unittest.TestCase):
         self.assertFalse(is_vertical_short(None, {"format": "short", "width": 1920, "height": 1080}))
         self.assertFalse(is_vertical_short(None, {"format": "lesson", "width": 1080, "height": 1920}))
         self.assertFalse(is_vertical_short(None, {"format": "game", "width": 1080, "height": 1920}))
+
+    def test_remote_portrait_upload_is_classified_as_short_even_when_legacy_job_says_lesson(self) -> None:
+        service = _RemoteVideoService(1080, 1920)
+        kind, dimensions = classify_remote_video_format(service, "legacy-video", {"format": "lesson"})
+        self.assertEqual(kind, "short")
+        self.assertEqual(dimensions, (1080, 1920))
+
+    def test_remote_landscape_upload_is_classified_as_standard(self) -> None:
+        service = _RemoteVideoService(1920, 1080)
+        kind, dimensions = classify_remote_video_format(service, "standard-video", {"format": "lesson"})
+        self.assertEqual(kind, "standard")
+        self.assertEqual(dimensions, (1920, 1080))
 
     def test_semantic_format_dimensions_are_deterministic(self) -> None:
         self.assertEqual(expected_video_dimensions({"format": "short"}), (1080, 1920))

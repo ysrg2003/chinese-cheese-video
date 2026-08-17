@@ -2,18 +2,18 @@
 
 ## Purpose
 
-The channel publishes portrait educational videos. A portrait render is treated as a YouTube Short for thumbnail delivery. The system must preserve creator-selected thumbnails and must never claim that a thumbnail is visible merely because the YouTube Data API returned a successful `thumbnails.set` response.
+The channel publishes educational videos and explicit Shorts. `lesson` and `game` jobs must render in landscape at 1920×1080; only an explicit `short` job may render in portrait at 1080×1920. The publisher also checks the actual remote dimensions during reconciliation/backfill. The system must preserve creator-selected thumbnails and must never claim that a thumbnail is visible merely because the YouTube Data API returned a successful `thumbnails.set` response.
 
 ## Policy by video shape
 
 | Render shape | Thumbnail action | Completion state |
 |---|---|---|
-| Landscape or square | Generate the controlled English thumbnail, validate JPEG format, 1280×720 dimensions, and 2 MB limit, then upload through the YouTube Data API. Record the API response as `api_response_confirmed`. | The system may report the API upload step as complete, while retaining the public URL for later audit. |
-| Portrait / Short | Do not call the YouTube Data API thumbnail setter. Do not generate a replacement thumbnail for publication. The creator selects or uploads the thumbnail in YouTube Studio on a computer. | Record `manual_studio_required`; never convert this to `completed` automatically. |
+| Standard video (landscape) | Generate the controlled English thumbnail, validate JPEG format, 1280×720 dimensions, and 2 MB limit, call `thumbnails.set` with the exact YouTube `videoId`, then read the same video with `videos.list(part=snippet,id=...)`. The returned `snippet.thumbnails.maxres` URL and dimensions must match the upload response. | Record `api_readback_confirmed` only after both upload and read-back succeed. |
+| Portrait / Short | Do not call the YouTube Data API thumbnail setter as an authoritative Shorts workflow. The creator selects or uploads a 9:16 thumbnail in YouTube Studio on a computer. Existing portrait uploads are detected from their real remote dimensions during backfill. | Record `manual_studio_required`; never convert this to `completed` automatically. |
 
 ## Why Shorts are different
 
-YouTube’s official help page says that custom Shorts thumbnails are added in YouTube Studio on a computer and recommends a 9:16 uploaded image. YouTube’s official blog also describes Shorts thumbnail upload as a Studio feature being expanded to eligible creators. The generic Data API documentation describes `thumbnails.set`, but it does not guarantee that a portrait Short will retain the image in Studio. YouTube’s public issue tracker documents cases where the API returned success for Shorts while Studio did not apply or retain the custom thumbnail.
+YouTube’s official help page says that custom Shorts thumbnails are added in YouTube Studio on a computer and recommends a 9:16 uploaded image. The generic Data API documentation describes `thumbnails.set` for video IDs, but the system does not treat that generic response as authoritative for a portrait Short. For standard videos, the API response is followed by a low-quota `videos.list(part=snippet,id=...)` read-back so the selected `maxres` resource is independently verified.
 
 References:
 
@@ -34,4 +34,4 @@ For a portrait video, the publication record must contain the following informat
 }
 ```
 
-This state is not an error. It is an explicit platform boundary. The video can be uploaded and localized automatically, while the thumbnail remains creator-managed. Existing thumbnails manually uploaded by the channel owner must not be replaced by a generated asset or by an API retry.
+This state is not an error. It is an explicit platform boundary. The video can be uploaded and localized automatically, while the thumbnail remains creator-managed. Existing thumbnails manually uploaded by the channel owner must not be replaced by a generated asset or by an API retry. A legacy portrait upload must first be classified from its remote dimensions; it must not be treated as a standard video merely because its curriculum label is `lesson`.

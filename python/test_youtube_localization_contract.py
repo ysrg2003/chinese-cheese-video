@@ -59,6 +59,10 @@ class FakeExtendedApi:
             def update(self, **kwargs):
                 owner.video_updates.append(kwargs)
                 return FakeRequest({"id": "video-localized"})
+
+            def list(self, **kwargs):
+                video_id = str(kwargs.get("id") or "video-localized")
+                return FakeRequest({"items": [{"snippet": {"thumbnails": {"maxres": {"url": f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg", "width": 1280, "height": 720}}}}]})
         return Videos()
 
     def thumbnails(self):
@@ -66,7 +70,8 @@ class FakeExtendedApi:
         class Thumbnails:
             def set(self, **kwargs):
                 owner.thumbnail_calls.append(kwargs)
-                return FakeRequest({"items": [{"url": "local-thumb"}]})
+                video_id = str(kwargs.get("videoId") or "video-localized")
+                return FakeRequest({"kind": "youtube#thumbnailSetResponse", "items": [{"maxres": {"url": f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg", "width": 1280, "height": 720}}]})
         return Thumbnails()
 
 
@@ -107,7 +112,7 @@ class YouTubeLocalizationContractTests(unittest.TestCase):
                 "localization.upload_caption_tracks", return_value={"zh-Hans": {"id": "zh-caption"}}
             ), patch("localization.update_localized_metadata", return_value={"id": "video-localized"}), patch(
                 "thumbnail.generate_thumbnail_assets", return_value=thumbnail_assets
-            ), patch("localization.set_thumbnail", return_value={"items": []}):
+            ), patch("localization.set_thumbnail", return_value={"kind": "youtube#thumbnailSetResponse", "items": [{"maxres": {"url": "https://i.ytimg.com/vi/video-localized/maxresdefault.jpg", "width": 1280, "height": 720}}]}):
                 result = youtube_publisher.publish_video(None, job, service=service)
         self.assertEqual(result["status"], "published")
         self.assertEqual(result["localization"]["status"], "completed")

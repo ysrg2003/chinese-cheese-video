@@ -15,7 +15,13 @@ from typing import Any
 from local_store import LocalStore
 from localization import set_thumbnail
 from thumbnail import validate_thumbnail_assets
-from youtube_publisher import YouTubePublisherError, _prepare_standard_thumbnail_assets, build_service
+from youtube_publisher import (
+    YouTubePublisherError,
+    _prepare_standard_thumbnail_assets,
+    build_service,
+    classify_remote_video_format,
+    verify_standard_thumbnail_readback,
+)
 
 
 def _job_ids(value: list[str]) -> list[str]:
@@ -45,9 +51,42 @@ def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, 
             job = dict(job)
             job["id"] = job_id
             job.setdefault("language", publication.get("language") or "en")
-            job_format = str(job.get("format") or "lesson").strip().lower()
-            if job_format == "short":
-                item.update({"status": "skipped_short", "video_id": publication["video_id"]})
+            remote_format, remote_dimensions = classify_remote_video_format(service, str(publication["video_id"]), job)
+            item["remote_format"] = remote_format
+            item["remote_dimensions"] = {"width": remote_dimensions[0], "height": remote_dimensions[1]}
+            if remote_format == "short":
+                metadata = dict(publication.get("metadata") or {})
+                if metadata.get("thumbnail"):
+                    metadata["legacy_thumbnail_upload"] = metadata.get("thumbnail")
+                metadata["thumbnail_policy"] = "manual_studio_required"
+                metadata["thumbnail"] = {
+                    "status": "manual_studio_required",
+                    "message": "The existing upload is portrait and is presented as a YouTube Short. Select or upload a 9:16 thumbnail in YouTube Studio on a computer.",
+                    "source": "remote_video_dimensions",
+                    "remote_dimensions": {"width": remote_dimensions[0], "height": remote_dimensions[1]},
+                }
+                store.upsert_youtube_publication(
+                    job_id,
+                    str(publication.get("language") or job.get("language") or "en"),
+                    str(publication.get("content_type") or job.get("content_type") or "definition"),
+                    "published",
+                    video_id=publication.get("video_id"),
+                    video_url=publication.get("video_url"),
+                    playlist_id=publication.get("playlist_id"),
+                    playlist_url=publication.get("playlist_url"),
+                    metadata=metadata,
+                    error_message=None,
+                )
+                store.upsert_youtube_catalog(job, {
+                    "status": "published",
+                    "video_id": publication.get("video_id"),
+                    "video_url": publication.get("video_url"),
+                    "playlist_id": publication.get("playlist_id"),
+                    "playlist_url": publication.get("playlist_url"),
+                    "metadata": metadata,
+                    "thumbnail_policy": "manual_studio_required",
+                })
+                item.update({"status": "skipped_actual_short", "video_id": publication["video_id"], "thumbnail_policy": "manual_studio_required"})
                 report["skipped"] += 1
                 report["items"].append(item)
                 continue
@@ -57,15 +96,19 @@ def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, 
             if errors:
                 raise YouTubePublisherError("Thumbnail validation failed: " + "; ".join(errors))
             response = set_thumbnail(service, str(publication["video_id"]), assets["default"])
+            readback = verify_standard_thumbnail_readback(service, str(publication["video_id"]), response)
             metadata = dict(publication.get("metadata") or {})
-            metadata["thumbnail_policy"] = "api_upload_and_verify"
+            metadata["remote_format"] = remote_format
+            metadata["remote_dimensions"] = {"width": remote_dimensions[0], "height": remote_dimensions[1]}
+            metadata["thumbnail_policy"] = "api_upload_and_readback"
             metadata["thumbnail"] = {
                 "default": assets["default"],
                 "english": assets["english"],
                 "width": assets.get("width"),
                 "height": assets.get("height"),
                 "default_upload": response,
-                "default_upload_status": "api_response_confirmed",
+                "readback": readback,
+                "default_upload_status": "api_readback_confirmed",
                 "source": "backfill_thumbnails.py",
             }
             store.upsert_youtube_publication(
@@ -87,7 +130,7 @@ def backfill(job_ids: list[str], db_path: Path, output_root: Path) -> dict[str, 
                 "playlist_id": publication.get("playlist_id"),
                 "playlist_url": publication.get("playlist_url"),
                 "metadata": metadata,
-                "thumbnail_policy": "api_upload_and_verify",
+                "thumbnail_policy": "api_upload_and_readback",
             })
             item.update({"status": "updated", "video_id": publication["video_id"], "thumbnail": metadata["thumbnail"]})
             report["updated"] += 1

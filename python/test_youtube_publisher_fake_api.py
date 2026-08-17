@@ -52,6 +52,35 @@ class FakeHttpError(Exception):
         self.resp = type("Response", (), {"status": 404})()
 
 
+def thumbnail_upload_response(video_id: str) -> dict:
+    return {
+        "kind": "youtube#thumbnailSetResponse",
+        "items": [{
+            "maxres": {
+                "url": f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+                "width": 1280,
+                "height": 720,
+            }
+        }],
+    }
+
+
+def dynamic_thumbnail_upload(_service, video_id, _thumbnail_path):
+    return thumbnail_upload_response(str(video_id))
+
+
+class FakeVideos:
+    def list(self, **kwargs):
+        video_id = str(kwargs.get("id") or "video-001")
+        return FakeRequest({"items": [{"snippet": {"thumbnails": thumbnail_upload_response(video_id)["items"][0]}}]})
+
+
+class StaleVideos(FakeVideos):
+    def list(self, **kwargs):
+        video_id = str(kwargs.get("id") or "video-001")
+        return FakeRequest({"items": [{"snippet": {"thumbnails": {"maxres": {"url": f"https://i.ytimg.com/vi/{video_id}-old/maxresdefault.jpg", "width": 1280, "height": 720}}}}]})
+
+
 class FakePlaylistItems:
     def __init__(self):
         self.inserted = []
@@ -72,6 +101,7 @@ class FakeService:
     def __init__(self):
         self.playlists_api = FakePlaylists()
         self.playlist_items_api = FakePlaylistItems()
+        self.videos_api = FakeVideos()
 
     def playlists(self):
         return self.playlists_api
@@ -83,7 +113,7 @@ class FakeService:
         return object()
 
     def videos(self):
-        return object()
+        return self.videos_api
 
     def thumbnails(self):
         return object()
@@ -112,7 +142,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             youtube_publisher, "upload_video", return_value={"id": "video-001"}
         ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
             "thumbnail.validate_thumbnail_assets", return_value=[]
-        ), patch("localization.set_thumbnail", return_value={"ok": True}):
+        ), patch("localization.set_thumbnail", side_effect=dynamic_thumbnail_upload):
             result = youtube_publisher.publish_video(
                 video.name,
                 job,
@@ -127,6 +157,28 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
         self.assertEqual(len(service.playlist_items_api.inserted), 1)
         resource = service.playlist_items_api.inserted[0]["body"]["snippet"]["resourceId"]
         self.assertEqual(resource["videoId"], "video-001")
+
+    def test_standard_thumbnail_must_pass_youtube_readback(self):
+        service = FakeService()
+        service.videos_api = StaleVideos()
+        job = {
+            "id": "job-stale-thumbnail",
+            "title": "Stale Thumbnail",
+            "language": "en",
+            "content_type": "tactics",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
+            "narration": "The uploaded thumbnail must be read back from YouTube.",
+        }
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
+            youtube_publisher, "upload_video", return_value={"id": "video-stale-thumbnail"}
+        ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
+            "thumbnail.validate_thumbnail_assets", return_value=[]
+        ), patch("localization.set_thumbnail", side_effect=dynamic_thumbnail_upload):
+            result = youtube_publisher.publish_video(video.name, job, policy_path=POLICY, playlists_path=PLAYLISTS, service=service)
+        self.assertEqual(result["status"], "published_localization_pending")
+        self.assertIn("read-back failed", result["error_message"])
 
     def test_new_storyboard_upload_requires_rendered_visual_qa(self):
         service = FakeService()
@@ -174,7 +226,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
         ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
             "thumbnail.validate_thumbnail_assets", return_value=[]
-        ), patch("localization.set_thumbnail", return_value={"ok": True}):
+        ), patch("localization.set_thumbnail", side_effect=dynamic_thumbnail_upload):
             result = youtube_publisher.publish_video(
                 video.name,
                 job,
@@ -233,7 +285,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "thumbnail.validate_thumbnail_assets", return_value=[]
         ), patch("localization.upload_caption_tracks", return_value={"zh": {"status": "completed"}}), patch(
             "localization.update_localized_metadata", return_value={"ok": True}
-        ), patch("localization.set_thumbnail", return_value={"ok": True}):
+        ), patch("localization.set_thumbnail", side_effect=dynamic_thumbnail_upload):
             second = youtube_publisher.publish_video(
                 None,
                 job,
@@ -268,7 +320,7 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
         ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
             "thumbnail.validate_thumbnail_assets", return_value=[]
-        ), patch("localization.set_thumbnail", return_value={"ok": True}):
+        ), patch("localization.set_thumbnail", side_effect=dynamic_thumbnail_upload):
             result = youtube_publisher.publish_video(
                 video.name,
                 job,
