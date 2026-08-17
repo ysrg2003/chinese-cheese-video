@@ -103,11 +103,16 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "title": "Find the Cannon Pin",
             "language": "en",
             "content_type": "tactics",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
             "narration": "Find the forcing move before the cannon closes the file.",
         }
         with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
             youtube_publisher, "upload_video", return_value={"id": "video-001"}
-        ):
+        ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
+            "thumbnail.validate_thumbnail_assets", return_value=[]
+        ), patch("localization.set_thumbnail", return_value={"ok": True}):
             result = youtube_publisher.publish_video(
                 video.name,
                 job,
@@ -130,6 +135,9 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "title": "Missing Visual QA",
             "language": "en",
             "content_type": "tactics",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
             "narration": "The board must explain the sentence.",
             "visual_mode": "storyboard",
             "visualStoryboardSource": "ai_router",
@@ -157,11 +165,16 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "title": "Replace a Stale Playlist",
             "language": "en",
             "content_type": "tactics",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
             "narration": "The video already exists; replace only the deleted playlist.",
         }
         with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
             youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
-        ):
+        ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
+            "thumbnail.validate_thumbnail_assets", return_value=[]
+        ), patch("localization.set_thumbnail", return_value={"ok": True}):
             result = youtube_publisher.publish_video(
                 video.name,
                 job,
@@ -184,6 +197,9 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "title": "Thumbnail Retry",
             "language": "en",
             "content_type": "tactics",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
             "narration": "Explain the pressure, effect, and rule around the move.",
         }
         localization_assets = {"zh": {"title": "缩略图重试", "description": "测试"}, "en": {"title": "Thumbnail Retry"}}
@@ -243,11 +259,16 @@ class YouTubePublisherFakeApiTests(unittest.TestCase):
             "title": "Retry the Playlist Association",
             "language": "en",
             "content_type": "tactics",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
             "narration": "The upload already exists; only the playlist association needs a retry.",
         }
         with tempfile.NamedTemporaryFile(suffix=".mp4") as video, patch.dict(os.environ, {"YOUTUBE_PUBLISH_ENABLED": "1", "YOUTUBE_LOCALIZATION_ENABLED": "0"}, clear=False), patch.object(
             youtube_publisher, "upload_video", side_effect=AssertionError("must not upload again")
-        ):
+        ), patch("thumbnail.generate_thumbnail_assets", return_value={"default": "thumbnail_en.jpg", "english": "thumbnail_en.jpg"}), patch(
+            "thumbnail.validate_thumbnail_assets", return_value=[]
+        ), patch("localization.set_thumbnail", return_value={"ok": True}):
             result = youtube_publisher.publish_video(
                 video.name,
                 job,

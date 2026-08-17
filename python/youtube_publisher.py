@@ -53,13 +53,50 @@ def _video_dimensions(video_path: str | Path | None) -> tuple[int, int]:
 
 
 def is_vertical_short(video_path: str | Path | None, job: dict[str, Any] | None = None) -> bool:
-    """Treat a clearly portrait render as a YouTube Short for thumbnail policy."""
+    """Classify only explicit curriculum Shorts as portrait Shorts."""
     job = job or {}
+    if str(job.get("format") or "lesson").strip().lower() != "short":
+        return False
     width = int(job.get("renderedWidth") or job.get("width") or 0)
     height = int(job.get("renderedHeight") or job.get("height") or 0)
     if not width or not height:
         width, height = _video_dimensions(video_path)
-    return bool(width and height and height > width and height / width >= 1.1)
+    if not width or not height:
+        # During reconciliation there may be no local MP4. The semantic
+        # curriculum format still identifies an explicit Short safely.
+        return video_path is None
+    return bool(height > width and height / width >= 1.1)
+
+
+def expected_video_dimensions(job: dict[str, Any]) -> tuple[int, int]:
+    """Return the required render dimensions for the semantic format."""
+    return (1080, 1920) if str(job.get("format") or "lesson").strip().lower() == "short" else (1920, 1080)
+
+
+def assert_video_format_contract(video_path: str | Path, job: dict[str, Any]) -> tuple[int, int]:
+    """Fail closed when the rendered dimensions contradict the curriculum format."""
+    expected = expected_video_dimensions(job)
+    actual = _video_dimensions(video_path)
+    if actual == (0, 0):
+        declared = (int(job.get("renderedWidth") or 0), int(job.get("renderedHeight") or 0))
+        if declared == expected:
+            return declared
+    if actual != expected:
+        raise YouTubePublisherError(
+            f"Video format contract failed: format={job.get('format')!r}, expected={expected[0]}x{expected[1]}, actual={actual[0]}x{actual[1]}"
+        )
+    return actual
+
+
+def _prepare_standard_thumbnail_assets(video_path: str | Path | None, job: dict[str, Any], localization_root: Path) -> dict[str, Any]:
+    """Generate and validate the English thumbnail for every standard video."""
+    from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
+
+    assets = generate_thumbnail_assets(video_path, job, localization_root / "thumbnails")
+    errors = validate_thumbnail_assets(assets)
+    if errors:
+        raise YouTubePublisherError("Pre-publish thumbnail gate failed: " + "; ".join(errors))
+    return assets
 
 
 def _load_json(path: str | Path) -> dict[str, Any]:
@@ -445,6 +482,8 @@ def publish_video(
     thumbnail_assets: dict[str, Any] | None = None
     localization_root: Path | None = None
     localization_enabled = os.getenv("YOUTUBE_LOCALIZATION_ENABLED", "1").lower() in {"1", "true", "yes"}
+    if video_path is not None:
+        assert_video_format_contract(video_path, job)
     vertical_short = is_vertical_short(video_path, job)
     thumbnail_policy = "manual_studio_required" if vertical_short else "api_upload_and_verify"
     if localization_enabled and all(hasattr(service, name) for name in ("captions", "videos")):
@@ -469,18 +508,18 @@ def publish_video(
                     "default_language": "en",
                 }
             else:
-                thumbnail_assets = generate_thumbnail_assets(
-                    video_path,
-                    job,
-                    localization_root / "thumbnails",
-                )
-                thumbnail_errors = validate_thumbnail_assets(thumbnail_assets)
-                if thumbnail_errors:
-                    raise YouTubePublisherError("Pre-publish thumbnail gate failed: " + "; ".join(thumbnail_errors))
+                thumbnail_assets = _prepare_standard_thumbnail_assets(video_path, job, localization_root)
         except YouTubePublisherError:
             raise
         except Exception as exc:
             raise YouTubePublisherError(f"Pre-publish localization gate failed: {exc}") from exc
+    if not localization_enabled and not vertical_short:
+        if localization_dir:
+            localization_root = Path(localization_dir)
+        else:
+            base_dir = Path(video_path).parent if video_path else Path("output") / "jobs" / str(job.get("id") or "pending")
+            localization_root = base_dir / "localization"
+        thumbnail_assets = _prepare_standard_thumbnail_assets(video_path, job, localization_root)
     existing_video_id = _reusable_existing_video_id(existing_publication)
     if existing_video_id:
         video_id = existing_video_id
@@ -556,7 +595,9 @@ def publish_video(
                 thumbnail_assets["default_upload"] = thumbnail_result
                 thumbnail_assets["default_upload_status"] = "api_response_confirmed"
             else:
-                raise YouTubePublisherError("YouTube thumbnail API is unavailable for a landscape video")
+                raise YouTubePublisherError("YouTube thumbnail API is unavailable for a standard video")
+            if not vertical_short and thumbnail_assets.get("default_upload_status") != "api_response_confirmed":
+                raise YouTubePublisherError("Standard video thumbnail upload was not confirmed by the YouTube API")
             localization = {
                 "status": "completed",
                 "assets": localization_assets,
@@ -586,6 +627,30 @@ def publish_video(
                 "playlist_item": playlist_response,
                 "metadata": metadata,
                 "localization": partial_localization,
+                "error_message": str(exc),
+            }
+    if not localization_enabled and not vertical_short:
+        try:
+            from localization import set_thumbnail
+            if thumbnail_assets is None:
+                raise YouTubePublisherError("Standard video thumbnail assets were not prepared")
+            if not hasattr(service, "thumbnails"):
+                raise YouTubePublisherError("YouTube thumbnail API is unavailable for a standard video")
+            thumbnail_assets["default_upload"] = set_thumbnail(service, video_id, thumbnail_assets["default"])
+            thumbnail_assets["default_upload_status"] = "api_response_confirmed"
+            localization = {"status": "disabled", "thumbnail": thumbnail_assets}
+        except Exception as exc:
+            status = "published_thumbnail_pending" if _is_thumbnail_rate_limit_error(exc) else "published_localization_pending"
+            return {
+                "status": status,
+                "video_id": video_id,
+                "video_url": f"https://www.youtube.com/watch?v={video_id}",
+                "playlist_id": playlist_id,
+                "playlist_url": f"https://www.youtube.com/playlist?list={playlist_id}" if playlist_id else None,
+                "playlist_created": playlist_created,
+                "playlist_item": playlist_response,
+                "metadata": metadata,
+                "localization": {"status": status, "thumbnail": thumbnail_assets, "error": str(exc)},
                 "error_message": str(exc),
             }
     publication_metadata = dict(metadata)

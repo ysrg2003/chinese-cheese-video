@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from local_store import LocalStore
-from youtube_publisher import SCOPES, _reusable_existing_video_id, build_metadata, is_vertical_short, load_playlists, load_policy
+from youtube_publisher import SCOPES, _reusable_existing_video_id, build_metadata, expected_video_dimensions, is_vertical_short, load_playlists, load_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "config" / "youtube_metadata_policy.json"
@@ -18,10 +18,18 @@ class YouTubePublisherLocalTests(unittest.TestCase):
         self.assertIn("https://www.googleapis.com/auth/youtube.force-ssl", SCOPES)
         self.assertIn("https://www.googleapis.com/auth/youtube.upload", SCOPES)
 
-    def test_portrait_render_is_manual_studio_thumbnail_path(self) -> None:
-        self.assertTrue(is_vertical_short(None, {"width": 1080, "height": 1920}))
-        self.assertFalse(is_vertical_short(None, {"width": 1920, "height": 1080}))
-        self.assertFalse(is_vertical_short(None, {}))
+    def test_only_explicit_short_uses_portrait_short_path(self) -> None:
+        self.assertTrue(is_vertical_short(None, {"format": "short"}))
+        self.assertTrue(is_vertical_short(None, {"format": "short", "width": 1080, "height": 1920}))
+        self.assertFalse(is_vertical_short(None, {"format": "short", "width": 1920, "height": 1080}))
+        self.assertFalse(is_vertical_short(None, {"format": "lesson", "width": 1080, "height": 1920}))
+        self.assertFalse(is_vertical_short(None, {"format": "game", "width": 1080, "height": 1920}))
+
+    def test_semantic_format_dimensions_are_deterministic(self) -> None:
+        self.assertEqual(expected_video_dimensions({"format": "short"}), (1080, 1920))
+        self.assertEqual(expected_video_dimensions({"format": "lesson"}), (1920, 1080))
+        self.assertEqual(expected_video_dimensions({"format": "game"}), (1920, 1080))
+        self.assertEqual(expected_video_dimensions({}), (1920, 1080))
 
     def test_english_metadata_maps_to_tactics_playlist(self) -> None:
         metadata = build_metadata(

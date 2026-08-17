@@ -13,6 +13,9 @@ class RunPipelineCriticIntegrationTests(unittest.TestCase):
         return {
             "id": "critic-integration",
             "language": "en",
+            "format": "lesson",
+            "renderedWidth": 1920,
+            "renderedHeight": 1080,
             "fen": "rheakaehr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RHEAKAEHR r",
             "moves": [],
             "narrationSegments": [{"sceneId": 1, "kind": "intro", "startSec": 0.0, "endSec": 2.0, "text": "This board is a map of routes."}],

@@ -18,7 +18,7 @@ from local_store import LocalStore
 from supabase_store import SupabaseStore
 from tts import align_narration_segments_to_cues, captions_from_narration, captions_from_narration_segments, captions_from_word_cues, synthesize
 from timing import finalize_timing
-from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES, is_vertical_short, load_policy, publish_video
+from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES, assert_video_format_contract, is_vertical_short, load_policy, publish_video
 from visual_director import add_visual_storyboard, validate_visual_storyboard
 from visual_assets import add_generated_visual_assets, validate_and_annotate_visual_assets
 from thumbnail import generate_thumbnail_assets, validate_thumbnail_assets
@@ -162,6 +162,9 @@ def _reviewed_render(job: dict[str, Any], puzzle: dict[str, Any], stage_dir: Pat
 
         write_job_files(job, stage_dir, public_dir)
         output_path = render_job(job, stage_dir)
+        rendered_width, rendered_height = assert_video_format_contract(output_path, job)
+        job["renderedWidth"] = rendered_width
+        job["renderedHeight"] = rendered_height
         visual_qa = verify_rendered_visuals(job, output_path, stage_dir / "visual_qa", PUBLIC_ROOT)
         job["visualQA"] = visual_qa
         final_review = run_prepublication_review(job, puzzle, visual_qa=visual_qa, final_artifact=True)

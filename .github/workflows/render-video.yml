@@ -219,6 +219,12 @@ jobs:
           grep -q 'Pre-publish localization gate failed' python/youtube_publisher.py
           grep -q 'validate_move_sequence' python/director.py
           grep -q 'https://www.googleapis.com/auth/youtube.force-ssl' python/youtube_publisher.py
+          grep -q 'expected_video_dimensions' python/youtube_publisher.py
+          grep -q 'assert_video_format_contract' python/run_pipeline.py
+          grep -q 'Standard video thumbnail upload was not confirmed' python/youtube_publisher.py
+          test -f python/backfill_thumbnails.py
+          test -f .github/workflows/backfill-thumbnails.yml
+          grep -q 'test_semantic_format_dimensions_are_deterministic' python/test_youtube_publisher.py
           grep -q 'TTS_PROVIDER: ai_router' .github/workflows/render-video.yml
           grep -q 'TTS_VOICE_EN: Schedar' .github/workflows/render-video.yml
           grep -q 'output_type="audio"' python/tts.py

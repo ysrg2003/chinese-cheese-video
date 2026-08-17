@@ -13,8 +13,8 @@ export const RemotionRoot: React.FC = () => {
       component={XiangqiComposition}
       durationInFrames={Math.ceil(job.durationInSeconds * 30)}
       fps={30}
-      width={1080}
-      height={1920}
+      width={String(job.format || "lesson").toLowerCase() === "short" ? 1080 : 1920}
+      height={String(job.format || "lesson").toLowerCase() === "short" ? 1920 : 1080}
       defaultProps={job}
     />
   );
