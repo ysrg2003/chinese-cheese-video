@@ -1,0 +1,20 @@
+{
+  "name": "durable_content_state",
+  "purpose": "Persist reusable automation evidence, variants, and derivative lineage without colliding with the legacy Xiangqi catalog.",
+  "inputs": {
+    "db_path": "SQLite path supplied by the host",
+    "namespace": "safe SQLite identifier, default reusable",
+    "variant": "fingerprint, domain, kind, job, signature",
+    "lineage": "parent/child ids and source window",
+    "automation_run": "run id, domain, status, result envelope"
+  },
+  "outputs": {
+    "variant": "idempotent variant record",
+    "lineage": "source-linked child record",
+    "automation_run": "durable evidence row"
+  },
+  "statuses": ["generated", "queued", "rendered", "published", "failed"],
+  "errors": ["invalid namespace", "duplicate identity", "invalid source window", "SQLite error"],
+  "persistence": "Uses reusable_* tables by default; legacy Xiangqi tables remain owned by python/local_store.py.",
+  "external_dependencies": "Python sqlite3 only; no provider credentials."
+}

@@ -10,6 +10,8 @@ The documentation is organized as a beginner path followed by operational refere
 | [`integrations.md`](integrations.md) | Understand GitHub Actions, AI Router, Gemini grounding, visual assets, YouTube, Hugging Face, and Supabase |
 | [`troubleshooting.md`](troubleshooting.md) | Diagnose failed preflight, claims, visual QA, TTS, thumbnails, uploads, ordering, or secrets |
 | [`independent_automation.md`](independent_automation.md) | Understand the autonomous architecture, provider order, selection, deduplication, and persistence |
+| [`reusable-systems.md`](reusable-systems.md) | Use the extracted config-driven automation, namespaced durable state, and derivative-lineage capsules safely |
+| [`chinese-cheese-reusable-systems-integration.md`](chinese-cheese-reusable-systems-integration.md) | Review the Xiangqi-specific integration boundary, baseline findings, safe smoke, and final verification record |
 | [`release-v1.3.0-production-ready.md`](release-v1.3.0-production-ready.md) | Review the final production-ready baseline and its verification evidence |
 
 ## Historical and contract references

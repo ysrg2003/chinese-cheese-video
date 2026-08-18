@@ -1,0 +1,20 @@
+{
+  "name": "derivative_lineage",
+  "purpose": "Create source-linked derivative metadata with stable parent and source-window fingerprints.",
+  "inputs": {
+    "parent": "content payload with id and optional metadata fingerprint",
+    "source_window": "start/end seconds and reason",
+    "child": "child id and child fingerprint",
+    "existing_lineage": "previous windows for deduplication"
+  },
+  "outputs": {
+    "parent_fingerprint": "stable parent identity",
+    "window_fingerprint": "stable child-window identity",
+    "metadata": "parent-preserving lineage metadata",
+    "unused_windows": "deduplicated candidate windows"
+  },
+  "statuses": ["generated", "queued", "published", "no_valid_candidate"],
+  "errors": ["invalid source window", "missing parent identity", "duplicate source window"],
+  "persistence": "The host may persist returned metadata through durable_content_state.",
+  "external_dependencies": "Renderer and publisher are adapters; no network call occurs in core."
+}

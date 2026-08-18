@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "domain_id": "xiangqi",
+  "description": "Worked example for composing the reusable automation capsule with the existing Xiangqi selector.",
+  "stages": [
+    {
+      "id": "curriculum-or-discovery",
+      "kind": "queue_or_discovery",
+      "module": "configured_automation_adapter",
+      "entrypoint": "select_job",
+      "enabled": true,
+      "on_error": "fail",
+      "kwargs": {
+        "domain": "xiangqi",
+        "language": "en",
+        "discover_limit": 20
+      }
+    }
+  ]
+}

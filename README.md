@@ -21,7 +21,8 @@ A successful production run creates a job directory containing the validated job
 | Narration | Uses AI Router Gemini-TTS with the male `Schedar` voice for English and Chinese; Edge TTS remains a final fallback only | `python/tts.py`, `python/ai_router_bridge.py`, `python/tts_smoke.py` |
 | Rendering | Builds the responsive Xiangqi board, move animation, legal paths, target markers, captions, storyboard overlays, and thumbnail assets | `src/index.tsx`, `src/Composition.tsx`, `python/run_pipeline.py` |
 | Quality gates | Validates contracts, claims, visual frames, localization, audio, thumbnails, remote dimensions, and publication state | `python/curriculum_preflight.py`, `python/visual_qa.py`, `python/integration_contracts.py`, `python/youtube_publisher.py` |
-| Automation | Runs the full process three times daily, serializes runs with concurrency, uploads artifacts, and commits SQLite state | `.github/workflows/render-video.yml` |
+| Automation | Runs the full process three times daily, serializes runs with concurrency, uploads artifacts, and commits SQLite state | `.github/workflows/render-video.yml`, `python/automation_runner.py` |
+| Reusable systems | Provides config-driven orchestration, namespaced durable evidence, and derivative lineage without replacing the Xiangqi production owner | `systems/`, `config/automation.json`, `python/configured_automation_adapter.py` |
 
 ## Requirements
 
@@ -191,7 +192,9 @@ Run the following before merging a code change or creating a new release:
 npm run typecheck
 python -m py_compile python/*.py
 PYTHONPATH=python python -m unittest discover -s python -p 'test_*.py'
+PYTHONPATH=python:. python -m unittest discover -s systems -p 'test_*.py'
 PYTHONPATH=python python python/curriculum_preflight.py
+python3 scripts/check_system_capsules.py systems
 ```
 
 The production workflow runs additional contract checks with controlled CI variables. Do not weaken those variables locally merely to make a test pass; a production gate that fails is a signal to fix the underlying contract.

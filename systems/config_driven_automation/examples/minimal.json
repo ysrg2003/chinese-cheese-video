@@ -1,0 +1,1 @@
+{"schema_version":1,"domain_id":"example","stages":[{"id":"queue","kind":"selector","module":"example_adapter","entrypoint":"select_job","enabled":true,"on_error":"fail","kwargs":{}}]}

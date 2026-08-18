@@ -1,0 +1,20 @@
+{
+  "name": "config_driven_automation",
+  "purpose": "Execute an ordered stage chain described by replaceable domain-owned JSON configuration.",
+  "inputs": {
+    "config_path": "path to schema_version=1 JSON",
+    "db_path": "durable state path",
+    "output_path": "selection artifact path",
+    "reason": "optional run reason"
+  },
+  "outputs": {
+    "status": "selected or no_valid_candidate",
+    "domain": "config domain_id",
+    "attempts": "stage result envelope",
+    "config_path": "resolved config path"
+  },
+  "statuses": ["selected", "no_candidate", "no_valid_candidate", "stage_error_skipped"],
+  "errors": ["invalid config", "missing entrypoint", "required stage failure", "unsupported stage result"],
+  "persistence": "The consumer supplies a durable state path; this system does not own production credentials.",
+  "external_dependencies": "Configured Python entrypoints loaded through importlib."
+}
