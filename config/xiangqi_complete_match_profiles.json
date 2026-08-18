@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "domain_id": "xiangqi",
+  "profiles": [
+    {
+      "id": "opening-pressure",
+      "seed": 0,
+      "min_plies": 90,
+      "content_type": "full_game",
+      "title_template": "A Complete Xiangqi Game: Opening Pressure",
+      "challenge": "Track how early development changes the whole board.",
+      "highlight_reasons": ["opening transition", "central pressure", "late defensive choice"]
+    },
+    {
+      "id": "cannon-and-rook",
+      "seed": 2,
+      "min_plies": 70,
+      "content_type": "full_game",
+      "title_template": "A Complete Xiangqi Game: Cannon and Rook Plans",
+      "challenge": "Find the moment when a cannon plan becomes a rook plan.",
+      "highlight_reasons": ["cannon pressure", "open file", "forcing reply"]
+    },
+    {
+      "id": "river-crossing",
+      "seed": 5,
+      "min_plies": 50,
+      "content_type": "full_game",
+      "title_template": "A Complete Xiangqi Game: Crossing the River",
+      "challenge": "Predict which pawn advance changes the evaluation.",
+      "highlight_reasons": ["river crossing", "pawn trade", "endgame geometry"]
+    },
+    {
+      "id": "defensive-turn",
+      "seed": 6,
+      "min_plies": 45,
+      "content_type": "full_game",
+      "title_template": "A Complete Xiangqi Game: The Defensive Turn",
+      "challenge": "Pause before the defensive move and choose the safe reply.",
+      "highlight_reasons": ["defensive turn", "king safety", "final restriction"]
+    }
+  ]
+}

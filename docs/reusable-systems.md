@@ -1,72 +1,74 @@
 # Reusable System Capsules in Chinese Cheese Video
 
-This repository is a specialized Xiangqi production system. The reusable capsules added here provide generic contracts without replacing the existing production runner or its legacy catalog schema.
+This repository now uses the extracted reusable capsules through **Xiangqi-specific adapters**. The integration keeps the legacy catalog and publication lifecycle as the production owner, while the configured chain, post-curriculum generation, complete-game fallback, and derivative lineage are connected to `automation_runner.py` behind explicit configuration.
 
-## What was added
+## Integrated architecture
 
-| Capsule | Responsibility | Xiangqi adapter or consumer |
+| Layer | Responsibility | Xiangqi integration point |
 |---|---|---|
-| `systems/config_driven_automation/` | Loads schema-versioned stage chains, invokes entrypoints, and returns `selected` or `no_valid_candidate` envelopes | `config/automation.json` and `python/configured_automation_adapter.py` |
-| `systems/durable_content_state/` | Persists reusable automation evidence, variants, lineage, and run envelopes with idempotent writes | `python/configured_automation_adapter.py` using `DurableStateStore` |
-| `systems/derivative_lineage/` | Computes parent/window fingerprints, preserves parent metadata, and filters used source windows | `python/derivative_lineage.py`; a renderer or publisher can consume its outputs later |
+| `systems/config_driven_automation/` | Loads schema-versioned stage chains, invokes entrypoints, and stops at the first `selected` result | `config/automation.json`, `python/automation_orchestrator.py`, workflow input `automation_config` |
+| `systems/durable_content_state/` | Persists variants, Shorts lineage, generation cursor, and automation evidence with idempotent writes | `python/configured_automation_adapter.py`, `python/continuous_topic_generator.py`, `python/complete_match_generator.py`, `python/short_highlight_generator.py` |
+| `systems/derivative_lineage/` | Computes parent/window fingerprints, preserves parent metadata, and filters used source windows | `python/short_highlight_generator.py` after a completed parent job |
+| `python/continuous_topic_generator.py` | Enforces the curriculum gate, filters duplicates, optionally calls existing Xiangqi discovery, and records cursor state | `post-curriculum-topic` stage |
+| `python/complete_match_generator.py` | Generates deterministic legal playouts from standard Xiangqi FEN, requires terminal checkmate/stalemate, and records a full-game candidate | `complete-match-fallback` stage |
+| `python/short_highlight_generator.py` | Produces bounded derivative Short descriptors and parent/source-window lineage | `XIANGQI_SHORTS_ENABLED=1` or workflow input `shorts_enabled=true` |
 
-The existing `python/automation_runner.py` remains the production owner of curriculum-first selection, discovery, self-repair, rendering, YouTube publication, and legacy SQLite tables. The new configured chain is an additive, safe integration surface. It does not silently replace the production schedule.
+## Configured Xiangqi chain
 
-## Safe first smoke
+`config/automation.json` is the domain-owned composition file. Its order is deliberate:
 
-Run from the repository root. This command uses a copy of the production database so the smoke cannot alter the channel catalog:
+1. `curriculum-queue` calls `configured_automation_adapter.select_job` and preserves the authoritative 72-lesson order.
+2. `post-curriculum-topic` activates only when `LocalStore.curriculum_gate()` reports that every active curriculum episode is published. It filters published topic keys and move signatures, then uses the existing discovery layer when enabled.
+3. `complete-match-fallback` runs only after the previous stages return `no_candidate`. It selects a profile from `config/xiangqi_complete_match_profiles.json`, generates a deterministic legal playout, validates the entire sequence through `xiangqi_rules.validate_move_sequence`, and requires a terminal checkmate or stalemate plus the profile minimum ply count.
+
+The generic orchestrator stops at `selected`. The configured path is opt-in through `--automation-config config/automation.json` or the workflow input `automation_config`. `--automation-only` and `automation_only=true` stop before candidate claims, rendering, publication, or curriculum advancement.
+
+## Post-curriculum and full-game behavior
+
+Before the 72-lesson curriculum is complete, the configured chain can select only the next runnable curriculum episode. It cannot select a discovery topic or generate a fallback match. After completion, it first uses a fresh discovered Xiangqi topic. If no fresh candidate remains, the complete-match adapter creates a full parent job whose moves start from the standard position and end at a validated terminal state. The selected profile, seed, terminal reason, ply count, and content fingerprint are recorded in the job and in `reusable_content_variants`.
+
+The current legacy `LocalStore` remains the owner of `content_candidates`, `video_jobs`, curriculum claims, YouTube publications, and channel catalog tables. The durable capsule adds only namespaced `reusable_content_variants`, `reusable_short_lineage`, `reusable_automation_runs`, and `reusable_generation_state`. This avoids silently replacing Xiangqi-specific schema or reconciliation behavior.
+
+## Derivative Short behavior
+
+After a real parent job has completed, `short_highlight_generator.extract_highlights()` reads the parent job artifact, selects bounded tactical or decision windows, copies parent metadata, and writes descriptors below `output/shorts/<parent-job-id>/`. Each child has a parent fingerprint, source interval, reason, and child fingerprint. The same extraction is idempotent: already-recorded windows are not generated again.
+
+The extractor records lineage and variant evidence but does not render or upload by itself. A future renderer/publisher adapter must consume the child descriptor and pass its own acceptance state before a publication state transition. YouTube remains `private` during integration and the configured workflow smoke path never uploads.
+
+## Safe chain smoke
+
+Run from the repository root and use a copy of the production database:
 
 ```bash
-rm -rf /tmp/chinese-cheese-capsule-smoke
-mkdir -p /tmp/chinese-cheese-capsule-smoke
-cp data/chinese_cheese_video.db /tmp/chinese-cheese-capsule-smoke/state.db
-PYTHONPATH=python:. python3 python/automation_orchestrator.py \
-  --config config/automation.json \
-  --db-path /tmp/chinese-cheese-capsule-smoke/state.db \
-  --output /tmp/chinese-cheese-capsule-smoke/selection.json \
-  --reason capsule-integration-smoke
+rm -rf /tmp/chinese-cheese-chain-smoke
+mkdir -p /tmp/chinese-cheese-chain-smoke
+cp data/chinese_cheese_video.db /tmp/chinese-cheese-chain-smoke/state.db
+LOCAL_DB_PATH=/tmp/chinese-cheese-chain-smoke/state.db XIANGQI_OUTPUT_ROOT=/tmp/chinese-cheese-chain-smoke/output \
+PYTHONPATH=python:. python3 python/automation_runner.py \
+  --automation-config config/automation.json \
+  --automation-only \
+  --daily-count 1 \
+  --languages en \
+  --discover-limit 20
 ```
 
-Expected result is a JSON envelope with `status=selected` or `status=no_valid_candidate`, `domain=xiangqi`, and `config_path` pointing to `config/automation.json`. A selected result identifies the curriculum or discovered candidate. The smoke records one row in a namespaced table such as `reusable_automation_runs`; it does not publish, render, call TTS, or change the original database.
+For deterministic stage coverage, use separate temporary copies. An incomplete curriculum must select `curriculum-queue`. A completed curriculum with a fresh discovered candidate must select `post-curriculum-topic`. A completed curriculum with discovery candidates removed must select `complete-match-fallback` and produce a terminal legal parent game. Run Short extraction against that generated parent artifact twice; the first call should generate lineage rows and the second should return `no_candidate` without duplicates.
 
-## Contracts and ownership
-
-`config/automation.json` is static domain configuration. It contains the `domain_id`, ordered stages, module, entrypoint, enabled flag, error policy, and kwargs. It is not a secret file and must not contain OAuth, API keys, cookies, or production state.
-
-`systems/durable_content_state` uses `reusable_*` SQLite tables by default. This is intentional. The legacy `python/local_store.py` owns `content_candidates`, `video_jobs`, `youtube_publications`, curriculum tables, and channel catalog tables. A direct replacement of that class would risk column and lifecycle incompatibilities, so the new capsule is composed through an adapter instead of silently taking over the old database.
-
-`systems/derivative_lineage` is pure logic. It does not render a video, upload a Short, or call YouTube. A future derivative adapter must pass a parent payload, source window, and renderer contract, then persist the returned metadata through `DurableStateStore` after a real derivative job is accepted.
-
-## Tests and verification
-
-Run the following checks after changing a capsule:
+## Verification commands
 
 ```bash
 npm run typecheck
+python3 -m py_compile python/*.py systems/*/*.py systems/*/tests/*.py
 PYTHONPATH=python:. python3 -m unittest discover -s python -p 'test_*.py' -q
 PYTHONPATH=python:. python3 -m unittest discover -s systems -p 'test_*.py' -q
-python3 -m py_compile python/*.py systems/*/*.py systems/*/tests/*.py
 python3 scripts/check_system_capsules.py systems
 PYTHONPATH=python python3 python/curriculum_preflight.py
 ```
 
-The existing repository tests must be run with the workflow contract environment when local defaults require external research or provider keys:
+The Python suite must use the workflow contract environment when local defaults require external research or provider keys. The historical `python/sample_job.json` remains a baseline fixture with missing structured `claimProof`; its rejection by the director is expected and must not be hidden by weakening the claims contract.
 
-```bash
-AI_ROUTER_REQUIRE_KEYS=0 \
-PREPUBLISH_CRITIC_REQUIRED=0 \
-XIANGQI_RESEARCH_REQUIRED=0 \
-GOOGLE_GROUNDING_ENABLED=0 \
-GOOGLE_GROUNDING_REQUIRED=0 \
-VISUAL_ASSET_ENABLED=0 \
-YOUTUBE_PUBLISH_ENABLED=1 \
-PYTHONPATH=python python3 -m unittest discover -s python -p 'test_*.py' -q
-```
+## Ownership and portability rules
 
-The original `python/sample_job.json` is not a reliable production smoke because its historical move narration lacks the structured Xiangqi claim proof now required by `director.py`. Use the workflow-shaped test environment and the repository's contract tests instead; do not weaken a production contract merely to make the old sample pass.
+Domain adapters own Xiangqi rules, curriculum facts, discovery policy, profile data, playlist policy, and publication decisions. Capsules own generic identity, status, fingerprint, lineage, restart behavior, and error contracts. Do not add Xiangqi rules, source facts, OAuth, cookies, or provider calls to `systems/*/core.py`.
 
-## Adding a new adapter
-
-Create a module under `python/` that translates the Xiangqi payload to the capsule contract. The adapter owns domain-specific rules, source facts, playlist policy, and publication decisions. The capsule owns only generic identity, status, fingerprint, lineage, and error behavior. Add a fake fixture and an integration test with a temporary database before enabling the adapter in a production workflow.
-
-Never copy `data/*.db`, `.env`, OAuth files, cookies, generated media, or provider keys into `systems/`. Keep YouTube production `private` while verifying any new integration, and record external-provider checks separately from pure capsule tests.
+Never copy `data/*.db`, `.env`, OAuth files, cookies, generated media, or provider keys into `systems/`. Keep the production visibility `private` while verifying the integration, and report external-provider checks separately from pure capsule correctness.

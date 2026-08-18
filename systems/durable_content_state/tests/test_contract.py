@@ -26,6 +26,9 @@ class DurableContentStateTests(unittest.TestCase):
             self.assertEqual(lineage["parent_job_id"], "job-1")
             run = restored.record_automation_run(run_id="run-1", domain_id="xiangqi", status="selected", result={"stage": "queue"})
             self.assertEqual(run["result"]["stage"], "queue")
+            restored.set_generation_state(state_key="xiangqi:continuous_generation", domain_id="xiangqi", value={"last_topic": "river", "cursor": 3})
+            generation = DurableStateStore(db_path).get_generation_state("xiangqi:continuous_generation")
+            self.assertEqual(generation["value"]["cursor"], 3)
 
 
 if __name__ == "__main__":

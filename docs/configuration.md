@@ -229,7 +229,7 @@ The workflow already supplies production defaults for many variables. Set only t
 | `RESEARCH_SOURCE_TIMEOUT_SECONDS` | integer; `25` | Source fetch timeout |
 | `RESEARCH_ALLOW_CACHE` | boolean-like; implementation default | Allows approved research cache behavior |
 | `YOUTUBE_PUBLISH_ENABLED` | boolean-like; `1` in production workflow | Enables upload and publication |
-| `YOUTUBE_PUBLISH_MODE` | enum `public`, `private`, or `unlisted`; `public` | YouTube visibility for new uploads |
+| `YOUTUBE_PUBLISH_MODE` | enum `public`, `private`, or `unlisted`; `private` | YouTube visibility for new uploads; keep `private` during integration and smoke testing |
 | `YOUTUBE_LOCALIZATION_ENABLED` | boolean-like; `1` | Adds configured localized title and description metadata |
 | `YOUTUBE_AUTO_CREATE_PLAYLISTS` | boolean-like; `1` | Creates missing configured playlists when permitted |
 | `YOUTUBE_HTTP_TIMEOUT_SECONDS` | integer; `180` in production | YouTube HTTP timeout, clamped by publisher code |
@@ -259,6 +259,11 @@ The workflow already supplies production defaults for many variables. Set only t
 | `RECONCILIATION_MAX_DELAY_SECONDS` | integer; workflow override `120` | Maximum reconciliation delay in CI |
 | `RECONCILIATION_MAX_RUNTIME_MINUTES` | integer; workflow override `15` | Reconciliation runtime cap in CI |
 | `CURRICULUM_PROCESSING_STALE_SECONDS` | integer; code default `900` | Stale curriculum processing threshold |
+| `AUTOMATION_CONFIG` / `automation_config` | path/input; empty means legacy path | Selects the domain-owned Xiangqi stage chain from `config/automation.json` |
+| `AUTOMATION_ONLY` / `automation_only` | boolean-like/input; `0`/`false` | Stops after configured selection; no render, publish, or curriculum advancement |
+| `XIANGQI_SHORTS_ENABLED` / `shorts_enabled` | boolean-like/input; `0`/`false` | Extracts Short descriptors and parent/source-window lineage after a completed parent job |
+| `XIANGQI_SHORTS_REQUIRED` | boolean-like; `0` | Fails the parent run if optional Short extraction fails; keep `0` during rollout |
+| `CONFIGURED_AUTOMATION_DISCOVERY_ENABLED` | boolean-like; `1` in configured chain | Permits post-curriculum topic discovery; use `0` for deterministic fallback tests |
 
 ## JSON key-pool validation
 

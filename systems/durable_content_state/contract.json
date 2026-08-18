@@ -6,15 +6,17 @@
     "namespace": "safe SQLite identifier, default reusable",
     "variant": "fingerprint, domain, kind, job, signature",
     "lineage": "parent/child ids and source window",
-    "automation_run": "run id, domain, status, result envelope"
+    "automation_run": "run id, domain, status, result envelope",
+    "generation_state": "stable state key, domain, and JSON cursor/value"
   },
   "outputs": {
     "variant": "idempotent variant record",
     "lineage": "source-linked child record",
-    "automation_run": "durable evidence row"
+    "automation_run": "durable evidence row",
+    "generation_state": "restart-safe cursor row"
   },
   "statuses": ["generated", "queued", "rendered", "published", "failed"],
-  "errors": ["invalid namespace", "duplicate identity", "invalid source window", "SQLite error"],
+  "errors": ["invalid namespace", "duplicate identity", "invalid source window", "invalid generation state", "SQLite error"],
   "persistence": "Uses reusable_* tables by default; legacy Xiangqi tables remain owned by python/local_store.py.",
   "external_dependencies": "Python sqlite3 only; no provider credentials."
 }

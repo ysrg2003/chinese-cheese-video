@@ -47,6 +47,24 @@ Expected result: the workflow runs preflight, research, direction, visual superv
 
 If the artifact is correct, return to the workflow dispatch form and run the normal production path with `review_only=false`.
 
+### Configured Xiangqi chain smoke
+
+To verify the Xiangqi-aware chain without rendering, publishing, claiming a curriculum lesson, or reconciling YouTube, dispatch the workflow with:
+
+| Input | Value |
+|---|---|
+| `automation_config` | `config/automation.json` |
+| `automation_only` | `true` |
+| `publish` | not applicable; `automation_only` is selection-only |
+| `review_only` | `false` |
+| `daily_count` | `1` |
+| `languages` | `en` |
+| `shorts_enabled` | `false` |
+
+The artifact must contain `automation-selection.json`. Before curriculum completion, its selected stage must be `curriculum-queue`. After all active curriculum episodes are published, the expected order is `post-curriculum-topic` and then `complete-match-fallback` only when discovery has no fresh candidate. Local deterministic tests should use a temporary SQLite copy and `CONFIGURED_AUTOMATION_DISCOVERY_ENABLED=0` when exercising the fallback.
+
+For Short lineage, do not enable `shorts_enabled` in a selection-only run. Enable it only in a review or production run after the parent job artifact exists. The extractor writes descriptors and lineage evidence; it does not independently upload Shorts. Keep `YOUTUBE_PUBLISH_MODE=private` during this rollout.
+
 ## Manual production
 
 Use the normal manual dispatch only when you intentionally want to produce content outside the schedule. The safe default is one candidate in English:
@@ -61,6 +79,9 @@ Use the normal manual dispatch only when you intentionally want to produce conte
 | `tts_smoke` | `false` | Use a separate smoke run for TTS testing |
 | `tts_compare` | `false` | Use a separate voice-comparison run |
 | `continuation_depth` | `0` | Normal starting depth |
+| `automation_config` | empty for legacy path; `config/automation.json` for configured Xiangqi chain | Selects domain-owned stages |
+| `automation_only` | `false` | Selection-only configured smoke; no render or publication |
+| `shorts_enabled` | `false` | Extracts parent-preserving Short descriptors after a completed parent job |
 
 Never launch a second production workflow while one is active. Check the latest runs first:
 

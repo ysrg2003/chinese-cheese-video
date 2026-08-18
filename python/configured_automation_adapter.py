@@ -37,17 +37,17 @@ def _candidate_payload(candidate: dict[str, Any], language: str) -> dict[str, An
     return payload
 
 
-def select_job(*, db_path: str | Path, output_path: str | Path, domain: str = "xiangqi", language: str = "en", discover_limit: int = 20, reason: str = "configured Xiangqi automation") -> dict[str, Any]:
+def select_job(*, db_path: str | Path, output_path: str | Path, domain: str = "xiangqi", language: str = "en", discover_limit: int = 20, allow_discovered: bool = False, reason: str = "configured Xiangqi automation") -> dict[str, Any]:
     if domain != "xiangqi":
         raise ValueError(f"configured_automation_adapter only accepts domain=xiangqi, got {domain!r}")
     store = LocalStore(db_path)
     candidate = store.get_next_curriculum_candidate(language)
     source = "curriculum"
-    if candidate is None:
+    if candidate is None and allow_discovered:
         candidates = store.list_candidates(status="discovered", limit=max(1, int(discover_limit)))
         candidate = candidates[0] if candidates else None
         source = "configured_discovery"
-    if candidate is None and os.getenv("CONFIGURED_AUTOMATION_DISCOVERY_ENABLED", "0").lower() in {"1", "true", "yes"}:
+    if candidate is None and allow_discovered and os.getenv("CONFIGURED_AUTOMATION_DISCOVERY_ENABLED", "0").lower() in {"1", "true", "yes"}:
         discovery = discover_all(store, int(discover_limit))
         candidates = store.list_candidates(status="discovered", limit=max(1, int(discover_limit)))
         candidate = candidates[0] if candidates else None

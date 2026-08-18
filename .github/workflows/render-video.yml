@@ -50,6 +50,21 @@ on:
         required: false
         default: "0"
         type: string
+      automation_config:
+        description: "Optional domain-owned automation chain JSON; leave empty for legacy Xiangqi production"
+        required: false
+        default: ""
+        type: string
+      automation_only:
+        description: "Run configured selection only; do not render, publish, or advance curriculum state"
+        required: false
+        default: false
+        type: boolean
+      shorts_enabled:
+        description: "Extract derivative Short descriptors and lineage after a completed parent job"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: chinese-cheese-video-production
@@ -82,7 +97,11 @@ jobs:
       XIANGQI_REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       YOUTUBE_LOCALIZATION_ENABLED: ${{ vars.YOUTUBE_LOCALIZATION_ENABLED || '1' }}
-      YOUTUBE_PUBLISH_MODE: ${{ vars.YOUTUBE_PUBLISH_MODE || 'public' }}
+      YOUTUBE_PUBLISH_MODE: ${{ vars.YOUTUBE_PUBLISH_MODE || 'private' }}
+      AUTOMATION_CONFIG: ${{ inputs.automation_config || '' }}
+      AUTOMATION_ONLY: ${{ inputs.automation_only == true && '1' || '0' }}
+      XIANGQI_SHORTS_ENABLED: ${{ inputs.shorts_enabled == true && '1' || '0' }}
+      XIANGQI_SHORTS_REQUIRED: "0"
       YOUTUBE_AUTO_CREATE_PLAYLISTS: ${{ vars.YOUTUBE_AUTO_CREATE_PLAYLISTS || '1' }}
       YOUTUBE_HTTP_TIMEOUT_SECONDS: "180"
       DISCOVERY_RSS_QUERY: ${{ vars.DISCOVERY_RSS_QUERY || 'xiangqi OR "Chinese chess" OR 象棋' }}
@@ -242,7 +261,7 @@ jobs:
           test -f python/tts_voice_compare.py
 
       - name: Continuously reconcile public publications before production
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1' && inputs.tts_smoke != true && inputs.tts_compare != true
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && env.REVIEW_ONLY != '1' && inputs.automation_only != true && inputs.tts_smoke != true && inputs.tts_compare != true
         id: continuous_reconcile
         continue-on-error: true
         env:
@@ -255,7 +274,7 @@ jobs:
         run: python python/continuous_reconcile.py --output continuous-reconcile.json | tee continuous-reconcile.log
 
       - name: Classify reconciliation completion state
-        if: always() && env.REVIEW_ONLY != '1'
+        if: always() && env.REVIEW_ONLY != '1' && inputs.automation_only != true
         id: reconciliation_state
         run: |
           if [ ! -f continuous-reconcile.json ]; then
@@ -302,7 +321,7 @@ jobs:
             -f "inputs[continuation_depth]=${NEXT_DEPTH}"
 
       - name: Run autonomous discovery and production until the current item completes
-        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && inputs.tts_smoke != true && inputs.tts_compare != true && (env.REVIEW_ONLY == '1' || steps.reconciliation_state.outputs.state == 'complete')
+        if: env.XIANGQI_PRODUCTION_FREEZE != '1' && inputs.reconcile_only != true && inputs.tts_smoke != true && inputs.tts_compare != true && (env.REVIEW_ONLY == '1' || inputs.automation_only == true || steps.reconciliation_state.outputs.state == 'complete')
         id: autonomous_run
         continue-on-error: true
         env:
@@ -315,10 +334,17 @@ jobs:
           COUNT="${RUN_DAILY_COUNT:-1}"
           LANGUAGES="${RUN_LANGUAGES:-en}"
           LIMIT="${RUN_DISCOVERY_LIMIT:-20}"
+          AUTOMATION_ARGS=()
+          if [ -n "${AUTOMATION_CONFIG:-}" ]; then
+            AUTOMATION_ARGS+=(--automation-config "$AUTOMATION_CONFIG")
+          fi
+          if [ "${AUTOMATION_ONLY:-0}" = "1" ]; then
+            AUTOMATION_ARGS+=(--automation-only)
+          fi
           FINAL_STATUS=1
           for ATTEMPT in 1 2 3 4; do
             echo "Production attempt ${ATTEMPT}/4"
-            python python/automation_runner.py --daily-count "$COUNT" --languages "$LANGUAGES" --discover-limit "$LIMIT" | tee "automation-run-${ATTEMPT}.json"
+            python python/automation_runner.py --daily-count "$COUNT" --languages "$LANGUAGES" --discover-limit "$LIMIT" "${AUTOMATION_ARGS[@]}" | tee "automation-run-${ATTEMPT}.json"
             FINAL_STATUS=${PIPESTATUS[0]}
             if [ "$FINAL_STATUS" -eq 0 ]; then
               cp "automation-run-${ATTEMPT}.json" automation-run.json
@@ -353,6 +379,8 @@ jobs:
             continuous-reconcile-retry-*.json
             continuous-reconcile-retry-*.log
             youtube-catalog.json
+            automation-selection.json
+            output/shorts/**
             data/chinese_cheese_video.db
             data/ai_router.db
             output/jobs/**/job.json
@@ -384,5 +412,5 @@ jobs:
           fi
 
       - name: Mark workflow failed only for hard completion errors
-        if: inputs.tts_smoke != true && inputs.tts_compare != true && (steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure')
+        if: inputs.automation_only != true && inputs.tts_smoke != true && inputs.tts_compare != true && (steps.reconciliation_state.outputs.state == 'non_retryable_failure' || steps.reconciliation_state.outputs.state == 'unexpected_failure' || steps.autonomous_run.outcome == 'failure')
         run: exit 1

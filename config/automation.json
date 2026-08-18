@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "domain_id": "xiangqi",
-  "description": "Worked example for composing the reusable automation capsule with the existing Xiangqi selector.",
+  "description": "Xiangqi-aware chain: preserve curriculum order, discover new topics after completion, then generate a validated complete game as fallback.",
   "stages": [
     {
-      "id": "curriculum-or-discovery",
-      "kind": "queue_or_discovery",
+      "id": "curriculum-queue",
+      "kind": "curriculum_selection",
       "module": "configured_automation_adapter",
       "entrypoint": "select_job",
       "enabled": true,
@@ -13,7 +13,31 @@
       "kwargs": {
         "domain": "xiangqi",
         "language": "en",
-        "discover_limit": 20
+        "allow_discovered": false
+      }
+    },
+    {
+      "id": "post-curriculum-topic",
+      "kind": "continuous_topic_generation",
+      "module": "continuous_topic_generator",
+      "entrypoint": "generate_next",
+      "enabled": true,
+      "on_error": "fail",
+      "kwargs": {
+        "domain": "xiangqi",
+        "language": "en",
+        "allow_discovery": true
+      }
+    },
+    {
+      "id": "complete-match-fallback",
+      "kind": "complete_match_generation",
+      "module": "complete_match_generator",
+      "entrypoint": "generate_complete_match",
+      "enabled": true,
+      "on_error": "fail",
+      "kwargs": {
+        "profile_path": "config/xiangqi_complete_match_profiles.json"
       }
     }
   ]

@@ -55,3 +55,28 @@ The baseline and final suite logs also contain mocked publication/reconciliation
 ## Security boundary
 
 No secret, OAuth token, cookie, production database, generated media, or private credential was added to `systems/`, fixtures, documentation, or the commit. YouTube publication remains controlled by the existing workflow variables; integration smoke is selection-only and does not publish.
+
+## Xiangqi-aware production integration
+
+The initial additive capsule integration has now been specialized for this repository. `config/automation.json` is no longer a minimal example: it composes the real Xiangqi chain in this order: `curriculum-queue`, `post-curriculum-topic`, and `complete-match-fallback`. `python/automation_runner.py` accepts `--automation-config` and the workflow exposes `automation_config`, `automation_only`, and `shorts_enabled` inputs. The legacy runner remains the owner of processing, rendering, publication, and legacy state transitions after configured selection.
+
+The post-curriculum adapter is guarded by `LocalStore.curriculum_gate()`. With the current database state, where 18 of 72 English curriculum episodes are published, the first chain stage selects `en-020-keep-general-safe`; discovery and fallback are not allowed to bypass it. In a completed temporary database, a fresh discovered candidate selects through `post-curriculum-topic`. When discovered candidates are removed from a completed temporary database, `complete-match-fallback` generates a 145-ply legal terminal Xiangqi game using the `opening-pressure` profile and records a variant fingerprint.
+
+The complete-game adapter uses the same Xiangqi validator as production (`xiangqi_rules.validate_move_sequence`). It does not insert an unvalidated sequence: it requires a terminal checkmate or stalemate, a profile-specific minimum length, and a successful full-sequence validation before writing the job and candidate.
+
+The derivative adapter is now connected after successful parent jobs when `XIANGQI_SHORTS_ENABLED=1` or workflow input `shorts_enabled=true`. It generated three bounded Short descriptors from the temporary complete-game parent, persisted `reusable_short_lineage` and `reusable_content_variants`, and returned `no_candidate` on a second identical extraction, proving idempotency.
+
+## New verification evidence
+
+The strict Xiangqi-aware smoke matrix passed:
+
+| Temporary fixture | Expected stage | Observed result |
+|---|---|---|
+| 18/72 curriculum episodes published | `curriculum-queue` | `selected`, source `curriculum` |
+| All curriculum episodes marked published, fresh discovered candidate available | `post-curriculum-topic` | `selected`, source `post_curriculum_topic` |
+| All curriculum episodes marked published, discovered candidates removed | `complete-match-fallback` | `selected`, source `complete_match_generator`, 145 legal terminal plies |
+| Same complete-game parent extracted twice | first generated; second duplicate-safe | first `selected` with 3 Shorts; second `no_candidate` |
+
+The new regression module `python/test_xiangqi_automation_capsules.py` passed **3 tests**. The full Python suite passed **178 tests**, the capsule contract suite passed **5 tests**, TypeScript passed, compilation passed, capsule validation returned `status=ok`, AI_CONTEXT validation returned `errors=[]`, and `git diff --check` passed. All SQLite mutations in this matrix occurred in `/tmp` copies; the production database remained without `reusable_*` tables.
+
+The workflow keeps `YOUTUBE_PUBLISH_MODE=private` by default. `automation_only=true` bypasses reconciliation and stops before render, upload, candidate claims, or curriculum advancement. No YouTube upload, TTS request, Remotion render, secret access, or production database mutation was performed by this integration pass.

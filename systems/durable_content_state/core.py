@@ -63,6 +63,7 @@ class DurableStateStore:
         variants = self._table("content_variants")
         lineage = self._table("short_lineage")
         runs = self._table("automation_runs")
+        generation = self._table("generation_state")
         with self._connect() as db:
             db.executescript(
                 f"""
@@ -96,6 +97,12 @@ class DurableStateStore:
                     status TEXT NOT NULL,
                     result_json TEXT NOT NULL DEFAULT '{{}}',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS {generation} (
+                    state_key TEXT PRIMARY KEY,
+                    domain_id TEXT NOT NULL,
+                    value_json TEXT NOT NULL DEFAULT '{{}}',
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 """
@@ -167,6 +174,27 @@ class DurableStateStore:
             item["metadata"] = json.loads(item.pop("metadata_json") or "{}")
             result.append(item)
         return result
+
+    def get_generation_state(self, state_key: str) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute(f"SELECT * FROM {self._table('generation_state')} WHERE state_key=?", (state_key,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["value"] = json.loads(result.pop("value_json") or "{}")
+        return result
+
+    def set_generation_state(self, *, state_key: str, domain_id: str, value: dict[str, Any]) -> dict[str, Any]:
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connect() as db:
+            db.execute(
+                f"""INSERT INTO {self._table('generation_state')}
+                    (state_key, domain_id, value_json, updated_at) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(state_key) DO UPDATE SET domain_id=excluded.domain_id,
+                      value_json=excluded.value_json, updated_at=excluded.updated_at""",
+                (state_key, domain_id, self._json(value), now),
+            )
+        return self.get_generation_state(state_key) or {}
 
     def record_automation_run(self, *, run_id: str, domain_id: str, status: str, result: dict[str, Any]) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()

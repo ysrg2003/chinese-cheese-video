@@ -15,14 +15,14 @@ A successful production run creates a job directory containing the validated job
 | Layer | Responsibility | Primary files |
 | --- | --- | --- |
 | Curriculum and state | Stores the 72-item curriculum, sequence, publication state, retry state, candidates, and YouTube records | `config/xiangqi_curriculum_en.json`, `data/chinese_cheese_video.db`, `python/local_store.py`, `python/curriculum.py` |
-| Discovery | Finds RSS and optional YouTube signals, evergreen ideas, skill-pairings, and post-curriculum candidates without duplicating published content | `python/content_discovery.py`, `python/automation_runner.py` |
+| Discovery | Finds RSS and optional YouTube signals, evergreen ideas, skill-pairings, and post-curriculum candidates without duplicating published content | `python/content_discovery.py`, `python/continuous_topic_generator.py`, `python/automation_runner.py` |
 | Research and rules | Grounds scripts and validates FEN, legal move sequences, piece movement, palace, river, horse-leg, elephant-eye, cannon-screen, and flying-general constraints | `python/research_grounding.py`, `python/xiangqi_rules.py`, `python/xiangqi_claims.py` |
 | Direction and supervision | Produces narration, claims, storyboard scenes, sentence-level visual intent, repairs, and pre-publication creative review | `python/director.py`, `python/visual_director.py`, `python/sentence_visual_supervision.py`, `python/creative_critic.py`, `python/self_repair.py` |
 | Narration | Uses AI Router Gemini-TTS with the male `Schedar` voice for English and Chinese; Edge TTS remains a final fallback only | `python/tts.py`, `python/ai_router_bridge.py`, `python/tts_smoke.py` |
 | Rendering | Builds the responsive Xiangqi board, move animation, legal paths, target markers, captions, storyboard overlays, and thumbnail assets | `src/index.tsx`, `src/Composition.tsx`, `python/run_pipeline.py` |
 | Quality gates | Validates contracts, claims, visual frames, localization, audio, thumbnails, remote dimensions, and publication state | `python/curriculum_preflight.py`, `python/visual_qa.py`, `python/integration_contracts.py`, `python/youtube_publisher.py` |
 | Automation | Runs the full process three times daily, serializes runs with concurrency, uploads artifacts, and commits SQLite state | `.github/workflows/render-video.yml`, `python/automation_runner.py` |
-| Reusable systems | Provides config-driven orchestration, namespaced durable evidence, and derivative lineage without replacing the Xiangqi production owner | `systems/`, `config/automation.json`, `python/configured_automation_adapter.py` |
+| Reusable systems | Provides Xiangqi-aware config-driven orchestration, namespaced durable evidence, complete-match fallback, and derivative lineage without replacing the legacy state owner | `systems/`, `config/automation.json`, `python/continuous_topic_generator.py`, `python/complete_match_generator.py`, `python/short_highlight_generator.py` |
 
 ## Requirements
 
@@ -105,6 +105,21 @@ python python/automation_runner.py \
 
 The `--dry-run` flag prevents durable publication-state advancement. A real local production run should be treated as a publishing operation and should use the same secrets, review gates, and backups as GitHub Actions.
 
+To exercise the Xiangqi-aware configured chain without rendering or publishing, use a copy of the SQLite database:
+
+```bash
+cp data/chinese_cheese_video.db /tmp/chinese-cheese-chain.db
+LOCAL_DB_PATH=/tmp/chinese-cheese-chain.db XIANGQI_OUTPUT_ROOT=/tmp/chinese-cheese-chain-output \
+PYTHONPATH=python:. python python/automation_runner.py \
+  --automation-config config/automation.json \
+  --automation-only \
+  --daily-count 1 \
+  --languages en \
+  --discover-limit 20
+```
+
+The configured chain preserves the curriculum queue first. Only after all active curriculum episodes are published does it select a fresh discovered topic; if discovery is exhausted, it generates a validated terminal complete game from `config/xiangqi_complete_match_profiles.json`. Set `XIANGQI_SHORTS_ENABLED=1` only when a real parent job has completed and you want derivative Short descriptors and lineage artifacts.
+
 ## Video-format policy
 
 The `format` field is authoritative. The renderer and publisher must agree on the same dimensions before an upload is allowed.
@@ -127,7 +142,7 @@ The script director is required to use grounded research in production. The clai
 
 ## GitHub Actions production
 
-The authoritative workflow is `.github/workflows/render-video.yml`. It runs at **08:15, 14:15, and 20:15 UTC** each day, and it can also be dispatched manually. The workflow uses the concurrency group `chinese-cheese-video-production` with `cancel-in-progress: false`, so a second run waits instead of interrupting an active render.
+The authoritative workflow is `.github/workflows/render-video.yml`. It runs at **08:15, 14:15, and 20:15 UTC** each day, and it can also be dispatched manually. The workflow uses the concurrency group `chinese-cheese-video-production` with `cancel-in-progress: false`, so a second run waits instead of interrupting an active render. New uploads default to `private`; integration tests use `automation_only=true` or `review_only=true` and do not publish.
 
 The production path is:
 
@@ -137,10 +152,13 @@ The production path is:
 4. Validate YouTube publishing configuration when publishing is enabled.
 5. Run `python/curriculum_preflight.py` across all 72 curriculum items.
 6. Run autonomous contract checks, TypeScript checks, Python unit tests, compilation checks, visual contracts, thumbnail read-back contracts, and TTS contracts.
-7. Reconcile public YouTube state before producing anything new.
-8. Select the next unpublished curriculum item or discovery candidate, run research, script direction, visual supervision, self-repair, narration, rendering, visual QA, and creative review.
-9. Upload the video, localizations, playlist placement, and standard-video thumbnail when policy allows it.
-10. Verify the YouTube record and commit the SQLite catalog and AI Router state back to `master`.
+7. Reconcile public YouTube state before producing anything new, except in explicit `automation_only` selection smoke mode.
+8. Select the next unpublished curriculum item through `config/automation.json` when configured; otherwise use the legacy selector.
+9. After all active curriculum episodes are published, select a fresh Xiangqi discovery topic; if discovery is exhausted, generate a validated terminal complete game from `config/xiangqi_complete_match_profiles.json`.
+10. Run research, script direction, visual supervision, self-repair, narration, rendering, visual QA, and creative review for the selected parent content.
+11. When `shorts_enabled=true`, extract derivative Short descriptors and durable parent/source-window lineage after the parent job completes.
+12. Upload the video, localizations, playlist placement, and standard-video thumbnail only when the explicit publishing policy allows it.
+13. Verify the YouTube record and commit the SQLite catalog, reusable evidence, and AI Router state back to `master`.
 
 A successful production run must show a successful `produce` job, a completed reconciliation report, a successful autonomous run, uploaded artifacts, and a state commit when SQLite changed. Workflow artifacts are retained for 14 days.
 
@@ -158,6 +176,9 @@ Open the repository on GitHub, choose **Actions → Chinese Cheese Video — aut
 | `tts_smoke` | `false` | Run a real AI Router Schedar smoke test without producing or publishing |
 | `tts_compare` | `false` | Generate the official male Gemini-TTS comparison set plus an explicitly labeled Edge reference |
 | `continuation_depth` | `0` | Internal retry counter; leave at `0` for normal manual runs |
+| `automation_config` | empty | Optional domain-owned chain; set to `config/automation.json` to use the Xiangqi-aware stages |
+| `automation_only` | `false` | Select through the configured chain only; no render, publish, or curriculum advancement |
+| `shorts_enabled` | `false` | Generate derivative Short descriptors and lineage after a completed parent job |
 
 For a safe first workflow test, use `review_only=true`. Do not use destructive deletion workflows without a current backup and explicit confirmation.
 

@@ -83,6 +83,12 @@ The pure capsule computes a parent fingerprint, a source-window fingerprint, met
 
 `python/automation_config.py` and `python/automation_orchestrator.py` preserve CLI/import paths while delegating to the capsule. `python/configured_automation_adapter.py` translates Xiangqi curriculum/discovery semantics into the generic stage result. `python/derivative_lineage.py` exposes the pure derivative functions to legacy Python callers.
 
+The configured Xiangqi chain in `config/automation.json` is now production-wired behind `--automation-config` and the `automation_config` workflow input. Its order is authoritative: `curriculum-queue` first, `post-curriculum-topic` only after the active curriculum is complete, and `complete-match-fallback` only when discovery has no fresh candidate. The chain stops at the first `selected` result. When `automation_only=true`, `automation_runner.py` writes `output/automation-selection.json` and stops before candidate claims, rendering, publication, or curriculum advancement.
+
+`python/continuous_topic_generator.py` owns the post-curriculum Xiangqi adapter. It checks `LocalStore.curriculum_gate()`, rejects early activation, filters published topic and move signatures, optionally calls the existing discovery layer, and persists a restart-safe cursor in `reusable_generation_state`. `python/complete_match_generator.py` owns the Xiangqi-specific game adapter. It reads `config/xiangqi_complete_match_profiles.json`, generates deterministic legal playouts from the standard FEN, requires a terminal checkmate or stalemate and a minimum profile length, validates the full sequence through `xiangqi_rules.validate_move_sequence`, then records the candidate and variant evidence.
+
+`python/short_highlight_generator.py` is the Xiangqi derivative adapter. After a parent job completes, it chooses bounded tactical/decision windows, copies parent metadata, writes Short descriptors under `output/shorts/<parent-job-id>/`, and records `reusable_short_lineage` and `reusable_content_variants`. Repeating the extraction for the same parent is idempotent and returns `no_candidate` for already-recorded windows. Actual renderer/publisher submission remains a separate policy-controlled step; descriptor extraction alone never uploads to YouTube.
+
 The adapter is the only place allowed to know that `domain=xiangqi`, that `LocalStore.get_next_curriculum_candidate` is authoritative, or that discovery is optional. Do not place Xiangqi rules, playlist keys, source facts, OAuth, or provider calls in `systems/*/core.py`.
 
 ## 8. الاختبارات والتحقق (Verification commands)
@@ -106,7 +112,7 @@ GOOGLE_GROUNDING_ENABLED=0 GOOGLE_GROUNDING_REQUIRED=0 VISUAL_ASSET_ENABLED=0 \
 YOUTUBE_PUBLISH_ENABLED=1 PYTHONPATH=python python3 -m unittest discover -s python -p 'test_*.py' -q
 ```
 
-For a no-production capsule smoke, copy the database to `/tmp`, run `python/automation_orchestrator.py` with `config/automation.json`, and verify `status` plus the `reusable_automation_runs` row. Do not use the live production database for exploratory smoke tests.
+For a no-production capsule smoke, copy the database to `/tmp`, run `python/automation_orchestrator.py` with `config/automation.json`, and verify `status` plus the selected stage. Test three fixtures separately: an incomplete curriculum must select `curriculum-queue`; a completed curriculum with a fresh discovered candidate must select `post-curriculum-topic`; and a completed curriculum with discovery exhausted must select `complete-match-fallback` and produce a terminal legal game. Run Short extraction only against the generated parent artifact and verify duplicate extraction is idempotent. Do not use the live production database for exploratory smoke tests.
 
 ## 9. Known baseline issue and interpretation
 

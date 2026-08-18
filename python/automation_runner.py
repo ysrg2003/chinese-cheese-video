@@ -17,6 +17,9 @@ from xiangqi_rules import validate_move_sequence
 from youtube_publisher import RESUMABLE_PUBLICATION_STATUSES
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from systems.config_driven_automation.orchestrator import run_automation
 
 
 def _output_root() -> Path:
@@ -327,6 +330,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--discover-limit", type=int, default=int(os.getenv("DISCOVERY_LIMIT", "20")))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--reconcile-only", action="store_true", help="Do not discover or produce new content; reconciliation runs separately in the workflow.")
+    parser.add_argument("--automation-config", default=os.getenv("AUTOMATION_CONFIG"), help="Optional domain-owned stage-chain JSON; legacy Xiangqi path remains default.")
+    parser.add_argument("--automation-only", action="store_true", help="Run the configured chain and stop after selection; never render or publish.")
     return parser.parse_args()
 
 
@@ -347,51 +352,83 @@ def main() -> int:
             store.checkpoint()
             print(json.dumps(metrics, ensure_ascii=False, indent=2))
             return 0
-        discovery_metrics = discover_all(store, args.discover_limit)
-        metrics["discovery"] = discovery_metrics
         languages = parse_csv(args.languages, ["en"])
         selection_language = "en" if "en" in languages else languages[0]
         curriculum_gate = store.curriculum_gate(selection_language)
         metrics["curriculum_gate"] = curriculum_gate
-        curriculum_candidate = store.get_next_curriculum_candidate(selection_language)
-        if curriculum_candidate is not None:
-            lesson_key = _curriculum_lesson_key(curriculum_candidate)
-            if not args.dry_run and lesson_key:
-                store.add_candidate(curriculum_candidate)
-                claimed = store.claim_curriculum_lesson(lesson_key, selection_language, curriculum_candidate["id"])
-                if not claimed:
-                    # Another scheduled/manual run owns the lesson. Never fall
-                    # through to discovery because that would break curriculum order.
-                    metrics["selection_mode"] = "curriculum_claim_conflict"
-                    metrics["deferred"] = 1
-                    metrics["curriculum_lesson_key"] = lesson_key
-                    store.finish_run(run_id, "partial", metrics, "Curriculum lesson claim lost to another run")
-                    store.checkpoint()
-                    print(json.dumps(metrics, ensure_ascii=False, indent=2))
-                    return 2
-            candidates = [curriculum_candidate]
-            metrics["selection_mode"] = "curriculum"
-            metrics["curriculum_lesson_key"] = lesson_key
-        elif not curriculum_gate.get("complete"):
-            # A non-complete curriculum is authoritative. A queued, processing,
-            # failed, blocked, or malformed first lesson must stop production;
-            # supplementary discovery is legal only after every active lesson is
-            # published.
-            pending = curriculum_gate.get("first_pending") or {}
-            metrics["selection_mode"] = "curriculum_blocked"
-            metrics["deferred"] = 1
-            metrics["curriculum_block_reason"] = {
-                "lesson_key": pending.get("lesson_key"),
-                "status": pending.get("status"),
-                "error_message": pending.get("error_message"),
-            }
-            store.finish_run(run_id, "partial", metrics, "Curriculum gate blocked supplementary selection")
-            store.checkpoint()
-            print(json.dumps(metrics, ensure_ascii=False, indent=2))
-            return 2
+        if args.automation_config:
+            configured_output = _output_root() / "automation-selection.json"
+            configured = run_automation(
+                config_path=args.automation_config,
+                db_path=store.db_path,
+                output_path=configured_output,
+                reason="automation_runner configured Xiangqi chain",
+            )
+            metrics["configured_automation"] = configured
+            metrics["selection_mode"] = "configured_automation"
+            if configured.get("status") != "selected":
+                metrics["deferred"] = 0
+                store.finish_run(run_id, "completed", metrics)
+                store.checkpoint()
+                print(json.dumps(metrics, ensure_ascii=False, indent=2))
+                return 0
+            selected = configured.get("selection") or {}
+            candidate_id = str(selected.get("candidate_id") or selected.get("job_id") or "")
+            candidate = store.get_candidate(candidate_id)
+            if candidate is None and selected.get("source") == "curriculum":
+                candidate = store.get_next_curriculum_candidate(selection_language)
+            if candidate is None:
+                raise RuntimeError(f"configured automation selected unknown Xiangqi candidate: {candidate_id}")
+            candidates = [candidate]
+            if args.automation_only:
+                metrics["selected"] = 1
+                metrics["automation_only"] = True
+                store.finish_run(run_id, "completed", metrics)
+                store.checkpoint()
+                print(json.dumps(metrics, ensure_ascii=False, indent=2))
+                return 0
         else:
-            candidates = select_diverse_candidates(store, language=selection_language, limit=max(1, args.daily_count))
-            metrics["selection_mode"] = "supplementary_discovery"
+            discovery_metrics = discover_all(store, args.discover_limit)
+            metrics["discovery"] = discovery_metrics
+            curriculum_candidate = store.get_next_curriculum_candidate(selection_language)
+            if curriculum_candidate is not None:
+                lesson_key = _curriculum_lesson_key(curriculum_candidate)
+                if not args.dry_run and lesson_key:
+                    store.add_candidate(curriculum_candidate)
+                    claimed = store.claim_curriculum_lesson(lesson_key, selection_language, curriculum_candidate["id"])
+                    if not claimed:
+                        # Another scheduled/manual run owns the lesson. Never fall
+                        # through to discovery because that would break curriculum order.
+                        metrics["selection_mode"] = "curriculum_claim_conflict"
+                        metrics["deferred"] = 1
+                        metrics["curriculum_lesson_key"] = lesson_key
+                        store.finish_run(run_id, "partial", metrics, "Curriculum lesson claim lost to another run")
+                        store.checkpoint()
+                        print(json.dumps(metrics, ensure_ascii=False, indent=2))
+                        return 2
+                candidates = [curriculum_candidate]
+                metrics["selection_mode"] = "curriculum"
+                metrics["curriculum_lesson_key"] = lesson_key
+            elif not curriculum_gate.get("complete"):
+                # A non-complete curriculum is authoritative. A queued, processing,
+                # failed, blocked, or malformed first lesson must stop production;
+                # supplementary discovery is legal only after every active lesson is
+                # published.
+                pending = curriculum_gate.get("first_pending") or {}
+                metrics["selection_mode"] = "curriculum_blocked"
+                metrics["deferred"] = 1
+                metrics["curriculum_block_reason"] = {
+                    "lesson_key": pending.get("lesson_key"),
+                    "status": pending.get("status"),
+                    "error_message": pending.get("error_message"),
+                }
+                store.finish_run(run_id, "partial", metrics, "Curriculum gate blocked supplementary selection")
+                store.checkpoint()
+                print(json.dumps(metrics, ensure_ascii=False, indent=2))
+                return 2
+            else:
+                candidates = select_diverse_candidates(store, language=selection_language, limit=max(1, args.daily_count))
+                metrics["selection_mode"] = "supplementary_discovery"
         metrics["selected"] = len(candidates)
         for candidate in candidates:
             if not args.dry_run:
@@ -407,6 +444,26 @@ def main() -> int:
                     metrics["completed"] += 1
                     continue
                 completed_jobs = [run_one(candidate, language, store, run_id) for language in languages]
+                if os.getenv("XIANGQI_SHORTS_ENABLED", "0").lower() in {"1", "true", "yes"}:
+                    from short_highlight_generator import extract_highlights
+                    for completed_job_id in completed_jobs:
+                        parent_path = _output_root() / "jobs" / completed_job_id / "job.json"
+                        if not parent_path.exists():
+                            metrics.setdefault("shorts", []).append({"status": "no_candidate", "parent_job_id": completed_job_id, "reason": "parent_job_artifact_missing"})
+                            continue
+                        try:
+                            shorts_result = extract_highlights(
+                                parent_job_path=parent_path,
+                                db_path=store.db_path,
+                                output_dir=_output_root() / "shorts" / completed_job_id,
+                                reason="automatic Xiangqi derivative extraction",
+                            )
+                            metrics.setdefault("shorts", []).append(shorts_result)
+                        except Exception as shorts_exc:
+                            failure = {"status": "failed", "parent_job_id": completed_job_id, "error": str(shorts_exc)}
+                            metrics.setdefault("shorts", []).append(failure)
+                            if os.getenv("XIANGQI_SHORTS_REQUIRED", "0").lower() in {"1", "true", "yes"}:
+                                raise
                 review_only = os.getenv("XIANGQI_REVIEW_ONLY", "0").lower() in {"1", "true", "yes"}
                 if review_only:
                     # The MP4 is intentionally available for human review, but it

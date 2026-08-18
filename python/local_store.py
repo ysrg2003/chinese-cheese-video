@@ -795,6 +795,30 @@ class LocalStore:
             )
         return result.rowcount == 1
 
+    def get_candidate(self, candidate_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """SELECT id, fingerprint, content_type, title, language, source_kind, source_url,
+                          status, priority_score, payload_json, published_job_id
+                   FROM content_candidates WHERE id = ? LIMIT 1""",
+                (candidate_id,),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "fingerprint": row["fingerprint"],
+            "content_type": row["content_type"],
+            "title": row["title"],
+            "language": row["language"],
+            "source_kind": row["source_kind"],
+            "source_url": row["source_url"],
+            "status": row["status"],
+            "priority_score": row["priority_score"],
+            "published_job_id": row["published_job_id"],
+            "payload": json.loads(row["payload_json"] or "{}"),
+        }
+
     def candidate_exists(self, fingerprint: str) -> bool:
         with self._connect() as connection:
             row = connection.execute("SELECT 1 FROM content_candidates WHERE fingerprint = ? LIMIT 1", (fingerprint,)).fetchone()
