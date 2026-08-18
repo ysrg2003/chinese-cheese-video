@@ -97,7 +97,8 @@ jobs:
       XIANGQI_REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       YOUTUBE_LOCALIZATION_ENABLED: ${{ vars.YOUTUBE_LOCALIZATION_ENABLED || '1' }}
-      YOUTUBE_PUBLISH_MODE: ${{ vars.YOUTUBE_PUBLISH_MODE || 'private' }}
+      # Safety invariant: every production upload from this workflow is private.
+      YOUTUBE_PUBLISH_MODE: private
       AUTOMATION_CONFIG: ${{ inputs.automation_config || '' }}
       AUTOMATION_ONLY: ${{ inputs.automation_only == true && '1' || '0' }}
       XIANGQI_SHORTS_ENABLED: ${{ inputs.shorts_enabled == true && '1' || '0' }}
