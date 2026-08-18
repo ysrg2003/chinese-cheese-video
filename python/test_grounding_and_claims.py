@@ -181,6 +181,48 @@ class GroundingAndClaimsTests(unittest.TestCase):
         self.assertTrue(all(claim["claimType"] == "legal_move" for claims in job["claimsByPly"].values() for claim in claims))
         self.assertNotIn("control the center", " ".join(move["purpose"] for move in job["moves"]))
 
+    def test_palace_defense_curriculum_causal_prose_gets_mechanical_claims(self) -> None:
+        puzzle = {
+            "language": "en",
+            "fen": STANDARD_FEN,
+            "moves": TEMPLATES["palace-defense"],
+            "title": "How to Keep Your General Safe",
+            "content_type": "rules",
+            "position_template": "palace-defense",
+            "curriculum_lesson_key": "en-020-keep-general-safe",
+            "curriculum_sequence": 19,
+            "curriculum_stage": "D-first-game",
+            "durationInSeconds": 75,
+            "researchBundle": {"status": "grounded", "sourceHash": "test"},
+        }
+        director_data = {
+            "title": puzzle["title"],
+            "narration": "A grounded lesson about palace defense.",
+            "moves": [
+                {
+                    **dict(move),
+                    "purpose": "Position the piece for a safer palace route.",
+                    "opponentReply": "The opponent makes a legal reply that prevents a direct line.",
+                    "effect": "The position changes while the trace remains legal.",
+                    "claims": [{
+                        "claimType": "legal_move",
+                        "ply": index,
+                        "position": "after",
+                        "statement": "The supplied move is legal in the traced position.",
+                    }],
+                }
+                for index, move in enumerate(puzzle["moves"], start=1)
+            ],
+        }
+        job = make_job("palace-defense-template-test", puzzle, director_data)
+        self.assertTrue(job["claimProof"]["ok"], job["claimProof"].get("errors"))
+        self.assertTrue(
+            all(
+                any(claim["claimType"] == "legal_destinations" for claim in claims)
+                for claims in job["claimsByPly"].values()
+            )
+        )
+
     def test_flying_general_rule_claim_is_verified_without_subject_coordinate(self) -> None:
         claims = {
             1: [{

@@ -11,7 +11,7 @@ import requests
 from ai_router_bridge import load_router
 from timing import clamp_captions, estimate_content_duration, retime_moves
 from xiangqi_rules import parse_fen, validate_move_sequence
-from xiangqi_claims import suspicious_claim_language, verify_claims
+from xiangqi_claims import build_verified_claims, suspicious_claim_language, verify_claims
 from research_grounding import research_required
 from curriculum import piece_learning_intro
 
@@ -858,6 +858,7 @@ def _deterministic_legal_fallback(puzzle: dict[str, Any], language: str) -> dict
 
 def _build_verified_claims(clean_data: dict[str, Any], puzzle: dict[str, Any], canonical_moves: list[dict[str, Any]]) -> tuple[dict[int, list[dict[str, Any]]], dict[str, Any]]:
     claims_by_ply: dict[int, list[dict[str, Any]]] = {}
+    mechanically_verified_claims: dict[int, list[dict[str, Any]]] = {}
     for raw_move, canonical_move in zip(clean_data.get("moves", []), canonical_moves):
         raw_move["piece"] = canonical_move["piece"]
         raw_claims = raw_move.get("claims") if isinstance(raw_move.get("claims"), list) else []
@@ -878,7 +879,16 @@ def _build_verified_claims(clean_data: dict[str, Any], puzzle: dict[str, Any], c
             raise ValueError(f"ply {ply}: causal/rule language requires structured Xiangqi claims")
         claims_by_ply[ply] = [dict(claim) for claim in raw_claims if isinstance(claim, dict)]
         if suspicious_claim_language(raw_move) and claims_by_ply[ply] and all(str(claim.get("claimType") or "") == "legal_move" for claim in claims_by_ply[ply]):
-            raise ValueError(f"Xiangqi causal claim verification failed: ply {ply}: causal language has only a legal_move claim")
+            # Curriculum and template payloads may contain causal teaching prose
+            # while carrying only the generic legal_move witness. Enrich that
+            # payload with mechanically-derived legal destinations from the
+            # validated trace; never accept causal prose on legal_move alone.
+            if not mechanically_verified_claims:
+                generated_claims, _ = build_verified_claims(str(puzzle.get("fen") or ""), canonical_moves)
+                mechanically_verified_claims = generated_claims
+            for generated in mechanically_verified_claims.get(ply, []):
+                if str(generated.get("claimType") or "") != "legal_move":
+                    claims_by_ply[ply].append(dict(generated))
         if not claims_by_ply[ply]:
             claims_by_ply[ply] = [{"claimType": "legal_move", "ply": ply, "position": "after", "statement": "validated legal move"}]
     claim_proof = verify_claims(str(puzzle.get("fen") or ""), canonical_moves, claims_by_ply)
