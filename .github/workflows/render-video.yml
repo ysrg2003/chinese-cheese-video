@@ -35,6 +35,15 @@ on:
         required: false
         default: false
         type: boolean
+      youtube_publish_mode:
+        description: "YouTube visibility for this run; private is the safe default"
+        required: false
+        default: private
+        type: choice
+        options:
+          - private
+          - unlisted
+          - public
       tts_smoke:
         description: "Run a real AI Router Gemini-TTS smoke test with male Schedar voice; do not produce or publish a video"
         required: false
@@ -97,8 +106,8 @@ jobs:
       XIANGQI_REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       REVIEW_ONLY: ${{ inputs.review_only == true && '1' || '0' }}
       YOUTUBE_LOCALIZATION_ENABLED: ${{ vars.YOUTUBE_LOCALIZATION_ENABLED || '1' }}
-      # Safety invariant: every production upload from this workflow is private.
-      YOUTUBE_PUBLISH_MODE: private
+      # Visibility is private by default; public requires an explicit dispatch input.
+      YOUTUBE_PUBLISH_MODE: ${{ inputs.youtube_publish_mode || 'private' }}
       AUTOMATION_CONFIG: ${{ inputs.automation_config || '' }}
       AUTOMATION_ONLY: ${{ inputs.automation_only == true && '1' || '0' }}
       XIANGQI_SHORTS_ENABLED: ${{ inputs.shorts_enabled == true && '1' || '0' }}
