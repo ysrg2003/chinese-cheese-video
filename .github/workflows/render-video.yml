@@ -380,6 +380,7 @@ jobs:
             continuous-reconcile-retry-*.log
             youtube-catalog.json
             automation-selection.json
+            output/automation-selection.json
             output/shorts/**
             data/chinese_cheese_video.db
             data/ai_router.db
