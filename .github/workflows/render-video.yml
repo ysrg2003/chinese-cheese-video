@@ -1,7 +1,7 @@
 # GitHub Actions workflow for autonomous Xiangqi production and public YouTube publishing
 name: Chinese Cheese Video — autonomous production
 
-on:
+---on:
   schedule:
     # UTC: 11:15, 17:15, and 23:15 in Arabia Standard Time (UTC+3).
     # GitHub may delay scheduled starts under load; concurrency keeps runs safe.
